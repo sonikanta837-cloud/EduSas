@@ -1,0 +1,1502 @@
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { jsPDF } from 'jspdf';
+import { useSelector } from 'react-redux';
+import {
+  Box, Card, CardContent, CardActions, Typography, Button,
+  Chip, Dialog, DialogTitle, DialogContent, DialogActions, TextField,
+  CircularProgress, IconButton, Tooltip, Divider, Radio, RadioGroup,
+  FormControlLabel, FormControl, FormLabel, LinearProgress,
+  Autocomplete, Stack, InputAdornment, Tabs, Tab
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import SchoolIcon from '@mui/icons-material/School';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import CardMembershipIcon from '@mui/icons-material/CardMembership';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import QuizIcon from '@mui/icons-material/Quiz';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import SearchIcon from '@mui/icons-material/Search';
+import CancelIcon from '@mui/icons-material/Cancel';
+import DownloadIcon from '@mui/icons-material/Download';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import { courseApi } from '../api/courseApi';
+import { employeeApi } from '../api/employeeApi';
+import { toast } from 'react-toastify';
+
+const statusColors = {
+  NOT_ENROLLED: 'default',
+  ENROLLED: 'primary',
+  IN_PROGRESS: 'warning',
+  COMPLETED: 'success',
+  FAILED: 'error'
+};
+
+const statusLabels = {
+  NOT_ENROLLED: 'Not Enrolled',
+  ENROLLED: 'Enrolled',
+  IN_PROGRESS: 'In Progress',
+  COMPLETED: 'Completed',
+  FAILED: 'Failed'
+};
+
+function extractYoutubeId(url) {
+  if (!url) return null;
+  const clean = url.trim();
+  // Handles: watch?v=, youtu.be/, embed/, shorts/, live/
+  const m = clean.match(
+    /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/
+  );
+  return m ? m[1] : null;
+}
+
+function YoutubeThumbnail({ url, title }) {
+  const vid = extractYoutubeId(url);
+  if (!vid) {
+    return (
+      <Box sx={{ height: 160, bgcolor: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <SchoolIcon sx={{ fontSize: 48, color: '#475569' }} />
+      </Box>
+    );
+  }
+  return (
+    <Box sx={{ position: 'relative', height: 160, overflow: 'hidden', bgcolor: '#000' }}>
+      <img
+        src={`https://img.youtube.com/vi/${vid}/mqdefault.jpg`}
+        alt={title}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }}
+      />
+      <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <PlayCircleOutlineIcon sx={{ fontSize: 52, color: 'rgba(255,255,255,0.9)' }} />
+      </Box>
+    </Box>
+  );
+}
+
+const EMPTY_FORM = { title: '', description: '', content: '', youtubeUrl: '', durationHours: '' };
+const EMPTY_EXAM_FORM = { passingScore: 70, questions: [] };
+const EMPTY_QUESTION = { question: '', options: ['', '', '', ''], correctAnswer: 0 };
+
+const CoursesPage = () => {
+  const { user } = useSelector((s) => s.auth);
+  const isAdmin = user?.role === 'ADMIN';
+  const isManager = user?.role === 'MANAGER';
+
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [myEmployee, setMyEmployee] = useState(null);
+  const [allEmployees, setAllEmployees] = useState([]);
+
+  // Create / Edit course dialog
+  const [courseDialogOpen, setCourseDialogOpen] = useState(false);
+  const [editingCourse, setEditingCourse] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+
+  // Assign dialog
+  const [assignCourse, setAssignCourse] = useState(null);
+  const [assignTarget, setAssignTarget] = useState(null);
+  const [assignAll, setAssignAll] = useState(false);
+  const [enrolledIds, setEnrolledIds] = useState([]);
+
+  // Exam creation dialog
+  const [examCreateCourse, setExamCreateCourse] = useState(null);
+  const [examForm, setExamForm] = useState(EMPTY_EXAM_FORM);
+  const [generating, setGenerating] = useState(false);
+  const [examEditIndex, setExamEditIndex] = useState(0);
+  const examBottomRef = useRef(null);
+
+  // MCQ exam taking dialog
+  const [takeExamCourse, setTakeExamCourse] = useState(null);
+  const [examQuestions, setExamQuestions] = useState([]);
+  const [examAnswers, setExamAnswers] = useState([]);
+  const [examLoading, setExamLoading] = useState(false);
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [examResult, setExamResult] = useState(null);
+
+  // Detail / catalog view
+  const [viewCourse, setViewCourse] = useState(null);
+  const [detailTab, setDetailTab] = useState('lessons');
+  const [courseSearch, setCourseSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+
+  const GRADIENTS = [
+    'linear-gradient(135deg,#1e3a5f 0%,#14b8a6 100%)',
+    'linear-gradient(135deg,#312e81 0%,#6366f1 100%)',
+    'linear-gradient(135deg,#7c2d12 0%,#f97316 100%)',
+    'linear-gradient(135deg,#14532d 0%,#22c55e 100%)',
+    'linear-gradient(135deg,#831843 0%,#ec4899 100%)',
+    'linear-gradient(135deg,#1e1b4b 0%,#8b5cf6 100%)',
+  ];
+
+  const CATEGORIES = ['Development', 'Design', 'Marketing', 'Business', 'Technology', 'Management'];
+
+  const getProgress = (course) =>
+    ({ COMPLETED: 100, IN_PROGRESS: 60, ENROLLED: 10 }[course.enrollmentStatus] ?? 0);
+
+  const filteredCourses = useMemo(() => {
+    const q = courseSearch.toLowerCase();
+    return courses.filter(c => {
+      const matchSearch = !q || c.title?.toLowerCase().includes(q) || c.description?.toLowerCase().includes(q);
+      const matchStatus =
+        statusFilter === 'ALL' ? true :
+        statusFilter === 'CERTIFICATE' ? !!c.certificateNumber :
+        statusFilter === 'ENROLLED' ? ['ENROLLED', 'IN_PROGRESS', 'COMPLETED', 'FAILED'].includes(c.enrollmentStatus) :
+        c.enrollmentStatus === statusFilter;
+      return matchSearch && matchStatus;
+    });
+  }, [courses, courseSearch, statusFilter]);
+
+  const mergeEnrollment = (allCourses, enrolled) => {
+    const map = {};
+    enrolled.forEach(c => { map[c.id] = c; });
+    return allCourses.map(c => map[c.id] ?? { ...c, enrollmentStatus: 'NOT_ENROLLED' });
+  };
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        if (isAdmin) {
+          const [empResp, allResp, allCourses] = await Promise.all([
+            employeeApi.getByUserId(user.userId).catch(() => null),
+            employeeApi.getAll(),
+            courseApi.getAll(),
+          ]);
+          setMyEmployee(empResp);
+          setAllEmployees(allResp);
+          if (empResp) {
+            const enrolled = await courseApi.getForEmployee(empResp.id).catch(() => []);
+            setCourses(mergeEnrollment(allCourses, enrolled));
+          } else {
+            setCourses(allCourses);
+          }
+        } else if (isManager) {
+          const [empResp, allResp] = await Promise.all([
+            employeeApi.getByUserId(user.userId).catch(() => null),
+            employeeApi.getAll(),
+          ]);
+          setMyEmployee(empResp);
+          setAllEmployees(allResp);
+          const [allCourses, enrolled] = await Promise.all([
+            courseApi.getAll(),
+            empResp ? courseApi.getForEmployee(empResp.id) : Promise.resolve([]),
+          ]);
+          setCourses(mergeEnrollment(allCourses, enrolled));
+        } else {
+          const emp = await employeeApi.getByUserId(user.userId);
+          setMyEmployee(emp);
+          const data = await courseApi.getForEmployee(emp.id);
+          setCourses(data);
+        }
+      } catch {
+        toast.error('Failed to load courses');
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
+  }, [user, isAdmin, isManager]);
+
+  useEffect(() => {
+    if (viewCourse) {
+      const updated = courses.find(c => c.id === viewCourse.id);
+      if (updated) setViewCourse(updated);
+    }
+  }, [courses]);
+
+  const refresh = async () => {
+    try {
+      if (isAdmin) {
+        const allCourses = await courseApi.getAll();
+        if (myEmployee) {
+          const enrolled = await courseApi.getForEmployee(myEmployee.id).catch(() => []);
+          setCourses(mergeEnrollment(allCourses, enrolled));
+        } else {
+          setCourses(allCourses);
+        }
+      } else if (isManager && myEmployee) {
+        const [allCourses, enrolled] = await Promise.all([
+          courseApi.getAll(),
+          courseApi.getForEmployee(myEmployee.id),
+        ]);
+        setCourses(mergeEnrollment(allCourses, enrolled));
+      } else if (myEmployee) {
+        setCourses(await courseApi.getForEmployee(myEmployee.id));
+      }
+    } catch {
+      toast.error('Failed to refresh courses');
+    }
+  };
+
+  // --- Course CRUD ---
+  const openCreateCourse = () => {
+    setEditingCourse(null);
+    setForm(EMPTY_FORM);
+    setCourseDialogOpen(true);
+  };
+
+  const openEditCourse = (course) => {
+    setEditingCourse(course);
+    setForm({
+      title: course.title || '',
+      description: course.description || '',
+      content: course.content || '',
+      youtubeUrl: course.youtubeUrl || '',
+      durationHours: course.durationHours || ''
+    });
+    setCourseDialogOpen(true);
+  };
+
+  const handleSaveCourse = async () => {
+    if (!form.title.trim()) { toast.error('Title is required'); return; }
+    try {
+      const payload = { ...form, durationHours: parseInt(form.durationHours) || null };
+      if (editingCourse) {
+        await courseApi.update(editingCourse.id, payload);
+        toast.success('Course updated!');
+      } else {
+        await courseApi.create(payload, user.userId);
+        toast.success('Course created!');
+        toast.info(
+          form.youtubeUrl
+            ? 'Fetching video transcript and generating quiz questions...'
+            : 'Generating quiz questions from course content...',
+          { autoClose: 10000 }
+        );
+        setTimeout(refresh, 12000);
+      }
+      setCourseDialogOpen(false);
+      await refresh();
+    } catch {
+      toast.error('Failed to save course');
+    }
+  };
+
+  const handleDeleteCourse = async (id) => {
+    if (!window.confirm('Delete this course?')) return;
+    try {
+      await courseApi.delete(id);
+      toast.success('Course deleted');
+      await refresh();
+    } catch {
+      toast.error('Failed to delete course');
+    }
+  };
+
+  // --- Enroll / Watch ---
+  const handleEnroll = async (courseId) => {
+    try {
+      await courseApi.enroll(courseId, myEmployee.id);
+      toast.success('Enrolled successfully!');
+      await refresh();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to enroll');
+    }
+  };
+
+  const handleMarkWatched = async (courseId) => {
+    try {
+      await courseApi.markWatched(courseId, myEmployee.id);
+      toast.success('Progress updated!');
+      await refresh();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update progress');
+    }
+  };
+
+  // --- Assign ---
+  const openAssign = async (course) => {
+    setAssignCourse(course);
+    setAssignTarget(null);
+    setAssignAll(false);
+    try {
+      const ids = await courseApi.getEnrolledEmployeeIds(course.id);
+      setEnrolledIds(ids);
+    } catch {
+      setEnrolledIds([]);
+    }
+  };
+
+  const handleAssign = async () => {
+    try {
+      await courseApi.assign(assignCourse.id, assignTarget?.id ?? null, assignAll);
+      toast.success(assignAll ? 'Assigned to all employees!' : `Assigned to ${assignTarget?.firstName} ${assignTarget?.lastName}!`);
+      setAssignCourse(null);
+      await refresh();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to assign');
+    }
+  };
+
+  // --- Exam creation ---
+  const openExamCreate = async (course) => {
+    setExamCreateCourse(course);
+    setExamEditIndex(0);
+    setExamForm({ passingScore: course.examPassingScore || 70, questions: [] });
+    if (course.hasExam) {
+      try {
+        const questions = await courseApi.getAdminExamQuestions(course.id);
+        setExamForm({ passingScore: course.examPassingScore || 70, questions });
+      } catch {
+        // leave empty — admin can add/generate questions
+      }
+    }
+  };
+
+  const handleGenerateQuiz = async () => {
+    setGenerating(true);
+    try {
+      const questions = await courseApi.generateQuestions(examCreateCourse.id);
+      if (!questions || questions.length === 0) {
+        toast.warning('No questions could be generated. Try adding more course content or a YouTube URL.');
+        return;
+      }
+      setExamForm(f => ({ ...f, questions }));
+      setExamEditIndex(0);
+      toast.success(`Generated ${questions.length} questions! Review and save when ready.`);
+    } catch {
+      toast.error('Failed to generate questions');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const addQuestion = () => {
+    setExamForm(f => {
+      const updated = [...f.questions, { ...EMPTY_QUESTION, options: ['', '', '', ''] }];
+      setExamEditIndex(updated.length - 1);
+      return { ...f, questions: updated };
+    });
+  };
+
+  const updateQuestion = (qi, field, value) => {
+    setExamForm(f => {
+      const qs = [...f.questions];
+      qs[qi] = { ...qs[qi], [field]: value };
+      return { ...f, questions: qs };
+    });
+  };
+
+  const updateOption = (qi, oi, value) => {
+    setExamForm(f => {
+      const qs = [...f.questions];
+      const opts = [...qs[qi].options];
+      opts[oi] = value;
+      qs[qi] = { ...qs[qi], options: opts };
+      return { ...f, questions: qs };
+    });
+  };
+
+  const removeQuestion = (qi) => {
+    setExamForm(f => {
+      const updated = f.questions.filter((_, i) => i !== qi);
+      setExamEditIndex(idx => Math.min(idx, Math.max(0, updated.length - 1)));
+      return { ...f, questions: updated };
+    });
+  };
+
+  const handleSaveExam = async () => {
+    if (examForm.questions.length === 0) { toast.error('Add at least one question'); return; }
+    for (let i = 0; i < examForm.questions.length; i++) {
+      const q = examForm.questions[i];
+      if (!q.question || !q.question.toString().trim()) {
+        toast.error(`Question ${i + 1} has no text`); return;
+      }
+      if (!Array.isArray(q.options) || q.options.some(o => !o || !o.toString().trim())) {
+        toast.error(`Question ${i + 1} has empty options`); return;
+      }
+    }
+    try {
+      await courseApi.createExam(examCreateCourse.id, {
+        questions: examForm.questions,
+        passingScore: Number(examForm.passingScore) || 70
+      });
+      toast.success('Exam saved!');
+      setExamCreateCourse(null);
+      await refresh();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to save exam');
+    }
+  };
+
+  // --- Take exam ---
+  const openTakeExam = async (course) => {
+    setExamLoading(true);
+    setTakeExamCourse(course);
+    setExamAnswers([]);
+    setCurrentQuestion(0);
+    try {
+      const qs = await courseApi.getExamQuestions(course.id);
+      setExamQuestions(qs);
+      setExamAnswers(new Array(qs.length).fill(null));
+    } catch {
+      toast.error('Failed to load exam questions');
+      setTakeExamCourse(null);
+    } finally {
+      setExamLoading(false);
+    }
+  };
+
+  const handleSubmitExam = async () => {
+    if (examAnswers.some(a => a === null)) {
+      toast.error('Please answer all questions');
+      return;
+    }
+    try {
+      const result = await courseApi.submitExamAnswers(takeExamCourse.id, myEmployee.id, examAnswers);
+      setExamResult(result);
+      await refresh();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to submit exam');
+    }
+  };
+
+  const closeExamDialog = () => {
+    setTakeExamCourse(null);
+    setExamResult(null);
+  };
+
+  const retryExam = () => {
+    setExamResult(null);
+    setCurrentQuestion(0);
+    setExamAnswers(new Array(examQuestions.length).fill(null));
+  };
+
+  const downloadCertificate = (courseName, employeeName, certNo) => {
+    /* Canvas sized to A4-landscape proportions (297:210 ≈ 1.414:1) */
+    const W = 1400, H = 990, HDR = 168;
+    const CX = W / 2; // = 700
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    /* ─── helpers ─────────────────────────────── */
+    const poly = (pts, color) => {
+      ctx.beginPath();
+      pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+      ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+    };
+    const diamond = (cx, cy, hw, color) => {
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = color; ctx.fillRect(-hw, -hw, hw * 2, hw * 2);
+      ctx.restore();
+    };
+
+    /* ══ 1. WHITE BASE ══════════════════════════ */
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+
+    /* ══ 2. LEFT DARK SHAPES ════════════════════
+       Three nested parallelograms – drawn full-height;
+       the header bar painted later will cover their tops. */
+    poly([[0,0],[273,0],[175,570],[0,638]], '#1c1c2e');  // outer
+    poly([[0,0],[182,0],[115,532],[0,594]], '#141424');  // mid
+    poly([[0,0],[108,0],[ 62,487],[0,543]], '#0d0d1c'); // inner
+
+    /* gold diagonal edges */
+    ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(182,0); ctx.lineTo(115,532); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(218,0); ctx.lineTo(151,548); ctx.stroke();
+
+    /* white double-chevron ">>" */
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.88)';
+    ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo( 95,328); ctx.lineTo(142,400); ctx.lineTo( 95,472); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(128,328); ctx.lineTo(175,400); ctx.lineTo(128,472); ctx.stroke();
+    ctx.restore();
+
+    /* ══ 3. TOP-RIGHT GOLD STRIPE + DARK CAP ═══ */
+    poly([[1093,0],[1142,0],[1108,HDR],[1059,HDR]], '#9a7a1a'); // dark-gold left strip
+    poly([[1142,0],[1260,0],[1226,HDR],[1108,HDR]], '#c9a227'); // bright gold stripe
+    poly([[1260,0],[  W,0],[  W,HDR],[1240,HDR  ]], '#0d0d1c'); // dark right cap
+
+    /* ══ 4. BOTTOM-RIGHT DARK DIAMONDS + DOTS ══ */
+    diamond(1310, 902, 80, '#1c1c2e');
+    diamond(1347, 936, 62, '#141424');
+    diamond(1378, 960, 44, '#0d0d1c');
+    /* tiny gold sparkle dots */
+    ctx.fillStyle = '#c9a227';
+    [[1348,900],[1366,912],[1357,926],[1343,918],[1380,918],[1368,930]]
+      .forEach(([x,y]) => { ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill(); });
+
+    /* ══ 5. HEADER BAR ══════════════════════════ */
+    const hGrad = ctx.createLinearGradient(0, 0, W, 0);
+    hGrad.addColorStop(0,    '#0a0a14');
+    hGrad.addColorStop(0.27, '#2a0d48');
+    hGrad.addColorStop(0.60, '#2a0d48');
+    hGrad.addColorStop(1,    '#0a0a14');
+    ctx.fillStyle = hGrad; ctx.fillRect(0, 0, W, HDR);
+
+    /* ══ 6. LOGO ════════════════════════════════ */
+    const lX = 490, lY = HDR / 2, lR = 42;
+    const logoBg = '#0c0818';
+
+    /* dark backdrop circle */
+    ctx.fillStyle = logoBg;
+    ctx.beginPath(); ctx.arc(lX, lY, lR + 2, 0, Math.PI * 2); ctx.fill();
+
+    /* clip to circle, fill with gold gradient, then cut two diagonal bands */
+    ctx.save();
+    ctx.beginPath(); ctx.arc(lX, lY, lR, 0, Math.PI * 2); ctx.clip();
+    const lg = ctx.createLinearGradient(lX, lY - lR, lX, lY + lR);
+    lg.addColorStop(0,    '#dfc56a');
+    lg.addColorStop(0.42, '#c9a227');
+    lg.addColorStop(1,    '#9a7015');
+    ctx.fillStyle = lg; ctx.fillRect(lX - lR, lY - lR, lR * 2, lR * 2);
+
+    /* two parallel NW→SE diagonal cuts as horizontal bands in 45°-rotated space */
+    ctx.save();
+    ctx.translate(lX, lY); ctx.rotate(Math.PI / 4);
+    const gW = lR * 0.10, ext = lR * 1.8;
+    ctx.fillStyle = logoBg;
+    ctx.fillRect(-ext, -lR * 0.44 - gW / 2, ext * 2, gW);
+    ctx.fillRect(-ext,  lR * 0.44 - gW / 2, ext * 2, gW);
+    ctx.restore();
+
+    /* center circle gap + small gold center dot */
+    ctx.fillStyle = logoBg;
+    ctx.beginPath(); ctx.arc(lX, lY, lR * 0.20, 0, Math.PI * 2); ctx.fill();
+    const cg = ctx.createLinearGradient(lX, lY - lR * 0.16, lX, lY + lR * 0.16);
+    cg.addColorStop(0, '#dfc56a'); cg.addColorStop(1, '#9a7015');
+    ctx.fillStyle = cg;
+    ctx.beginPath(); ctx.arc(lX, lY, lR * 0.13, 0, Math.PI * 2); ctx.fill();
+    ctx.restore(); /* end logo clip */
+
+    /* company name */
+    const tx = lX + lR + 14;
+    ctx.fillStyle = '#d4af37'; ctx.font = 'bold 26px Arial, sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText('SAS KPO SERVICES', tx, lY + 7);
+    ctx.fillStyle = '#b89a30'; ctx.font = '13px Arial, sans-serif';
+    ctx.fillText('Partners in Business Extension', tx, lY + 27);
+
+    /* ══ 7. THIN SEPARATOR ══════════════════════ */
+    ctx.strokeStyle = 'rgba(212,175,55,0.30)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(240, HDR); ctx.lineTo(W - 240, HDR); ctx.stroke();
+
+    /* ══ 8. CERTIFICATE OF COMPLETION ══════════ */
+    ctx.fillStyle = '#111827'; ctx.font = 'bold 56px Arial, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText('CERTIFICATE OF COMPLETION', CX, 292);
+    /* gold rule */
+    ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(CX-278, 312); ctx.lineTo(CX+278, 312); ctx.stroke();
+
+    /* ══ 9. AWARDED TO ══════════════════════════ */
+    ctx.fillStyle = '#9ca3af'; ctx.font = '500 16px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('AWARDED TO', CX, 376);
+
+    /* ══ 10. EMPLOYEE NAME ══════════════════════ */
+    ctx.fillStyle = '#c9a227';
+    ctx.font = 'italic bold 82px Georgia, "Times New Roman", serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(employeeName, CX, 482);
+
+    /* ══ 11. "for successfully completing" ══════ */
+    ctx.fillStyle = '#4b5563'; ctx.font = '18px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('for successfully completing', CX, 540);
+
+    /* ══ 12. COURSE NAME (auto-wrap) ════════════ */
+    ctx.fillStyle = '#111827';
+    ctx.font = 'bold italic 31px Georgia, "Times New Roman", serif';
+    ctx.textAlign = 'center';
+    const maxCW = W * 0.60;
+    const words = courseName.split(' ');
+    let line = '', lineY = 598;
+    for (let i = 0; i < words.length; i++) {
+      const test = line + words[i] + ' ';
+      if (ctx.measureText(test).width > maxCW && i > 0) {
+        ctx.fillText(line.trim(), CX, lineY); line = words[i] + ' '; lineY += 42;
+      } else { line = test; }
+    }
+    ctx.fillText(line.trim(), CX, lineY);
+
+    /* ══ 13. DATE ═══════════════════════════════ */
+    const dateStr = new Date().toLocaleDateString('en-US',
+      { month: 'long', day: 'numeric', year: 'numeric' });
+    const dateY = lineY + 68;
+    ctx.fillStyle = '#4b5563'; ctx.font = '17px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Date of Completion  ${dateStr}`, CX, dateY);
+
+    /* ══ 14. SIGNATURE BLOCK ════════════════════ */
+    const sigY = dateY + 96;
+    ctx.fillStyle = '#1f2937';
+    ctx.font = 'italic 42px Georgia, "Times New Roman", serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText('Swati Soni', CX, sigY);
+    /* underline */
+    ctx.strokeStyle = '#374151'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(CX-118, sigY+12); ctx.lineTo(CX+118, sigY+12); ctx.stroke();
+    /* director */
+    ctx.fillStyle = '#111827'; ctx.font = 'bold 17px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Director, SAS KPO Services', CX, sigY + 35);
+    /* cert number */
+    ctx.fillStyle = '#6b7280'; ctx.font = '15px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`CertificateNo: ${certNo}`, CX, sigY + 58);
+
+    /* ══ 15. EXPORT PDF ═════════════════════════ */
+    const imgData = canvas.toDataURL('image/jpeg', 1.0);
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pW = pdf.internal.pageSize.getWidth();
+    const pH = pdf.internal.pageSize.getHeight();
+    pdf.addImage(imgData, 'JPEG', 0, 0, pW, pH);
+    pdf.save(
+      `Certificate_${(employeeName || 'Employee').replace(/\s+/g, '_')}_` +
+      `${courseName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.pdf`
+    );
+  };
+
+  const getEmployeeName = () =>
+    myEmployee ? `${myEmployee.firstName} ${myEmployee.lastName}` : user?.fullName || 'Employee';
+
+  if (loading) return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
+      <CircularProgress sx={{ color: '#14b8a6' }} />
+    </Box>
+  );
+
+  return (
+    <Box sx={{ bgcolor: '#f8fafc', minHeight: '100%' }}>
+      {viewCourse ? (
+        /* ── DETAIL VIEW ── */
+        <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
+          {/* Left Sidebar */}
+          <Card sx={{ width: 300, minWidth: 300, flexShrink: 0, borderRadius: 3, overflow: 'hidden' }}>
+            <Box sx={{ p: 2, pb: 0 }}>
+              <Button startIcon={<ArrowBackIcon />} size="small"
+                onClick={() => { setViewCourse(null); setDetailTab('lessons'); }}
+                sx={{ color: '#64748b', textTransform: 'none', mb: 1 }}>
+                Back to Catalog
+              </Button>
+            </Box>
+            <Box sx={{ height: 90, px: 2.5, pb: 2, background: GRADIENTS[viewCourse.id % GRADIENTS.length], display: 'flex', alignItems: 'flex-end' }}>
+              <Typography fontWeight={700} color="#fff" sx={{ lineHeight: 1.3, fontSize: '0.95rem' }}>
+                {viewCourse.title}
+              </Typography>
+            </Box>
+            <CardContent sx={{ pt: 2 }}>
+              {viewCourse.durationHours && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5 }}>
+                  <AccessTimeIcon sx={{ fontSize: 16, color: '#64748b' }} />
+                  <Typography variant="body2" color="text.secondary">{viewCourse.durationHours} hours</Typography>
+                </Box>
+              )}
+              {viewCourse.enrollmentStatus && viewCourse.enrollmentStatus !== 'NOT_ENROLLED' && (
+                <Box sx={{ mb: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">Progress</Typography>
+                    <Typography variant="caption" fontWeight={600} sx={{ color: '#14b8a6' }}>{getProgress(viewCourse)}%</Typography>
+                  </Box>
+                  <LinearProgress variant="determinate" value={getProgress(viewCourse)}
+                    sx={{ height: 6, borderRadius: 3, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { bgcolor: '#14b8a6' } }} />
+                </Box>
+              )}
+              <Divider sx={{ my: 1.5 }} />
+              <Typography variant="caption" fontWeight={700} color="text.secondary"
+                sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 1.5, display: 'block' }}>
+                Lessons
+              </Typography>
+              <Box onClick={() => {
+                setDetailTab('lessons');
+                if (!isAdmin && viewCourse.enrollmentStatus === 'ENROLLED' && viewCourse.youtubeUrl) {
+                  handleMarkWatched(viewCourse.id);
+                }
+              }} sx={{
+                display: 'flex', alignItems: 'center', gap: 1.5, p: 1, borderRadius: 1.5,
+                cursor: 'pointer', mb: 0.5,
+                bgcolor: detailTab === 'lessons' ? '#f0fdfa' : 'transparent',
+                '&:hover': { bgcolor: '#f0fdfa' }
+              }}>
+                {['IN_PROGRESS', 'COMPLETED', 'FAILED'].includes(viewCourse.enrollmentStatus) ? (
+                  <CheckCircleIcon sx={{ fontSize: 18, color: '#14b8a6', flexShrink: 0 }} />
+                ) : (
+                  <Box sx={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid #cbd5e1', flexShrink: 0 }} />
+                )}
+                <Box>
+                  <Typography variant="body2" fontWeight={detailTab === 'lessons' ? 600 : 400}>Watch Video</Typography>
+                  {!isAdmin && viewCourse.enrollmentStatus === 'ENROLLED' && viewCourse.youtubeUrl && (
+                    <Typography variant="caption" sx={{ color: '#14b8a6' }}>Click to mark as watched</Typography>
+                  )}
+                </Box>
+              </Box>
+              {viewCourse.hasExam && (
+                <Box onClick={() => {
+                  if (!isAdmin && (viewCourse.enrollmentStatus === 'IN_PROGRESS' || viewCourse.enrollmentStatus === 'FAILED')) {
+                    openTakeExam(viewCourse);
+                  } else {
+                    setDetailTab('exam');
+                  }
+                }} sx={{
+                  display: 'flex', alignItems: 'center', gap: 1.5, p: 1, borderRadius: 1.5,
+                  cursor: 'pointer',
+                  bgcolor: detailTab === 'exam' ? '#f0fdfa' : 'transparent',
+                  '&:hover': { bgcolor: '#f0fdfa' }
+                }}>
+                  {viewCourse.enrollmentStatus === 'COMPLETED' ? (
+                    <CheckCircleIcon sx={{ fontSize: 18, color: '#14b8a6', flexShrink: 0 }} />
+                  ) : (
+                    <Box sx={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid #cbd5e1', flexShrink: 0 }} />
+                  )}
+                  <Typography variant="body2" fontWeight={detailTab === 'exam' ? 600 : 400}>Take Exam</Typography>
+                </Box>
+              )}
+              {viewCourse.enrollmentStatus === 'COMPLETED' && viewCourse.certificateNumber && (
+                <>
+                  <Divider sx={{ my: 1.5 }} />
+                  <Box sx={{ p: 1.5, bgcolor: '#f0fdf4', borderRadius: 2, textAlign: 'center' }}>
+                    <CardMembershipIcon sx={{ fontSize: 24, color: '#16a34a', mb: 0.5 }} />
+                    <Typography variant="caption" fontWeight={600} color="success.dark" display="block">Certificate Earned</Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" mb={1}>{viewCourse.certificateNumber}</Typography>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      startIcon={<DownloadIcon sx={{ fontSize: 14 }} />}
+                      onClick={() => downloadCertificate(viewCourse.title, getEmployeeName(), viewCourse.certificateNumber)}
+                      sx={{ bgcolor: '#16a34a', '&:hover': { bgcolor: '#15803d' }, textTransform: 'none', fontSize: '0.75rem' }}
+                    >
+                      Download
+                    </Button>
+                  </Box>
+                </>
+              )}
+              {(isAdmin || isManager) && <Divider sx={{ my: 1.5 }} />}
+              {isAdmin && (
+                <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                  <Tooltip title="Assign"><IconButton size="small" onClick={() => openAssign(viewCourse)} sx={{ color: '#14b8a6' }}><PersonAddIcon fontSize="small" /></IconButton></Tooltip>
+                  <Tooltip title={viewCourse.hasExam ? 'Edit Exam' : 'Add Exam'}><IconButton size="small" onClick={() => openExamCreate(viewCourse)} sx={{ color: '#7c3aed' }}><QuizIcon fontSize="small" /></IconButton></Tooltip>
+                  <Tooltip title="Edit"><IconButton size="small" onClick={() => openEditCourse(viewCourse)}><AssignmentIcon fontSize="small" /></IconButton></Tooltip>
+                  <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => { handleDeleteCourse(viewCourse.id); setViewCourse(null); }}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                </Stack>
+              )}
+              {isManager && (
+                <Tooltip title="Assign to Employee">
+                  <IconButton size="small" onClick={() => openAssign(viewCourse)} sx={{ color: '#14b8a6' }}>
+                    <PersonAddIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Right Panel */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Box sx={{ bgcolor: '#fff', borderRadius: '12px 12px 0 0', borderBottom: '1px solid #e2e8f0' }}>
+              <Tabs value={detailTab} onChange={(_, v) => setDetailTab(v)}
+                sx={{ '& .MuiTab-root': { textTransform: 'none', fontWeight: 600 }, '& .MuiTabs-indicator': { bgcolor: '#14b8a6' } }}>
+                <Tab label="Lessons" value="lessons" />
+                {viewCourse.hasExam && <Tab label="Exam" value="exam" />}
+              </Tabs>
+            </Box>
+
+            {detailTab === 'lessons' && (
+              <Box sx={{ bgcolor: '#fff', borderRadius: '0 0 12px 12px', overflow: 'hidden' }}>
+                {viewCourse.youtubeUrl && extractYoutubeId(viewCourse.youtubeUrl) ? (
+                  <Box sx={{ position: 'relative', paddingTop: '56.25%', bgcolor: '#000' }}>
+                    <iframe
+                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
+                      src={`https://www.youtube.com/embed/${extractYoutubeId(viewCourse.youtubeUrl)}?rel=0`}
+                      title={viewCourse.title}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </Box>
+                ) : (
+                  <Box sx={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#f1f5f9' }}>
+                    <SchoolIcon sx={{ fontSize: 56, color: '#cbd5e1' }} />
+                  </Box>
+                )}
+                <Box sx={{ p: 3 }}>
+                  {viewCourse.description && (
+                    <Typography variant="body1" color="text.secondary" mb={2}>{viewCourse.description}</Typography>
+                  )}
+                  {viewCourse.content && (
+                    <>
+                      <Divider sx={{ my: 2 }} />
+                      <Typography variant="subtitle2" fontWeight={600} mb={1}>Course Content</Typography>
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{viewCourse.content}</Typography>
+                    </>
+                  )}
+                  {!isAdmin && viewCourse.enrollmentStatus === 'NOT_ENROLLED' && (
+                    <Button variant="contained" onClick={() => handleEnroll(viewCourse.id)}
+                      sx={{ mt: 2, bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' }, textTransform: 'none' }}>
+                      Enroll Now
+                    </Button>
+                  )}
+                  {!isAdmin && viewCourse.enrollmentStatus === 'ENROLLED' && viewCourse.youtubeUrl && (
+                    <Button variant="outlined" color="warning" onClick={() => handleMarkWatched(viewCourse.id)} sx={{ mt: 2, textTransform: 'none' }}>
+                      Mark as Watched
+                    </Button>
+                  )}
+                </Box>
+              </Box>
+            )}
+
+            {detailTab === 'exam' && viewCourse.hasExam && (
+              <Box sx={{ bgcolor: '#fff', borderRadius: '0 0 12px 12px', p: 4, textAlign: 'center' }}>
+                {isAdmin ? (
+                  <>
+                    <QuizIcon sx={{ fontSize: 60, color: '#7c3aed', mb: 2 }} />
+                    <Typography variant="h6" fontWeight={700}>Exam Management</Typography>
+                    <Typography color="text.secondary" mt={1} mb={3}>
+                      Passing score: {viewCourse.examPassingScore}% · {viewCourse.enrollmentCount} enrolled
+                    </Typography>
+                    <Button variant="contained" startIcon={<QuizIcon />} onClick={() => openExamCreate(viewCourse)}
+                      sx={{ textTransform: 'none', bgcolor: '#7c3aed', '&:hover': { bgcolor: '#6d28d9' } }}>
+                      Edit Exam Questions
+                    </Button>
+                  </>
+                ) : viewCourse.enrollmentStatus === 'COMPLETED' ? (
+                  <>
+                    <CheckCircleIcon sx={{ fontSize: 60, color: '#14b8a6', mb: 2 }} />
+                    <Typography variant="h6" fontWeight={700} color="success.dark">Exam Completed!</Typography>
+                    <Typography color="text.secondary" mt={1}>Score: {viewCourse.examScore}%</Typography>
+                    {viewCourse.certificateNumber && (
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, mt: 2 }}>
+                        <Chip icon={<CardMembershipIcon />} label={`Certificate: ${viewCourse.certificateNumber}`}
+                          color="success" variant="outlined" />
+                        <Button
+                          variant="contained"
+                          startIcon={<DownloadIcon />}
+                          onClick={() => downloadCertificate(viewCourse.title, getEmployeeName(), viewCourse.certificateNumber)}
+                          sx={{ bgcolor: '#16a34a', '&:hover': { bgcolor: '#15803d' }, textTransform: 'none' }}
+                        >
+                          Download Certificate
+                        </Button>
+                      </Box>
+                    )}
+                  </>
+                ) : viewCourse.enrollmentStatus === 'FAILED' ? (
+                  <>
+                    <QuizIcon sx={{ fontSize: 60, color: '#ef4444', mb: 2 }} />
+                    <Typography variant="h6" fontWeight={700} color="error.dark">Previous Attempt Failed</Typography>
+                    <Typography color="text.secondary" mt={1} mb={3}>
+                      Score: {viewCourse.examScore}% · Passing: {viewCourse.examPassingScore}%
+                    </Typography>
+                    <Button variant="contained" color="secondary" startIcon={<QuizIcon />}
+                      onClick={() => openTakeExam(viewCourse)} sx={{ textTransform: 'none' }}>
+                      Retry Exam
+                    </Button>
+                  </>
+                ) : viewCourse.enrollmentStatus === 'IN_PROGRESS' ? (
+                  <>
+                    <QuizIcon sx={{ fontSize: 60, color: '#7c3aed', mb: 2 }} />
+                    <Typography variant="h6" fontWeight={700}>Ready for the Exam?</Typography>
+                    <Typography color="text.secondary" mt={1} mb={3}>Passing score: {viewCourse.examPassingScore}%</Typography>
+                    <Button variant="contained" color="secondary" startIcon={<QuizIcon />}
+                      onClick={() => openTakeExam(viewCourse)} sx={{ textTransform: 'none' }}>
+                      Start Exam
+                    </Button>
+                  </>
+                ) : viewCourse.enrollmentStatus === 'NOT_ENROLLED' ? (
+                  <>
+                    <AssignmentIcon sx={{ fontSize: 60, color: '#cbd5e1', mb: 2 }} />
+                    <Typography color="text.secondary">Enroll in this course to take the exam</Typography>
+                  </>
+                ) : (
+                  <>
+                    <AssignmentIcon sx={{ fontSize: 60, color: '#cbd5e1', mb: 2 }} />
+                    <Typography color="text.secondary">Watch the video lesson first to unlock the exam</Typography>
+                  </>
+                )}
+              </Box>
+            )}
+          </Box>
+        </Box>
+      ) : (
+        /* ── CATALOG VIEW ── */
+        <Box>
+          {/* Header */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+            <Box>
+              <Typography variant="h5" fontWeight={700}>Course Catalog</Typography>
+              <Typography variant="body2" color="text.secondary" mt={0.5}>Explore and manage learning courses</Typography>
+            </Box>
+            {isAdmin && (
+              <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateCourse}
+                sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' }, borderRadius: 2, textTransform: 'none' }}>
+                Create Course
+              </Button>
+            )}
+          </Box>
+
+          {/* Stats row */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 2, mb: 3 }}>
+            {[
+              { label: 'Total Courses', value: courses.length, color: '#6366f1', bg: '#eef2ff' },
+              { label: 'Enrolled', value: courses.filter(c => ['ENROLLED', 'IN_PROGRESS', 'COMPLETED'].includes(c.enrollmentStatus)).length, color: '#14b8a6', bg: '#f0fdfa' },
+              { label: 'In Progress', value: courses.filter(c => c.enrollmentStatus === 'IN_PROGRESS').length, color: '#f59e0b', bg: '#fffbeb' },
+              { label: 'Completed', value: courses.filter(c => c.enrollmentStatus === 'COMPLETED').length, color: '#22c55e', bg: '#f0fdf4' },
+            ].map(stat => (
+              <Card key={stat.label} sx={{ borderRadius: 2.5, bgcolor: stat.bg, boxShadow: 'none', border: `1px solid ${stat.color}33` }}>
+                <CardContent sx={{ py: '14px !important', px: '18px !important' }}>
+                  <Typography variant="h4" fontWeight={700} sx={{ color: stat.color }}>{stat.value}</Typography>
+                  <Typography variant="body2" color="text.secondary">{stat.label}</Typography>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+
+          {/* Search + Filter tabs */}
+          <Box sx={{ mb: 3 }}>
+            <TextField
+              placeholder="Search courses..."
+              value={courseSearch}
+              onChange={(e) => setCourseSearch(e.target.value)}
+              size="small"
+              InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: '#94a3b8' }} /></InputAdornment> }}
+              sx={{ mb: 2, width: { xs: '100%', sm: 360 }, bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            />
+            <Tabs value={statusFilter} onChange={(_, v) => setStatusFilter(v)}
+              sx={{ '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, minWidth: 'auto', px: 2 }, '& .MuiTabs-indicator': { bgcolor: '#14b8a6' } }}>
+              <Tab label={`All (${courses.length})`} value="ALL" />
+              <Tab label={`Enrolled (${courses.filter(c => ['ENROLLED','IN_PROGRESS','COMPLETED','FAILED'].includes(c.enrollmentStatus)).length})`} value="ENROLLED" />
+              <Tab label={`In Progress (${courses.filter(c => c.enrollmentStatus === 'IN_PROGRESS').length})`} value="IN_PROGRESS" />
+              <Tab label={`Completed (${courses.filter(c => c.enrollmentStatus === 'COMPLETED').length})`} value="COMPLETED" />
+              <Tab
+                label={`Certificates (${courses.filter(c => !!c.certificateNumber).length})`}
+                value="CERTIFICATE"
+                icon={<CardMembershipIcon sx={{ fontSize: 15 }} />}
+                iconPosition="start"
+                sx={{ gap: 0.5 }}
+              />
+            </Tabs>
+          </Box>
+
+          {/* Course grid */}
+          {filteredCourses.length === 0 ? (
+            <Card sx={{ textAlign: 'center', py: 6 }}>
+              <SchoolIcon sx={{ fontSize: 56, color: '#cbd5e1', mb: 2 }} />
+              <Typography color="text.secondary">No courses found</Typography>
+            </Card>
+          ) : (
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 2.5 }}>
+              {filteredCourses.map((course) => (
+                <Card key={course.id} sx={{
+                  borderRadius: 3, overflow: 'hidden', display: 'flex', flexDirection: 'column',
+                  transition: 'box-shadow 0.2s, transform 0.2s',
+                  '&:hover': { boxShadow: '0 8px 30px rgba(0,0,0,0.12)', transform: 'translateY(-2px)' }
+                }}>
+                  {/* Gradient header */}
+                  <Box sx={{
+                    height: 120, background: GRADIENTS[course.id % GRADIENTS.length],
+                    position: 'relative', p: 2,
+                    display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
+                  }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <Chip label={CATEGORIES[course.id % CATEGORIES.length]} size="small"
+                        sx={{ bgcolor: 'rgba(255,255,255,0.25)', color: '#fff', fontWeight: 600, fontSize: '0.7rem', height: 22 }} />
+                      {isAdmin && (
+                        <Box sx={{ display: 'flex', gap: 0.25 }}>
+                          {[
+                            { icon: <PersonAddIcon sx={{ fontSize: 13 }} />, title: 'Assign', fn: (e) => { e.stopPropagation(); openAssign(course); } },
+                            { icon: <QuizIcon sx={{ fontSize: 13 }} />, title: course.hasExam ? 'Edit Exam' : 'Add Exam', fn: (e) => { e.stopPropagation(); openExamCreate(course); } },
+                            { icon: <AssignmentIcon sx={{ fontSize: 13 }} />, title: 'Edit', fn: (e) => { e.stopPropagation(); openEditCourse(course); } },
+                            { icon: <DeleteIcon sx={{ fontSize: 13 }} />, title: 'Delete', fn: (e) => { e.stopPropagation(); handleDeleteCourse(course.id); } },
+                          ].map(({ icon, title, fn }) => (
+                            <Tooltip key={title} title={title}>
+                              <IconButton size="small" onClick={fn}
+                                sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.15)', width: 26, height: 26, '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}>
+                                {icon}
+                              </IconButton>
+                            </Tooltip>
+                          ))}
+                        </Box>
+                      )}
+                      {isManager && (
+                        <Tooltip title="Assign to Employee">
+                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); openAssign(course); }}
+                            sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.15)', width: 26, height: 26, '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' } }}>
+                            <PersonAddIcon sx={{ fontSize: 13 }} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                      <AccessTimeIcon sx={{ fontSize: 13, color: 'rgba(255,255,255,0.75)' }} />
+                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)' }}>
+                        {course.durationHours ? `${course.durationHours}h` : 'Self-paced'}
+                      </Typography>
+                      {course.hasExam && (
+                        <Chip label="Exam" size="small"
+                          sx={{ ml: 0.5, bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', height: 18, fontSize: '0.65rem' }} />
+                      )}
+                    </Box>
+                  </Box>
+
+                  <CardContent sx={{ flex: 1, pb: 1 }}>
+                    <Typography variant="subtitle1" fontWeight={700} sx={{
+                      mb: 0.75,
+                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                    }}>
+                      {course.title}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{
+                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', mb: 1.5
+                    }}>
+                      {course.description || 'No description provided.'}
+                    </Typography>
+                    {course.enrollmentStatus && course.enrollmentStatus !== 'NOT_ENROLLED' && (
+                      <Box sx={{ mb: 1 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                          <Chip label={statusLabels[course.enrollmentStatus] || course.enrollmentStatus}
+                            size="small" color={statusColors[course.enrollmentStatus] || 'default'}
+                            sx={{ height: 20, fontSize: '0.7rem' }} />
+                          <Typography variant="caption" color="text.secondary">{getProgress(course)}%</Typography>
+                        </Box>
+                        <LinearProgress variant="determinate" value={getProgress(course)}
+                          sx={{ height: 5, borderRadius: 3, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { bgcolor: '#14b8a6' } }} />
+                      </Box>
+                    )}
+                    <Typography variant="caption" color="text.secondary">
+                      {course.enrollmentCount} enrolled
+                      {course.examScore != null && ` · Score: ${course.examScore}%`}
+                    </Typography>
+                  </CardContent>
+
+                  <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
+                    {!isAdmin && course.enrollmentStatus === 'NOT_ENROLLED' ? (
+                      <Button fullWidth variant="outlined" onClick={() => handleEnroll(course.id)}
+                        sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}>
+                        Enroll
+                      </Button>
+                    ) : (
+                      <Button fullWidth variant="contained"
+                        onClick={() => { setViewCourse(course); setDetailTab('lessons'); }}
+                        sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' } }}>
+                        Review Course
+                      </Button>
+                    )}
+                  </CardActions>
+                </Card>
+              ))}
+            </Box>
+          )}
+        </Box>
+      )}
+
+      {/* Create / Edit Course Dialog */}
+      <Dialog open={courseDialogOpen} onClose={() => setCourseDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle fontWeight={700}>{editingCourse ? 'Edit Course' : 'Create New Course'}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <TextField label="Course Title *" value={form.title}
+              onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))} fullWidth />
+            <TextField label="Description" value={form.description}
+              onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} fullWidth multiline rows={2} />
+            <TextField label="YouTube URL" value={form.youtubeUrl}
+              onChange={(e) => setForm(f => ({ ...f, youtubeUrl: e.target.value }))} fullWidth
+              placeholder="https://www.youtube.com/watch?v=..." />
+            <TextField label="Course Content" value={form.content}
+              onChange={(e) => setForm(f => ({ ...f, content: e.target.value }))} fullWidth multiline rows={3} />
+            <TextField label="Duration (hours)" type="number" value={form.durationHours}
+              onChange={(e) => setForm(f => ({ ...f, durationHours: e.target.value }))} fullWidth />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setCourseDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleSaveCourse}
+            sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' } }}>
+            {editingCourse ? 'Save Changes' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Assign Course Dialog */}
+      {(() => {
+        // Employees eligible to be assigned this course
+        const assignableEmployees = (() => {
+          const notEnrolled = allEmployees.filter(e => !enrolledIds.includes(e.id));
+          if (isAdmin) return notEnrolled;
+          // Manager: only their direct reports (not themselves, not admins)
+          return notEnrolled.filter(
+            e => e.managerId === myEmployee?.id && e.role !== 'ADMIN' && e.id !== myEmployee?.id
+          );
+        })();
+        return (
+      <Dialog open={Boolean(assignCourse)} onClose={() => setAssignCourse(null)} maxWidth="sm" fullWidth>
+        <DialogTitle fontWeight={700}>Assign Course</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" mb={2}>
+            Assign <strong>{assignCourse?.title}</strong> to
+            {isAdmin ? ' an employee or all employees.' : ' one of your team members.'}
+          </Typography>
+          {isAdmin && (
+            <FormControl component="fieldset" sx={{ mb: 2 }}>
+              <RadioGroup row value={assignAll ? 'all' : 'one'} onChange={(e) => setAssignAll(e.target.value === 'all')}>
+                <FormControlLabel value="one" control={<Radio />} label="Specific Employee" />
+                <FormControlLabel value="all" control={<Radio />} label="All Employees" />
+              </RadioGroup>
+            </FormControl>
+          )}
+          {!assignAll && (
+            <Autocomplete
+              options={assignableEmployees}
+              getOptionLabel={(e) => `${e.firstName} ${e.lastName} (${e.department || ''})`}
+              value={assignTarget}
+              onChange={(_, v) => setAssignTarget(v)}
+              noOptionsText="No eligible employees (all already assigned)"
+              renderInput={(params) => <TextField {...params} label="Select Employee" />}
+              fullWidth
+            />
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setAssignCourse(null)}>Cancel</Button>
+          <Button variant="contained" onClick={handleAssign}
+            disabled={!assignAll && !assignTarget}
+            sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' } }}>
+            Assign
+          </Button>
+        </DialogActions>
+      </Dialog>
+        );
+      })()}
+
+      {/* Create / Edit Exam Dialog */}
+      <Dialog open={Boolean(examCreateCourse)} onClose={() => setExamCreateCourse(null)} maxWidth="sm" fullWidth
+        PaperProps={{ sx: { minHeight: 520 } }}>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Typography fontWeight={700}>{examCreateCourse?.hasExam ? 'Edit Exam' : 'Create Exam'} — {examCreateCourse?.title}</Typography>
+        </DialogTitle>
+
+        <DialogContent sx={{ pt: 1 }}>
+          {/* Toolbar */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
+            <TextField label="Passing Score (%)" type="number" value={examForm.passingScore}
+              onChange={(e) => setExamForm(f => ({ ...f, passingScore: parseInt(e.target.value) || 70 }))}
+              inputProps={{ min: 1, max: 100 }} size="small" sx={{ width: 140 }} />
+            <Button size="small" variant="contained"
+              startIcon={generating ? <CircularProgress size={14} color="inherit" /> : <AutoAwesomeIcon />}
+              onClick={handleGenerateQuiz} disabled={generating}
+              sx={{ bgcolor: '#7c3aed', '&:hover': { bgcolor: '#6d28d9' } }}>
+              {generating ? 'Generating...' : 'Generate Quiz'}
+            </Button>
+            <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={addQuestion}>
+              Add Question
+            </Button>
+          </Box>
+
+          {examForm.questions.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
+              <QuizIcon sx={{ fontSize: 44, mb: 1, color: '#cbd5e1' }} />
+              <Typography>No questions yet. Generate or add manually.</Typography>
+            </Box>
+          ) : (
+            <>
+              {/* Dot navigator */}
+              <Box sx={{ display: 'flex', gap: 0.75, mb: 2, flexWrap: 'wrap' }}>
+                {examForm.questions.map((_, qi) => (
+                  <Box key={qi} onClick={() => setExamEditIndex(qi)}
+                    sx={{
+                      width: 28, height: 28, borderRadius: '50%', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '0.7rem', fontWeight: 600,
+                      bgcolor: qi === examEditIndex ? '#14b8a6' : '#f1f5f9',
+                      color: qi === examEditIndex ? '#fff' : '#64748b',
+                      border: qi === examEditIndex ? '2px solid #0d9488' : '2px solid transparent',
+                      transition: 'all 0.15s',
+                    }}>
+                    {qi + 1}
+                  </Box>
+                ))}
+              </Box>
+
+              {/* Current question editor */}
+              {(() => {
+                const qi = examEditIndex;
+                const q = examForm.questions[qi];
+                if (!q) return null;
+                return (
+                  <Box sx={{ p: 2.5, border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                      <Typography variant="subtitle2" fontWeight={700} sx={{ flex: 1 }}>
+                        Question {qi + 1} of {examForm.questions.length}
+                      </Typography>
+                      <IconButton size="small" color="error" onClick={() => removeQuestion(qi)}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                    <TextField label="Question text" value={q.question} fullWidth multiline rows={2}
+                      onChange={(e) => updateQuestion(qi, 'question', e.target.value)} sx={{ mb: 2 }} />
+                    <FormControl component="fieldset" fullWidth>
+                      <FormLabel component="legend" sx={{ mb: 1, fontSize: '0.82rem' }}>
+                        Options — select the correct answer
+                      </FormLabel>
+                      <RadioGroup value={String(q.correctAnswer)}
+                        onChange={(e) => updateQuestion(qi, 'correctAnswer', parseInt(e.target.value))}>
+                        {q.options.map((opt, oi) => (
+                          <Box key={oi} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                            <Radio value={String(oi)} size="small"
+                              sx={{ color: '#14b8a6', '&.Mui-checked': { color: '#14b8a6' } }} />
+                            <TextField size="small" placeholder={`Option ${oi + 1}`} value={opt} sx={{ flex: 1 }}
+                              onChange={(e) => updateOption(qi, oi, e.target.value)} />
+                          </Box>
+                        ))}
+                      </RadioGroup>
+                    </FormControl>
+                  </Box>
+                );
+              })()}
+            </>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+          <Button onClick={() => setExamCreateCourse(null)} sx={{ mr: 'auto' }}>Cancel</Button>
+          <Button variant="outlined"
+            disabled={examForm.questions.length === 0 || examEditIndex === 0}
+            onClick={() => setExamEditIndex(i => i - 1)}>
+            ← Previous
+          </Button>
+          {examEditIndex < examForm.questions.length - 1 ? (
+            <Button variant="outlined"
+              disabled={examForm.questions.length === 0}
+              onClick={() => setExamEditIndex(i => i + 1)}>
+              Next →
+            </Button>
+          ) : null}
+          <Button variant="contained" onClick={handleSaveExam}
+            sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' } }}>
+            Save Exam
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Take Exam Dialog */}
+      <Dialog open={Boolean(takeExamCourse)} onClose={closeExamDialog} maxWidth="sm" fullWidth
+        PaperProps={{ sx: { minHeight: 420 } }}>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Typography fontWeight={700}>{takeExamCourse?.title}</Typography>
+          {!examResult && (
+            <Typography variant="caption" color="text.secondary">
+              Passing score: {takeExamCourse?.examPassingScore}%
+            </Typography>
+          )}
+        </DialogTitle>
+
+        <DialogContent sx={{ pt: 0 }}>
+          {examLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+              <CircularProgress sx={{ color: '#14b8a6' }} />
+            </Box>
+          ) : examResult ? (
+            /* ── Results View ── */
+            <Box>
+              {/* Pass / Fail banner */}
+              <Box sx={{
+                p: 3, textAlign: 'center', borderRadius: 2, mb: 3,
+                bgcolor: examResult.passed ? '#f0fdf4' : '#fef2f2',
+                border: `1px solid ${examResult.passed ? '#bbf7d0' : '#fecaca'}`,
+              }}>
+                {examResult.passed ? (
+                  <CheckCircleIcon sx={{ fontSize: 56, color: '#22c55e', mb: 1 }} />
+                ) : (
+                  <CancelIcon sx={{ fontSize: 56, color: '#ef4444', mb: 1 }} />
+                )}
+                <Typography variant="h6" fontWeight={700}
+                  sx={{ color: examResult.passed ? '#16a34a' : '#dc2626' }}>
+                  {examResult.passed ? 'Congratulations! You Passed!' : 'Better Luck Next Time!'}
+                </Typography>
+                <Typography variant="h3" fontWeight={800} mt={0.5}
+                  sx={{ color: examResult.passed ? '#16a34a' : '#dc2626' }}>
+                  {examResult.score}%
+                </Typography>
+                <Typography variant="body2" color="text.secondary" mt={0.5}>
+                  Passing score: {examResult.passingScore}%
+                </Typography>
+                {examResult.certificateNumber && (
+                  <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <Chip icon={<CardMembershipIcon />}
+                      label={`Certificate: ${examResult.certificateNumber}`}
+                      color="success" variant="outlined" />
+                    <Button
+                      variant="contained"
+                      startIcon={<DownloadIcon />}
+                      onClick={() => downloadCertificate(takeExamCourse.title, getEmployeeName(), examResult.certificateNumber)}
+                      sx={{ bgcolor: '#16a34a', '&:hover': { bgcolor: '#15803d' }, textTransform: 'none', mt: 0.5 }}
+                    >
+                      Download Certificate
+                    </Button>
+                  </Box>
+                )}
+              </Box>
+
+              {/* Per-question breakdown */}
+              <Typography variant="subtitle2" fontWeight={700} mb={1.5} sx={{ color: '#475569' }}>
+                Question Breakdown ({examResult.questions?.length} questions)
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {examResult.questions?.map((q, qi) => (
+                  <Box key={qi} sx={{
+                    border: `1px solid ${q.isCorrect ? '#bbf7d0' : '#fecaca'}`,
+                    borderRadius: 2, p: 2,
+                    bgcolor: q.isCorrect ? '#f0fdf4' : '#fff5f5',
+                  }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1.5 }}>
+                      {q.isCorrect ? (
+                        <CheckCircleIcon sx={{ color: '#22c55e', fontSize: 18, mt: 0.25, flexShrink: 0 }} />
+                      ) : (
+                        <CancelIcon sx={{ color: '#ef4444', fontSize: 18, mt: 0.25, flexShrink: 0 }} />
+                      )}
+                      <Typography variant="body2" fontWeight={600}>
+                        Q{qi + 1}. {q.question}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                      {(q.options || []).map((opt, oi) => {
+                        const isCorrectOpt = oi === q.correctAnswer;
+                        const isUserOpt = oi === q.userAnswer;
+                        const isWrongUserOpt = isUserOpt && !isCorrectOpt;
+                        return (
+                          <Box key={oi} sx={{
+                            display: 'flex', alignItems: 'center', gap: 1,
+                            px: 1.5, py: 0.6, borderRadius: 1,
+                            bgcolor: isCorrectOpt ? '#dcfce7' : isWrongUserOpt ? '#fee2e2' : 'transparent',
+                            border: `1px solid ${isCorrectOpt ? '#86efac' : isWrongUserOpt ? '#fca5a5' : 'transparent'}`,
+                          }}>
+                            <Typography variant="body2" sx={{
+                              flex: 1,
+                              color: isCorrectOpt ? '#15803d' : isWrongUserOpt ? '#dc2626' : '#475569',
+                              fontWeight: (isCorrectOpt || isWrongUserOpt) ? 600 : 400,
+                            }}>
+                              {String.fromCharCode(65 + oi)}. {opt}
+                            </Typography>
+                            {isCorrectOpt && <CheckCircleIcon sx={{ fontSize: 15, color: '#22c55e', flexShrink: 0 }} />}
+                            {isWrongUserOpt && <CancelIcon sx={{ fontSize: 15, color: '#ef4444', flexShrink: 0 }} />}
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          ) : examQuestions.length > 0 && (
+            /* ── Question View ── */
+            <>
+              {/* Progress bar */}
+              <Box sx={{ mb: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Question {currentQuestion + 1} of {examQuestions.length}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {examAnswers.filter(a => a !== null).length} answered
+                  </Typography>
+                </Box>
+                <LinearProgress
+                  variant="determinate"
+                  value={((currentQuestion + 1) / examQuestions.length) * 100}
+                  sx={{ height: 6, borderRadius: 3, '& .MuiLinearProgress-bar': { bgcolor: '#14b8a6' } }}
+                />
+              </Box>
+
+              {/* Question dot indicators */}
+              <Box sx={{ display: 'flex', gap: 0.75, mb: 3, flexWrap: 'wrap' }}>
+                {examQuestions.map((_, qi) => (
+                  <Box
+                    key={qi}
+                    onClick={() => setCurrentQuestion(qi)}
+                    sx={{
+                      width: 28, height: 28, borderRadius: '50%', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '0.7rem', fontWeight: 600,
+                      bgcolor: qi === currentQuestion
+                        ? '#14b8a6'
+                        : examAnswers[qi] !== null ? '#d1fae5' : '#f1f5f9',
+                      color: qi === currentQuestion ? '#fff'
+                        : examAnswers[qi] !== null ? '#065f46' : '#64748b',
+                      border: qi === currentQuestion ? '2px solid #0d9488' : '2px solid transparent',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {qi + 1}
+                  </Box>
+                ))}
+              </Box>
+
+              {/* Current question */}
+              <Box sx={{ p: 2.5, border: '1px solid #e2e8f0', borderRadius: 2, minHeight: 180 }}>
+                <Typography variant="subtitle1" fontWeight={600} mb={2.5}>
+                  {examQuestions[currentQuestion].question}
+                </Typography>
+                <RadioGroup
+                  value={examAnswers[currentQuestion] !== null ? String(examAnswers[currentQuestion]) : ''}
+                  onChange={(e) => {
+                    const updated = [...examAnswers];
+                    updated[currentQuestion] = parseInt(e.target.value);
+                    setExamAnswers(updated);
+                  }}
+                >
+                  {(examQuestions[currentQuestion].options || []).map((opt, oi) => (
+                    <FormControlLabel
+                      key={oi} value={String(oi)}
+                      control={<Radio size="small" sx={{ color: '#14b8a6', '&.Mui-checked': { color: '#14b8a6' } }} />}
+                      label={opt}
+                      sx={{
+                        mb: 0.5, px: 1, borderRadius: 1,
+                        bgcolor: examAnswers[currentQuestion] === oi ? '#f0fdfa' : 'transparent',
+                      }}
+                    />
+                  ))}
+                </RadioGroup>
+              </Box>
+            </>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+          {examResult ? (
+            <>
+              <Button onClick={closeExamDialog} sx={{ mr: 'auto' }}>Close</Button>
+              {!examResult.passed && (
+                <Button variant="contained" startIcon={<QuizIcon />} onClick={retryExam}
+                  sx={{ bgcolor: '#7c3aed', '&:hover': { bgcolor: '#6d28d9' } }}>
+                  Retry Exam
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              <Button onClick={closeExamDialog} sx={{ mr: 'auto' }}>Cancel</Button>
+              <Button
+                variant="outlined"
+                disabled={examLoading || currentQuestion === 0}
+                onClick={() => setCurrentQuestion(q => q - 1)}
+              >
+                ← Previous
+              </Button>
+              {currentQuestion < examQuestions.length - 1 ? (
+                <Button
+                  variant="contained"
+                  onClick={() => setCurrentQuestion(q => q + 1)}
+                  sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' } }}
+                >
+                  Next →
+                </Button>
+              ) : (
+                <Button variant="contained" onClick={handleSubmitExam}
+                  disabled={examLoading || examAnswers.some(a => a === null)}
+                  sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' } }}>
+                  Submit Exam
+                </Button>
+              )}
+            </>
+          )}
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+};
+
+export default CoursesPage;
+
