@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -7,31 +7,48 @@ import {
   InputAdornment, Chip, Avatar, IconButton, Dialog, DialogTitle,
   DialogContent, DialogActions, MenuItem, Select, FormControl,
   InputLabel, CircularProgress, Tooltip, Stack, Tabs, Tab,
-  Divider, List, ListItem, ListItemText,
+  Divider, List, ListItem, ListItemText, LinearProgress, TablePagination,
+  InputBase,
 } from '@mui/material';
-import SearchIcon       from '@mui/icons-material/Search';
-import AddIcon          from '@mui/icons-material/Add';
-import EditIcon         from '@mui/icons-material/Edit';
-import VisibilityIcon   from '@mui/icons-material/Visibility';
-import BlockIcon        from '@mui/icons-material/Block';
-import UploadFileIcon   from '@mui/icons-material/UploadFile';
-import DeleteIcon       from '@mui/icons-material/Delete';
-import TuneIcon         from '@mui/icons-material/Tune';
-import CheckIcon        from '@mui/icons-material/Check';
-import CloseIcon        from '@mui/icons-material/Close';
-import { employeeApi } from '../api/employeeApi';
-import { resumeApi }   from '../api/resumeApi';
-import { toast }       from 'react-toastify';
+import SearchIcon         from '@mui/icons-material/Search';
+import AddIcon            from '@mui/icons-material/Add';
+import EditIcon           from '@mui/icons-material/Edit';
+import UploadFileIcon     from '@mui/icons-material/UploadFile';
+import DeleteIcon         from '@mui/icons-material/Delete';
+import TuneIcon           from '@mui/icons-material/Tune';
+import CheckIcon          from '@mui/icons-material/Check';
+import CloseIcon          from '@mui/icons-material/Close';
+import PeopleIcon         from '@mui/icons-material/People';
+import AccessTimeIcon     from '@mui/icons-material/AccessTime';
+import TrendingUpIcon     from '@mui/icons-material/TrendingUp';
+import SchoolIcon         from '@mui/icons-material/School';
+import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
+import NavigateNextIcon   from '@mui/icons-material/NavigateNext';
+import EmojiEventsIcon    from '@mui/icons-material/EmojiEvents';
+import CheckCircleIcon    from '@mui/icons-material/CheckCircle';
+import PersonRemoveIcon   from '@mui/icons-material/PersonRemove';
+import AccountTreeIcon   from '@mui/icons-material/AccountTree';
+import ChevronRightIcon  from '@mui/icons-material/ChevronRight';
+import VisibilityIcon     from '@mui/icons-material/Visibility';
+import VisibilityOffIcon  from '@mui/icons-material/VisibilityOff';
+import { employeeApi }    from '../api/employeeApi';
+import { resumeApi }      from '../api/resumeApi';
+import { timesheetApi }      from '../api/timesheetApi';
+import { timesheetEntryApi } from '../api/timesheetEntryApi';
+import { performanceApi } from '../api/performanceApi';
+import { courseApi }      from '../api/courseApi';
+import { toast }          from 'react-toastify';
 
-const roleColors = { ADMIN: 'error', MANAGER: 'warning', EMPLOYEE: 'primary' };
+// ── constants ─────────────────────────────────────────────────────────────────
+const roleColors = { ADMIN: 'error', MANAGER: 'warning', ASSISTANT_MANAGER: 'warning', HR: 'secondary', EMPLOYEE: 'primary' };
 
 const INITIAL_DEPARTMENTS = [
   'Human Resource', 'Operation', 'Management', 'Marketing', 'IT',
 ];
 const INITIAL_POSITIONS = [
   'Accounts Trainee', 'Accounts Executive', 'Senior Accountant',
-  'Sr. Payroll Administrator', 'Manager', 'Business Development and Operation',
-  'HR', 'System Administrator',
+  'Sr. Payroll Administrator', 'Assistant Manager', 'Manager',
+  'Business Development and Operation', 'HR', 'System Administrator',
 ];
 const INITIAL_LOCATIONS = ['Mandsaur', 'Ahmedabad', 'Jamnagar'];
 const EMPLOYMENT_TYPES  = ['Full-time', 'Part-time', 'Contract', 'Intern', 'Consultant'];
@@ -40,7 +57,7 @@ const GENDERS           = ['Male', 'Female', 'Other', 'Prefer not to say'];
 const MARITAL_STATUSES  = ['Single', 'Married', 'Divorced', 'Widowed'];
 
 const EMPTY_FORM = {
-  email: '', password: 'Temp@1234', firstName: '', lastName: '',
+  email: '', password: '', firstName: '', lastName: '',
   employeeCode: '', phone: '', personalEmail: '',
   department: '', position: '', role: 'EMPLOYEE', managerId: '',
   employmentType: '', sourceOfHire: '', hireDate: '', dateOfExit: '',
@@ -59,23 +76,52 @@ const fmtDateTime = (dt) => {
     hour: '2-digit', minute: '2-digit',
   });
 };
-
 // Table cell style helpers
-const hdrCell     = { fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap', py: 1.2, px: 1.5, color: '#374151' };
-const cell        = { fontSize: 12.5, whiteSpace: 'nowrap', py: 1, px: 1.5, color: '#1e293b' };
-const EMPID_W     = 90;
-const EMPNAME_W   = 200;
-const LOC_W       = 120;
-const stickyId    = { position: 'sticky', left: 0,                        zIndex: 3, minWidth: EMPID_W,   maxWidth: EMPID_W   };
-const stickyName  = { position: 'sticky', left: EMPID_W,                  zIndex: 3, minWidth: EMPNAME_W, maxWidth: EMPNAME_W };
-const stickyLoc   = { position: 'sticky', left: EMPID_W + EMPNAME_W,      zIndex: 3, minWidth: LOC_W,     maxWidth: LOC_W     };
-const stickyRight = { position: 'sticky', right: 0,                       zIndex: 3, minWidth: 110 };
+const hdrCell    = { fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap', py: 1.2, px: 1.5, color: '#374151' };
+const cell       = { fontSize: 12.5, whiteSpace: 'nowrap', py: 1, px: 1.5, color: '#1e293b' };
+const EMPID_W    = 90;
+const EMPNAME_W  = 200;
+const LOC_W      = 120;
+const stickyId   = { position: 'sticky', left: 0,                   zIndex: 3, minWidth: EMPID_W,   maxWidth: EMPID_W   };
+const stickyName = { position: 'sticky', left: EMPID_W,             zIndex: 3, minWidth: EMPNAME_W, maxWidth: EMPNAME_W };
+const stickyLoc  = { position: 'sticky', left: EMPID_W + EMPNAME_W, zIndex: 3, minWidth: LOC_W,     maxWidth: LOC_W     };
 
 const ROField = ({ label, value }) => (
   <Box>
     <Typography variant="caption" color="text.secondary">{label}</Typography>
     <Typography variant="body2" fontWeight={500}>{value || '—'}</Typography>
   </Box>
+);
+
+// ── StatCard ──────────────────────────────────────────────────────────────────
+const StatCard = ({ icon, label, value, color, subtitle }) => (
+  <Card sx={{ flex: 1, minWidth: 150 }}>
+    <CardContent sx={{ py: 1.5, px: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Box sx={{
+          p: 1, borderRadius: 1.5,
+          bgcolor: `${color}22`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          {React.cloneElement(icon, { sx: { color, fontSize: 22 } })}
+        </Box>
+        <Box>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.3, fontSize: 11 }}>
+            {label}
+          </Typography>
+          <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.2 }}>
+            {value ?? '—'}
+          </Typography>
+          {subtitle && (
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
+              {subtitle}
+            </Typography>
+          )}
+        </Box>
+      </Box>
+    </CardContent>
+  </Card>
 );
 
 // ── ManageListDialog ──────────────────────────────────────────────────────────
@@ -92,8 +138,7 @@ const ManageListDialog = ({ open, onClose, title, items, onAdd, onEdit, onDelete
     setNewVal('');
   };
 
-  const startEdit = (i) => { setEditIdx(i); setEditVal(items[i]); };
-
+  const startEdit  = (i) => { setEditIdx(i); setEditVal(items[i]); };
   const commitEdit = () => {
     const v = editVal.trim();
     if (!v) return;
@@ -101,7 +146,6 @@ const ManageListDialog = ({ open, onClose, title, items, onAdd, onEdit, onDelete
     onEdit(editIdx, v);
     setEditIdx(null);
   };
-
   const cancelEdit = () => setEditIdx(null);
 
   return (
@@ -110,7 +154,6 @@ const ManageListDialog = ({ open, onClose, title, items, onAdd, onEdit, onDelete
       <DialogTitle fontWeight={700} sx={{ pb: 1 }}>Manage {title}</DialogTitle>
       <Divider />
       <DialogContent sx={{ pt: 2 }}>
-        {/* Add new row */}
         <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
           <TextField
             size="small" fullWidth
@@ -124,8 +167,6 @@ const ManageListDialog = ({ open, onClose, title, items, onAdd, onEdit, onDelete
             Add
           </Button>
         </Box>
-
-        {/* Existing items */}
         {items.length === 0 ? (
           <Typography variant="body2" color="text.secondary" textAlign="center" py={2}>
             No items yet — add one above
@@ -186,7 +227,7 @@ const ManageListDialog = ({ open, onClose, title, items, onAdd, onEdit, onDelete
   );
 };
 
-// ── ManagedSelect — Select dropdown with a manage (⚙) button ─────────────────
+// ── ManagedSelect ─────────────────────────────────────────────────────────────
 const ManagedSelect = ({ label, fieldKey, value, options, setter, onManage }) => (
   <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'flex-start' }}>
     <FormControl size="small" fullWidth>
@@ -212,7 +253,8 @@ const ManagedSelect = ({ label, fieldKey, value, options, setter, onManage }) =>
 // ── EmployeeForm ──────────────────────────────────────────────────────────────
 const EmployeeForm = ({ values, setter, isEdit, employees,
                         departments, positions, locations, onManage }) => {
-  const [tab, setTab] = useState(0);
+  const [tab,          setTab]          = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
 
   const field = (key, label, opts = {}) => (
     <TextField
@@ -261,14 +303,34 @@ const EmployeeForm = ({ values, setter, isEdit, employees,
         {isEdit && <Tab label="System" />}
       </Tabs>
 
-      {/* ── Tab 0: Basic Info ── */}
       {tab === 0 && (
         <Box sx={grid2}>
-          {field('employeeCode', 'Employee ID / Code', { sx: { gridColumn: 'span 2' } })}
+          {/* Hidden dummy inputs stop browsers from autofilling the real fields */}
+          <input type="text" style={{ display: 'none' }} autoComplete="username" readOnly />
+          <input type="password" style={{ display: 'none' }} autoComplete="new-password" readOnly />
+          {isEdit && field('employeeCode', 'Employee ID / Code', { sx: { gridColumn: 'span 2' } })}
           {field('firstName', 'First Name *')}
           {field('lastName', 'Last Name *')}
-          {field('email', 'Work Email *', { sx: { gridColumn: 'span 2' } })}
-          {!isEdit && field('password', 'Password *', { type: 'password' })}
+          {field('email', 'Work Email *', { sx: { gridColumn: 'span 2' }, inputProps: { autoComplete: 'off' } })}
+          {!isEdit && (
+            <TextField
+              label="Password *"
+              value={values.password ?? ''}
+              size="small"
+              type={showPassword ? 'text' : 'password'}
+              inputProps={{ autoComplete: 'new-password' }}
+              onChange={(e) => setter((f) => ({ ...f, password: e.target.value }))}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setShowPassword((p) => !p)} edge="end">
+                      {showPassword ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          )}
           {field('phone', 'Phone')}
           {field('personalEmail', 'Personal Email')}
           {dateField('dateOfBirth', 'Date of Birth')}
@@ -282,45 +344,40 @@ const EmployeeForm = ({ values, setter, isEdit, employees,
         </Box>
       )}
 
-      {/* ── Tab 1: Employment ── */}
       {tab === 1 && (
         <Box sx={grid2}>
-          {/* Department — Select + manage button */}
           <ManagedSelect
             label="Department" fieldKey="department"
             value={values.department} options={departments}
             setter={setter} onManage={() => onManage('dept')}
           />
-
-          {/* Position — Select + manage button */}
           <ManagedSelect
             label="Position" fieldKey="position"
             value={values.position} options={positions}
             setter={setter} onManage={() => onManage('pos')}
           />
-
           {selectField('employmentType', 'Employment Type', EMPLOYMENT_TYPES)}
           {selectField('sourceOfHire',   'Source of Hire',  SOURCE_OF_HIRE)}
           {dateField('hireDate',  'Date of Joining')}
           {dateField('dateOfExit','Date of Exit')}
-
           <FormControl size="small" fullWidth>
             <InputLabel>Role</InputLabel>
             <Select value={values.role || 'EMPLOYEE'} label="Role"
               onChange={(e) => setter((f) => ({ ...f, role: e.target.value }))}>
               <MenuItem value="EMPLOYEE">Employee</MenuItem>
               <MenuItem value="MANAGER">Manager</MenuItem>
+              <MenuItem value="ASSISTANT_MANAGER">Assistant Manager</MenuItem>
+              <MenuItem value="HR">HR</MenuItem>
               <MenuItem value="ADMIN">Admin</MenuItem>
             </Select>
           </FormControl>
-
           <FormControl size="small" fullWidth>
             <InputLabel>Manager (optional)</InputLabel>
             <Select value={values.managerId || ''} label="Manager (optional)"
               onChange={(e) => setter((f) => ({ ...f, managerId: e.target.value }))}>
               <MenuItem value="">None</MenuItem>
               {employees
-                .filter((e) => e.role === 'MANAGER' || e.role === 'ADMIN')
+                .filter((e) => e.active !== false && (e.role === 'MANAGER' || e.role === 'ASSISTANT_MANAGER' || e.role === 'ADMIN'))
                 .map((e) => (
                   <MenuItem key={e.id} value={e.id}>
                     {e.fullName} ({e.role})
@@ -331,27 +388,22 @@ const EmployeeForm = ({ values, setter, isEdit, employees,
         </Box>
       )}
 
-      {/* ── Tab 2: Work Details ── */}
       {tab === 2 && (
         <Box sx={grid2}>
           {field('currentExperience', 'Current Experience (e.g. 2 years)')}
           {field('totalExperience',   'Total Experience (e.g. 5 years)')}
-
-          {/* Seating Location — Select + manage button */}
           <Box sx={{ gridColumn: 'span 2' }}>
             <ManagedSelect
-              label="Seating Location" fieldKey="seatingLocation"
+              label="Location" fieldKey="seatingLocation"
               value={values.seatingLocation} options={locations}
               setter={setter} onManage={() => onManage('loc')}
             />
           </Box>
-
-          {field('skills',     'Skills',              { multiline: true, rows: 3, sx: { gridColumn: 'span 2' } })}
-          {field('experience', 'Experience Summary',  { multiline: true, rows: 3, sx: { gridColumn: 'span 2' } })}
+          {field('skills',     'Skills',             { multiline: true, rows: 3, sx: { gridColumn: 'span 2' } })}
+          {field('experience', 'Experience Summary', { multiline: true, rows: 3, sx: { gridColumn: 'span 2' } })}
         </Box>
       )}
 
-      {/* ── Tab 3: Identity ── */}
       {tab === 3 && (
         <Box sx={grid2}>
           {field('aadharNumber', 'Aadhar Number', { sx: { gridColumn: 'span 2' } })}
@@ -360,7 +412,6 @@ const EmployeeForm = ({ values, setter, isEdit, employees,
         </Box>
       )}
 
-      {/* ── Tab 4: Address ── */}
       {tab === 4 && (
         <Box sx={grid2}>
           {field('presentAddress',   'Present Address',   { multiline: true, rows: 3, sx: { gridColumn: 'span 2' } })}
@@ -368,7 +419,6 @@ const EmployeeForm = ({ values, setter, isEdit, employees,
         </Box>
       )}
 
-      {/* ── Tab 5: System (edit only, read-only) ── */}
       {isEdit && tab === 5 && (
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 1 }}>
           <ROField label="Added By"      value={values.addedBy} />
@@ -381,29 +431,915 @@ const EmployeeForm = ({ values, setter, isEdit, employees,
   );
 };
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+// ── TimesheetTab ──────────────────────────────────────────────────────────────
+const TimesheetTab = ({ employees, user }) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const [date,       setDate]       = useState(today);
+  const [raw,        setRaw]        = useState([]);
+  const [entriesMap, setEntriesMap] = useState({}); // empId -> [{projectName, taskName, hours}]
+  const [loading,    setLoading]    = useState(false);
+  const [tsPage,     setTsPage]     = useState(0);
+  const [tsRpp,      setTsRpp]      = useState(10);
+  const [editHours,  setEditHours]  = useState({ empId: null, val: '' });
+  const [savingHours, setSavingHours] = useState(false);
+
+  const canEditHours = () => {
+    if (!user) return false;
+    return ['ADMIN', 'MANAGER', 'ASSISTANT_MANAGER'].includes(user.role);
+  };
+
+  const startEdit = (emp, currentHrs) => {
+    setEditHours({ empId: emp.id, val: currentHrs != null ? String(currentHrs) : '' });
+  };
+
+  const commitEdit = async (emp) => {
+    const hours = parseFloat(editHours.val);
+    if (isNaN(hours) || hours < 0) { setEditHours({ empId: null, val: '' }); return; }
+    setSavingHours(true);
+    try {
+      await timesheetApi.updateWorkingHours(emp.id, date, hours);
+      setRaw((prev) => ({
+        ...prev,
+        [emp.id]: { ...(prev[emp.id] || {}), totalHours: hours, present: true },
+      }));
+      window.dispatchEvent(new CustomEvent('working-hours-updated', { detail: { empId: emp.id, date, hours } }));
+      toast.success('Working hours updated');
+    } catch {
+      toast.error('Failed to save working hours');
+    } finally {
+      setSavingHours(false);
+      setEditHours({ empId: null, val: '' });
+    }
+  };
+
+  const load = useCallback(async (d) => {
+    setLoading(true);
+    try {
+      const [year, month] = d.split('-').map(Number);
+      const activeEmps = employees.filter((e) => e.active);
+
+      // For each employee: load stored TimesheetDTO (has workingHours from DB) + project entries
+      const results = await Promise.all(
+        activeEmps.map((emp) =>
+          Promise.all([
+            timesheetApi.getAttendanceByRange(emp.id, d, d)
+              .then((r) => (Array.isArray(r) ? r : [])[0] ?? null)
+              .catch(() => null),
+            timesheetEntryApi.getMonthly(emp.id, year, month)
+              .then((r) => (Array.isArray(r) ? r : []).filter((e) => String(e.date ?? e.workDate ?? '').slice(0, 10) === d))
+              .catch(() => []),
+          ]).then(([ts, entries]) => ({ emp, ts, entries }))
+        )
+      );
+
+      // Build attendance map using Timesheet entity's workingHours so manual edits persist
+      const attendanceMap = {};
+      const entryMap      = {};
+      results.forEach(({ emp, ts, entries }) => {
+        const hasOpen = ts != null && ts.loginTime != null && ts.logoutTime == null;
+        attendanceMap[emp.id] = {
+          checkIn:    ts?.loginTime    ?? null,
+          checkOut:   ts?.logoutTime   ?? null,
+          totalHours: ts?.workingHours ?? null,
+          hasOpen:    !!hasOpen,
+          present:    ts != null && (ts.loginTime != null || ts.workingHours != null),
+        };
+        entryMap[emp.id] = entries;
+      });
+
+      setRaw(attendanceMap);
+      setEntriesMap(entryMap);
+    } catch {
+      setRaw({});
+      setEntriesMap({});
+    } finally {
+      setLoading(false);
+    }
+  }, [employees]);
+
+  useEffect(() => { load(date); setTsPage(0); }, [date, load]);
+
+  const shiftDay = (delta) => {
+    const [y, m, d] = date.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d + delta));
+    setDate(dt.toISOString().slice(0, 10));
+  };
+  const prevDay = () => shiftDay(-1);
+  const nextDay = () => shiftDay(+1);
+
+  const allActiveEmps = useMemo(() => employees.filter((e) => e.active), [employees]);
+
+  // Build flat rows: one row per project entry, or one row per employee if no entries
+  const rows = useMemo(() => {
+    const pagedEmps = allActiveEmps.slice(tsPage * tsRpp, (tsPage + 1) * tsRpp);
+    const result = [];
+    pagedEmps.forEach((emp) => {
+      const att     = raw[emp.id] ?? { checkIn: null, checkOut: null, totalHours: null, hasOpen: false, present: false };
+      const entries = entriesMap[emp.id] || [];
+
+      if (entries.length === 0) {
+        result.push({ _emp: emp, att, projectName: null, timeSpent: null, _rowSpan: 1, _first: true });
+      } else {
+        entries.forEach((entry, ei) => {
+          result.push({
+            _emp: emp, att,
+            projectName: entry.projectName || entry.project || '—',
+            taskName:    entry.taskName    || entry.task    || null,
+            timeSpent:   entry.hours       ?? entry.hoursSpent ?? entry.duration ?? null,
+            _rowSpan: ei === 0 ? entries.length : 0,
+            _first:   ei === 0,
+          });
+        });
+      }
+    });
+    return result;
+  }, [raw, allActiveEmps, entriesMap, tsPage, tsRpp]);
+
+  const uniqueEmps   = useMemo(() => allActiveEmps.length, [allActiveEmps]);
+  const presentCount = useMemo(() => Object.values(raw).filter((a) => a.present).length, [raw]);
+  const absentCount = uniqueEmps - presentCount;
+
+  const [_y, _m, _d] = date.split('-').map(Number);
+  const dateLabel = new Date(Date.UTC(_y, _m - 1, _d)).toLocaleDateString('en-IN', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    timeZone: 'UTC',
+  });
+
+  return (
+    <Box>
+      {/* Date navigation bar */}
+      <Card sx={{ mb: 2 }}>
+        <CardContent sx={{ py: 1.5 }}>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+            <Tooltip title="Previous day">
+              <IconButton size="small" onClick={prevDay} sx={{ bgcolor: '#f1f5f9' }}>
+                <NavigateBeforeIcon />
+              </IconButton>
+            </Tooltip>
+            <TextField
+              type="date"
+              size="small"
+              value={date}
+              onChange={(e) => e.target.value && setDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 160 }}
+            />
+            <Tooltip title="Next day">
+              <IconButton size="small" onClick={nextDay} disabled={date >= today}
+                sx={{ bgcolor: '#f1f5f9' }}>
+                <NavigateNextIcon />
+              </IconButton>
+            </Tooltip>
+            <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+              {dateLabel}
+            </Typography>
+            {loading && <CircularProgress size={18} sx={{ ml: 1 }} />}
+            <Box sx={{ ml: 'auto !important', display: 'flex', gap: 1 }}>
+              <Chip
+                icon={<CheckCircleIcon sx={{ fontSize: '14px !important' }} />}
+                label={`${presentCount} Present`}
+                color="success" size="small" variant="outlined"
+              />
+              <Chip label={`${absentCount} Absent`} size="small" variant="outlined" />
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      {/* Timesheet table */}
+      <Card>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: '#f1f5f9' }}>
+                <TableCell sx={hdrCell}>#</TableCell>
+                <TableCell sx={hdrCell}>Employee</TableCell>
+                <TableCell sx={hdrCell}>Project Name</TableCell>
+                <TableCell sx={hdrCell}>Time Spent</TableCell>
+                <TableCell sx={hdrCell}>Check In</TableCell>
+                <TableCell sx={hdrCell}>Check Out</TableCell>
+                <TableCell sx={hdrCell}>Total Hours</TableCell>
+                <TableCell sx={hdrCell}>Status</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading && rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                    <CircularProgress size={32} />
+                  </TableCell>
+                </TableRow>
+              ) : rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                    No active employees found
+                  </TableCell>
+                </TableRow>
+              ) : (() => {
+                let serial = 0;
+                return rows.map((r, i) => {
+                  if (r._first) serial += 1;
+                  const { checkIn, checkOut, totalHours, hasOpen, present } = r.att;
+                  const fmtHms = (t) => t ? t.substring(0, 5) : '—'; // HH:MM from HH:MM:SS
+                  const hrs    = totalHours != null ? Number(totalHours).toFixed(1) : null;
+                  const bgColor = (serial % 2 === 0) ? '#f8fafc' : 'white';
+                  return (
+                    <TableRow key={`${r._emp.id}-${i}`} hover sx={{ bgcolor: bgColor }}>
+                      {r._first && (
+                        <TableCell rowSpan={r._rowSpan || 1} sx={{ ...cell, color: '#94a3b8', verticalAlign: 'middle' }}>
+                          {serial}
+                        </TableCell>
+                      )}
+                      {r._first && (
+                        <TableCell rowSpan={r._rowSpan || 1} sx={{ ...cell, verticalAlign: 'middle' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Avatar sx={{ width: 28, height: 28, bgcolor: '#14b8a6', fontSize: '0.72rem', flexShrink: 0 }}>
+                              {r._emp.firstName?.charAt(0) || '?'}
+                            </Avatar>
+                            <Box>
+                              <Typography variant="body2" fontWeight={600} sx={{ fontSize: 12.5 }}>
+                                {r._emp.fullName}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
+                                {r._emp.employeeCode}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </TableCell>
+                      )}
+                      {/* Project Name */}
+                      <TableCell sx={cell}>
+                        {r.projectName ? (
+                          <Box>
+                            <Typography variant="body2" fontWeight={600} sx={{ fontSize: 12.5 }}>
+                              {r.projectName}
+                            </Typography>
+                            {r.taskName && (
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
+                                {r.taskName}
+                              </Typography>
+                            )}
+                          </Box>
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">—</Typography>
+                        )}
+                      </TableCell>
+                      {/* Time Spent */}
+                      <TableCell sx={cell}>
+                        {r.timeSpent != null ? (
+                          <Chip label={`${Number(r.timeSpent).toFixed(1)} hrs`} size="small"
+                            sx={{ fontSize: 11, bgcolor: '#eff6ff', color: '#1d4ed8', fontWeight: 700 }} />
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">—</Typography>
+                        )}
+                      </TableCell>
+                      {r._first && (
+                        <TableCell rowSpan={r._rowSpan || 1} sx={{ ...cell, fontFamily: 'monospace', color: '#15803d', verticalAlign: 'middle' }}>
+                          {fmtHms(checkIn)}
+                        </TableCell>
+                      )}
+                      {r._first && (
+                        <TableCell rowSpan={r._rowSpan || 1} sx={{ ...cell, fontFamily: 'monospace', color: '#dc2626', verticalAlign: 'middle' }}>
+                          {fmtHms(checkOut)}
+                        </TableCell>
+                      )}
+                      {r._first && (
+                        <TableCell rowSpan={r._rowSpan || 1} sx={{ ...cell, verticalAlign: 'middle' }}>
+                          {editHours.empId === r._emp.id ? (
+                            <InputBase
+                              autoFocus
+                              value={editHours.val}
+                              onChange={(e) => setEditHours((p) => ({ ...p, val: e.target.value }))}
+                              onBlur={() => commitEdit(r._emp)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') commitEdit(r._emp);
+                                if (e.key === 'Escape') setEditHours({ empId: null, val: '' });
+                              }}
+                              disabled={savingHours}
+                              inputProps={{ type: 'number', min: 0, step: 0.1, style: { width: 60, fontSize: 12, padding: '2px 4px' } }}
+                              sx={{ border: '1px solid #3b82f6', borderRadius: 1, px: 0.5, fontSize: 12 }}
+                            />
+                          ) : hrs != null ? (
+                            <Chip
+                              label={`${hrs} hrs`}
+                              size="small" color="primary" variant="outlined"
+                              sx={{ fontSize: 11, cursor: canEditHours() ? 'pointer' : 'default' }}
+                              onClick={canEditHours() ? () => startEdit(r._emp, hrs) : undefined}
+                            />
+                          ) : hasOpen ? (
+                            <Chip label="In Progress" size="small" color="warning" variant="outlined" sx={{ fontSize: 11 }} />
+                          ) : canEditHours() ? (
+                            <Typography
+                              variant="caption" color="text.secondary"
+                              sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
+                              onClick={() => startEdit(r._emp, null)}
+                            >
+                              + set hours
+                            </Typography>
+                          ) : '—'}
+                        </TableCell>
+                      )}
+                      {r._first && (
+                        <TableCell rowSpan={r._rowSpan || 1} sx={{ ...cell, verticalAlign: 'middle' }}>
+                          <Chip
+                            label={hasOpen ? 'Checked In' : present ? 'Present' : 'Absent'}
+                            size="small"
+                            color={hasOpen ? 'warning' : present ? 'success' : 'default'}
+                            sx={{ fontSize: 11 }}
+                          />
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                });
+              })()}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <TablePagination
+          component="div"
+          count={allActiveEmps.length}
+          page={tsPage}
+          onPageChange={(_, p) => setTsPage(p)}
+          rowsPerPage={tsRpp}
+          onRowsPerPageChange={(e) => { setTsRpp(parseInt(e.target.value, 10)); setTsPage(0); }}
+          rowsPerPageOptions={[10, 25, 50]}
+        />
+      </Card>
+    </Box>
+  );
+};
+
+// ── PerformanceTab ────────────────────────────────────────────────────────────
+const scoreColor = (s) => (s >= 4 ? 'success' : s >= 3 ? 'warning' : 'error');
+
+// Build all quarter labels for the last 2 years up to current quarter
+const buildAllQuarters = () => {
+  const now  = new Date();
+  const yr   = now.getFullYear();
+  const curQ = Math.ceil((now.getMonth() + 1) / 3);
+  const list = [];
+  for (let y = yr - 1; y <= yr; y++) {
+    const maxQ = y === yr ? curQ : 4;
+    for (let q = 1; q <= maxQ; q++) list.push(`Q${q} ${y}`);
+  }
+  return list; // oldest → newest
+};
+
+const PerformanceTab = ({ employees }) => {
+  const allQuarters = useMemo(() => buildAllQuarters(), []);
+  const [qIdx,     setQIdx]     = useState(allQuarters.length - 1); // default = current quarter
+  const [data,     setData]     = useState([]);
+  const [loading,  setLoading]  = useState(false);
+  const [loaded,   setLoaded]   = useState(false);
+  const [perfPage, setPerfPage] = useState(0);
+  const [perfRpp,  setPerfRpp]  = useState(10);
+
+  useEffect(() => {
+    if (loaded) return;
+    setLoading(true);
+    setLoaded(true);
+    performanceApi.getAll()
+      .then((r) => setData(Array.isArray(r) ? r : []))
+      .catch(() => setData([]))
+      .finally(() => setLoading(false));
+  }, [loaded]);
+
+  useEffect(() => {
+    const handler = () => setLoaded(false);
+    window.addEventListener('employee-updated', handler);
+    return () => window.removeEventListener('employee-updated', handler);
+  }, []);
+
+  const selectedQ  = allQuarters[qIdx];
+  const activeEmps = useMemo(() => employees.filter((e) => e.active), [employees]);
+
+  useEffect(() => { setPerfPage(0); }, [qIdx]);
+
+  // Count how many employees have a review for the selected quarter
+  const reviewedCount = useMemo(
+    () => activeEmps.filter((emp) => data.some((d) => d.employeeId === emp.id && d.reviewPeriod === selectedQ)).length,
+    [data, activeEmps, selectedQ]
+  );
+
+  if (loading) return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+      <CircularProgress />
+    </Box>
+  );
+
+  return (
+    <Box>
+      {/* Quarter navigator */}
+      <Card sx={{ mb: 2 }}>
+        <CardContent sx={{ py: 1.5 }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Tooltip title="Previous quarter">
+              <span>
+                <IconButton size="small" onClick={() => setQIdx((p) => p - 1)}
+                  disabled={qIdx === 0} sx={{ bgcolor: '#f1f5f9' }}>
+                  <NavigateBeforeIcon />
+                </IconButton>
+              </span>
+            </Tooltip>
+
+            {/* Quarter pills */}
+            <Stack direction="row" spacing={1} sx={{ flex: 1, justifyContent: 'center' }} flexWrap="wrap">
+              {allQuarters.map((q, i) => (
+                <Chip
+                  key={q}
+                  label={q}
+                  size="small"
+                  onClick={() => setQIdx(i)}
+                  color={i === qIdx ? 'primary' : 'default'}
+                  variant={i === qIdx ? 'filled' : 'outlined'}
+                  sx={{ cursor: 'pointer', fontWeight: i === qIdx ? 700 : 400, fontSize: 12 }}
+                />
+              ))}
+            </Stack>
+
+            <Tooltip title="Next quarter">
+              <span>
+                <IconButton size="small" onClick={() => setQIdx((p) => p + 1)}
+                  disabled={qIdx === allQuarters.length - 1} sx={{ bgcolor: '#f1f5f9' }}>
+                  <NavigateNextIcon />
+                </IconButton>
+              </span>
+            </Tooltip>
+
+            <Chip
+              label={`${reviewedCount} / ${activeEmps.length} reviewed`}
+              size="small"
+              color={reviewedCount > 0 ? 'success' : 'default'}
+              variant="outlined"
+              sx={{ ml: 1, fontSize: 11, flexShrink: 0 }}
+            />
+          </Stack>
+        </CardContent>
+      </Card>
+
+      {/* Performance table */}
+      <Card>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: '#f1f5f9' }}>
+                <TableCell sx={hdrCell}>Employee</TableCell>
+                <TableCell sx={{ ...hdrCell, textAlign: 'center' }}>{selectedQ} Rating</TableCell>
+                <TableCell sx={hdrCell}>Comments</TableCell>
+                <TableCell sx={hdrCell}>Strengths</TableCell>
+                <TableCell sx={hdrCell}>Area of Improvement</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {activeEmps.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                    No employees found
+                  </TableCell>
+                </TableRow>
+              ) : activeEmps.slice(perfPage * perfRpp, (perfPage + 1) * perfRpp).map((emp, i) => {
+                const review = data.find((d) => d.employeeId === emp.id && d.reviewPeriod === selectedQ);
+                const score  = review?.rating ?? null;
+                return (
+                  <TableRow key={emp.id} hover sx={{ bgcolor: i % 2 === 0 ? 'white' : '#f8fafc' }}>
+                    <TableCell sx={cell}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Avatar sx={{ width: 28, height: 28, bgcolor: '#6366f1', fontSize: '0.72rem', flexShrink: 0 }}>
+                          {emp.firstName?.charAt(0)}
+                        </Avatar>
+                        <Box>
+                          <Typography variant="body2" fontWeight={600} sx={{ fontSize: 12.5 }}>
+                            {emp.fullName}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
+                            {emp.employeeCode}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={{ ...cell, textAlign: 'center' }}>
+                      {score != null ? (
+                        <Chip label={`${score} / 5`} size="small"
+                          color={scoreColor(score)}
+                          sx={{ fontSize: 11, fontWeight: 700 }} />
+                      ) : (
+                        <Typography variant="caption" color="#cbd5e1">—</Typography>
+                      )}
+                    </TableCell>
+                    <TableCell sx={{ ...cell, maxWidth: 220, whiteSpace: 'normal', lineHeight: 1.5 }}>
+                      {review?.comments
+                        ? <Typography variant="body2" sx={{ fontSize: 12 }}>{review.comments}</Typography>
+                        : <Typography variant="caption" color="text.secondary">—</Typography>}
+                    </TableCell>
+                    <TableCell sx={{ ...cell, maxWidth: 200, whiteSpace: 'normal', lineHeight: 1.5 }}>
+                      {review?.strengths
+                        ? <Typography variant="body2" sx={{ fontSize: 12, color: '#15803d' }}>{review.strengths}</Typography>
+                        : <Typography variant="caption" color="text.secondary">—</Typography>}
+                    </TableCell>
+                    <TableCell sx={{ ...cell, maxWidth: 200, whiteSpace: 'normal', lineHeight: 1.5 }}>
+                      {review?.areasOfImprovement
+                        ? <Typography variant="body2" sx={{ fontSize: 12, color: '#b45309' }}>{review.areasOfImprovement}</Typography>
+                        : <Typography variant="caption" color="text.secondary">—</Typography>}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <TablePagination
+          component="div"
+          count={activeEmps.length}
+          page={perfPage}
+          onPageChange={(_, p) => setPerfPage(p)}
+          rowsPerPage={perfRpp}
+          onRowsPerPageChange={(e) => { setPerfRpp(parseInt(e.target.value, 10)); setPerfPage(0); }}
+          rowsPerPageOptions={[10, 25, 50]}
+        />
+      </Card>
+    </Box>
+  );
+};
+
+// ── CoursesTab ────────────────────────────────────────────────────────────────
+const CoursesTab = ({ user }) => {
+  const [courses,    setCourses]    = useState([]);
+  const [loading,    setLoading]    = useState(false);
+  const [loaded,     setLoaded]     = useState(false);
+  const [coursePage, setCoursePage] = useState(0);
+  const [courseRpp,  setCourseRpp]  = useState(10);
+
+  const isAdminRole   = user?.role === 'ADMIN';
+  const isManagerRole = user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER';
+
+  useEffect(() => {
+    if (loaded) return;
+    setLoading(true);
+    setLoaded(true);
+    if (isAdminRole) {
+      courseApi.getAll()
+        .then((r) => setCourses(Array.isArray(r) ? r : []))
+        .catch(() => setCourses([]))
+        .finally(() => setLoading(false));
+    } else if (isManagerRole && user?.userId) {
+      employeeApi.getByUserId(user.userId)
+        .then((emp) => courseApi.getForManager(emp.id))
+        .then((r) => setCourses(Array.isArray(r) ? r : []))
+        .catch(() => setCourses([]))
+        .finally(() => setLoading(false));
+    } else {
+      setCourses([]);
+      setLoading(false);
+    }
+  }, [loaded]); // eslint-disable-line
+
+  useEffect(() => {
+    const handler = () => setLoaded(false);
+    window.addEventListener('employee-updated', handler);
+    return () => window.removeEventListener('employee-updated', handler);
+  }, []);
+
+  const stats = useMemo(() => {
+    const enrolled   = courses.reduce((s, c) => s + (c.enrollmentCount ?? 0), 0);
+    const completed  = courses.reduce((s, c) => s + (c.completedCount  ?? 0), 0);
+    const inProgress = courses.reduce((s, c) => s + (c.inProgressCount ?? 0), 0);
+    const certs      = courses.reduce((s, c) => s + (c.completedCount  ?? 0), 0);
+    return { enrolled, completed, inProgress, certs };
+  }, [courses]);
+
+  if (loading) return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+      <CircularProgress />
+    </Box>
+  );
+
+  return (
+    <Box>
+      {/* Summary stat cards */}
+      <Stack direction="row" spacing={2} sx={{ mb: 3 }} flexWrap="wrap" useFlexGap>
+        <StatCard icon={<SchoolIcon />}         label="Total Courses"   value={courses.length}    color="#6366f1" />
+        <StatCard icon={<PeopleIcon />}         label="Enrollments"     value={stats.enrolled}    color="#14b8a6" />
+        <StatCard icon={<TrendingUpIcon />}     label="In Progress"     value={stats.inProgress}  color="#f59e0b" />
+        <StatCard icon={<CheckCircleIcon />}    label="Completed"       value={stats.completed}   color="#10b981" />
+        <StatCard icon={<EmojiEventsIcon />}    label="Certificates"    value={stats.certs}       color="#f97316" />
+      </Stack>
+
+      {/* Courses table */}
+      <Card>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: '#f1f5f9' }}>
+                <TableCell sx={hdrCell}>#</TableCell>
+                <TableCell sx={hdrCell}>Course Title</TableCell>
+                <TableCell sx={hdrCell}>Duration</TableCell>
+                <TableCell sx={hdrCell} align="center">Enrolled</TableCell>
+                <TableCell sx={hdrCell} align="center">In Progress</TableCell>
+                <TableCell sx={hdrCell} align="center">Completed</TableCell>
+                <TableCell sx={hdrCell} align="center">Certificates</TableCell>
+                <TableCell sx={hdrCell}>Enrolled Employees</TableCell>
+                <TableCell sx={hdrCell}>Completion %</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {courses.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                    No courses found
+                  </TableCell>
+                </TableRow>
+              ) : courses.slice(coursePage * courseRpp, (coursePage + 1) * courseRpp).map((course, i) => {
+                const enrolled  = course.enrollmentCount ?? 0;
+                const completed = course.completedCount  ?? 0;
+                const inProg    = course.inProgressCount ?? 0;
+                const pct       = enrolled > 0 ? Math.round((completed / enrolled) * 100) : 0;
+                const names     = course.enrolledEmployeeNames || [];
+                const SHOW_MAX  = 3;
+                return (
+                  <TableRow key={course.id} hover sx={{ bgcolor: i % 2 === 0 ? 'white' : '#f8fafc' }}>
+                    <TableCell sx={{ ...cell, color: '#94a3b8' }}>{coursePage * courseRpp + i + 1}</TableCell>
+                    <TableCell sx={cell}>
+                      <Typography variant="body2" fontWeight={600} sx={{ fontSize: 12.5 }}>
+                        {course.title}
+                      </Typography>
+                      {course.description && (
+                        <Typography variant="caption" color="text.secondary" noWrap
+                          sx={{ fontSize: 11, display: 'block', maxWidth: 280 }}>
+                          {course.description}
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell sx={cell}>
+                      {course.durationHours
+                        ? <Chip label={`${course.durationHours}h`} size="small" variant="outlined" sx={{ fontSize: 11 }} />
+                        : '—'}
+                    </TableCell>
+                    <TableCell align="center" sx={cell}>
+                      {enrolled > 0
+                        ? <Chip label={enrolled} size="small" color="primary" sx={{ fontSize: 11 }} />
+                        : <Typography variant="caption" color="text.secondary">0</Typography>}
+                    </TableCell>
+                    <TableCell align="center" sx={cell}>
+                      {inProg > 0
+                        ? <Chip label={inProg} size="small" color="warning" sx={{ fontSize: 11 }} />
+                        : <Typography variant="caption" color="text.secondary">0</Typography>}
+                    </TableCell>
+                    <TableCell align="center" sx={cell}>
+                      {completed > 0
+                        ? <Chip label={completed} size="small" color="success" sx={{ fontSize: 11 }} />
+                        : <Typography variant="caption" color="text.secondary">0</Typography>}
+                    </TableCell>
+                    <TableCell align="center" sx={cell}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'center' }}>
+                        <EmojiEventsIcon sx={{ fontSize: 14, color: '#f59e0b' }} />
+                        <Typography variant="body2" sx={{ fontSize: 12 }}>{completed}</Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={{ ...cell, minWidth: 180 }}>
+                      {names.length === 0 ? (
+                        <Typography variant="caption" color="text.secondary">—</Typography>
+                      ) : (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {names.slice(0, SHOW_MAX).map((name, ni) => (
+                            <Chip
+                              key={ni}
+                              label={name}
+                              size="small"
+                              sx={{ fontSize: 10, height: 20, bgcolor: '#eff6ff', color: '#1d4ed8' }}
+                            />
+                          ))}
+                          {names.length > SHOW_MAX && (
+                            <Tooltip title={names.slice(SHOW_MAX).join(', ')}>
+                              <Chip
+                                label={`+${names.length - SHOW_MAX} more`}
+                                size="small"
+                                sx={{ fontSize: 10, height: 20, bgcolor: '#f1f5f9', color: '#64748b', cursor: 'pointer' }}
+                              />
+                            </Tooltip>
+                          )}
+                        </Box>
+                      )}
+                    </TableCell>
+                    <TableCell sx={{ ...cell, minWidth: 120 }}>
+                      <Box>
+                        <LinearProgress
+                          variant="determinate"
+                          value={pct}
+                          sx={{ height: 6, borderRadius: 3, bgcolor: '#e2e8f0',
+                            '& .MuiLinearProgress-bar': { bgcolor: pct >= 80 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#6366f1' } }}
+                        />
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
+                          {pct}%
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <TablePagination
+          component="div"
+          count={courses.length}
+          page={coursePage}
+          onPageChange={(_, p) => setCoursePage(p)}
+          rowsPerPage={courseRpp}
+          onRowsPerPageChange={(e) => { setCourseRpp(parseInt(e.target.value, 10)); setCoursePage(0); }}
+          rowsPerPageOptions={[10, 25, 50]}
+        />
+      </Card>
+    </Box>
+  );
+};
+
+// ── DepartmentTreeTab ─────────────────────────────────────────────────────────
+const DEPT_COLORS = [
+  { bg: '#ede9fe', text: '#7c3aed', border: '#c4b5fd' },
+  { bg: '#dbeafe', text: '#1d4ed8', border: '#93c5fd' },
+  { bg: '#dcfce7', text: '#15803d', border: '#86efac' },
+  { bg: '#fef9c3', text: '#a16207', border: '#fde047' },
+  { bg: '#ffe4e6', text: '#be123c', border: '#fda4af' },
+  { bg: '#e0f2fe', text: '#0369a1', border: '#7dd3fc' },
+];
+
+const DT_ROW_H   = 80;
+const DT_CARD_H  = 68;
+const DT_CARD_W  = 290;
+const DT_EMP_W   = 260;
+const DT_CONN_W  = 40;
+const DT_BRANCH  = 24;
+const DT_BLUE    = '#14b8a6';
+
+const DepartmentTreeTab = ({ employees, onNavigate }) => {
+  const activeEmps = useMemo(() => employees.filter((e) => e.active), [employees]);
+
+  const deptMap = useMemo(() => {
+    const map = new Map();
+    activeEmps.forEach((emp) => {
+      const dept = emp.department || 'Unassigned';
+      if (!map.has(dept)) map.set(dept, []);
+      map.get(dept).push(emp);
+    });
+    return map;
+  }, [activeEmps]);
+
+  const departments = useMemo(() => [...deptMap.keys()].sort(), [deptMap]);
+  const [selectedDept, setSelectedDept] = useState(null);
+
+  useEffect(() => {
+    if (departments.length > 0 && selectedDept === null) setSelectedDept(departments[0]);
+  }, [departments, selectedDept]);
+
+  const selIdx  = selectedDept ? departments.indexOf(selectedDept) : -1;
+  const deptEmps = useMemo(
+    () => (selectedDept ? (deptMap.get(selectedDept) || []) : []),
+    [deptMap, selectedDept],
+  );
+
+  const abbr = (name) => name.split(' ').map((w) => w[0]).join('').substring(0, 2).toUpperCase();
+
+  return (
+    <Box sx={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 580, pb: 1 }}>
+      <Box sx={{ display: 'inline-flex', alignItems: 'flex-start', minWidth: 'max-content' }}>
+
+        {/* ── Left: department list ── */}
+        <Box sx={{ flexShrink: 0 }}>
+          {departments.map((dept, idx) => {
+            const count = deptMap.get(dept)?.length || 0;
+            const isSel = selectedDept === dept;
+            const color = DEPT_COLORS[idx % DEPT_COLORS.length];
+            return (
+              <Box key={dept} sx={{ height: DT_ROW_H, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box
+                  onClick={() => setSelectedDept(dept)}
+                  sx={{
+                    width: DT_CARD_W, height: DT_CARD_H, flexShrink: 0,
+                    display: 'flex', alignItems: 'center', gap: 1.5, px: 1.5,
+                    border: isSel ? `1.5px solid ${DT_BLUE}` : '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    bgcolor: isSel ? '#f0fdfb' : 'white',
+                    cursor: 'pointer', transition: 'all 0.15s',
+                    boxShadow: isSel ? '0 2px 8px rgba(20,184,166,0.12)' : '0 1px 3px rgba(0,0,0,0.05)',
+                    '&:hover': { borderColor: DT_BLUE, bgcolor: '#f0fdfb' },
+                  }}
+                >
+                  <Box sx={{
+                    width: 34, height: 34, borderRadius: 1.5, flexShrink: 0,
+                    bgcolor: isSel ? 'rgba(20,184,166,0.15)' : color.bg,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 800, fontSize: 13, color: isSel ? DT_BLUE : color.text,
+                  }}>
+                    {abbr(dept)}
+                  </Box>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography fontWeight={600} fontSize={13.5} noWrap sx={{ color: isSel ? DT_BLUE : '#1e293b' }}>
+                      {dept}
+                    </Typography>
+                    <Typography fontSize={11} color="text.disabled">-</Typography>
+                  </Box>
+                </Box>
+                {/* Count badge outside the card */}
+                <Box sx={{
+                  minWidth: 28, height: 22, px: '6px', flexShrink: 0,
+                  bgcolor: isSel ? DT_BLUE : '#e2e8f0',
+                  color: isSel ? 'white' : '#475569',
+                  borderRadius: '5px', fontSize: 11, fontWeight: 700,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {count}
+                </Box>
+              </Box>
+            );
+          })}
+        </Box>
+
+        {/* ── Horizontal connector → employee column ── */}
+        {selectedDept && deptEmps.length > 0 && (
+          <Box sx={{
+            width: DT_CONN_W, height: 2, bgcolor: DT_BLUE, flexShrink: 0,
+            alignSelf: 'flex-start',
+            mt: `${selIdx * DT_ROW_H + DT_ROW_H / 2 - 1}px`,
+          }} />
+        )}
+
+        {/* ── Employee column (offset to align with selected dept row) ── */}
+        {selectedDept && deptEmps.length > 0 && (
+          <Box sx={{ position: 'relative', flexShrink: 0, alignSelf: 'flex-start', mt: `${selIdx * DT_ROW_H}px` }}>
+            {deptEmps.length > 1 && (
+              <Box sx={{
+                position: 'absolute', zIndex: 0,
+                left: 0,
+                top: `${DT_ROW_H / 2}px`,
+                bottom: `${DT_ROW_H / 2}px`,
+                width: 2, bgcolor: '#cbd5e1',
+              }} />
+            )}
+            {deptEmps.map((emp) => (
+              <Box key={emp.id} sx={{ height: DT_ROW_H, display: 'flex', alignItems: 'center', position: 'relative', zIndex: 1 }}>
+                <Box sx={{ width: DT_BRANCH, height: 2, bgcolor: '#cbd5e1', flexShrink: 0 }} />
+                <Box
+                  onClick={onNavigate ? () => onNavigate(emp.id) : undefined}
+                  sx={{
+                    width: DT_EMP_W, height: DT_CARD_H, flexShrink: 0,
+                    display: 'flex', alignItems: 'center', gap: 1.5, px: 1.5,
+                    border: '1px solid #e2e8f0', borderRadius: '10px', bgcolor: 'white',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                    cursor: onNavigate ? 'pointer' : 'default', transition: 'all 0.15s',
+                    '&:hover': onNavigate ? { borderColor: DT_BLUE, bgcolor: '#f0fdfb', boxShadow: '0 2px 8px rgba(20,184,166,0.12)' } : {},
+                  }}
+                >
+                  <Avatar src={emp.photoUrl || emp.profileImageUrl}
+                    sx={{ width: 40, height: 40, bgcolor: '#94a3b8', fontSize: '0.9rem', flexShrink: 0 }}>
+                    {emp.firstName?.charAt(0)}
+                  </Avatar>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography fontWeight={700} fontSize={13} noWrap>{emp.fullName}</Typography>
+                    <Typography fontSize={11} color="text.secondary" noWrap>{emp.position || emp.role || '—'}</Typography>
+                  </Box>
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        )}
+      </Box>
+    </Box>
+  );
+};
+
+// ── Main EmployeesPage ────────────────────────────────────────────────────────
 const EmployeesPage = () => {
   const { user } = useSelector((s) => s.auth);
   const navigate = useNavigate();
 
-  const [employees,   setEmployees]   = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [search,      setSearch]      = useState('');
-  const [roleFilter,  setRoleFilter]  = useState('ALL');
-  const [addOpen,     setAddOpen]     = useState(false);
-  const [form,        setForm]        = useState(EMPTY_FORM);
-  const [editTarget,  setEditTarget]  = useState(null);
-  const [editForm,    setEditForm]    = useState(EMPTY_FORM);
+  // ── Employee list state ───────────────────────────────────────────────────
+  const [employees,     setEmployees]     = useState([]);
+  const [exEmployees,   setExEmployees]   = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [search,        setSearch]        = useState('');
+  const [roleFilter,     setRoleFilter]    = useState('ALL');
+  const [locationFilter, setLocationFilter]= useState('ALL');
+  const [addOpen,       setAddOpen]       = useState(false);
+  const [form,          setForm]          = useState(EMPTY_FORM);
   const [toggleTarget,  setToggleTarget]  = useState(null);
   const [resumeParsing, setResumeParsing] = useState(false);
   const [saving,        setSaving]        = useState(false);
 
+  // ── Pagination ────────────────────────────────────────────────────────────
+  const [empPage, setEmpPage] = useState(0);
+  const [empRpp,  setEmpRpp]  = useState(10);
+  const [exPage,  setExPage]  = useState(0);
+  const [exRpp,   setExRpp]   = useState(10);
+
+  // ── Active tab ────────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState(0);
+
+  // ── Managed lists ─────────────────────────────────────────────────────────
   const [departments, setDepartments] = useState(INITIAL_DEPARTMENTS);
   const [positions,   setPositions]   = useState(INITIAL_POSITIONS);
   const [locations,   setLocations]   = useState(INITIAL_LOCATIONS);
-
-  // Which list is currently open in ManageListDialog: null | 'dept' | 'pos' | 'loc'
-  const [manageOpen, setManageOpen] = useState(null);
+  const [manageOpen,  setManageOpen]  = useState(null);
 
   const MANAGE_CONFIG = {
     dept: { label: 'Departments', items: departments, setItems: setDepartments },
@@ -411,55 +1347,57 @@ const EmployeesPage = () => {
     loc:  { label: 'Locations',   items: locations,   setItems: setLocations   },
   };
 
+  const isManagerRole = user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER';
+
   const fetchEmployees = () => {
     setLoading(true);
-    employeeApi.getAll()
-      .then(setEmployees)
+    const activeRequest = isManagerRole && user?.employeeId
+      ? employeeApi.getTeam(user.employeeId)
+      : employeeApi.getAll();
+    const exRequest = isAdmin ? employeeApi.getExEmployees() : Promise.resolve([]);
+    Promise.all([activeRequest, exRequest])
+      .then(([active, ex]) => { setEmployees(active); setExEmployees(ex); })
       .catch(() => toast.error('Failed to load employees'))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchEmployees(); }, []);
+  useEffect(() => { fetchEmployees(); }, [user?.role, user?.employeeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Patch the employee list in-place when a profile is saved from EmployeeDetail
+  useEffect(() => {
+    const handler = ({ detail: updated }) => {
+      setEmployees(prev => prev.map(emp => emp.id === updated.id ? updated : emp));
+      setExEmployees(prev => prev.map(emp => emp.id === updated.id ? updated : emp));
+    };
+    window.addEventListener('employee-updated', handler);
+    return () => window.removeEventListener('employee-updated', handler);
+  }, []);
+
+  // ── Filter ────────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     return employees.filter((emp) => {
       const matchSearch = !q || [
         emp.firstName, emp.lastName, emp.fullName,
-        emp.email, emp.department, emp.position, emp.employeeCode,
-        emp.employmentType,
+        emp.email, emp.department, emp.position, emp.employeeCode, emp.employmentType,
       ].some((v) => v?.toLowerCase().includes(q));
-      const matchRole = roleFilter === 'ALL' || emp.role === roleFilter;
-      return matchSearch && matchRole;
+      const matchRole     = roleFilter     === 'ALL' || emp.role            === roleFilter;
+      const matchLocation = locationFilter === 'ALL' || emp.seatingLocation === locationFilter;
+      return matchSearch && matchRole && matchLocation;
     });
-  }, [employees, search, roleFilter]);
+  }, [employees, search, roleFilter, locationFilter]);
 
-  // ─── Manage list handlers ─────────────────────────────────────────────────
+  // exEmployees loaded from dedicated /api/employees/ex endpoint
 
-  const handleManage = (key) => setManageOpen(key);
+  useEffect(() => { setEmpPage(0); }, [search, roleFilter, locationFilter]);
 
-  const getManageConfig = () => manageOpen ? MANAGE_CONFIG[manageOpen] : null;
+  // ── Manage list handlers ──────────────────────────────────────────────────
+  const getManageConfig  = () => manageOpen ? MANAGE_CONFIG[manageOpen] : null;
+  const handleManageAdd  = (val) => { const c = getManageConfig(); if (c) c.setItems((p) => [...p, val]); };
+  const handleManageEdit = (idx, val) => { const c = getManageConfig(); if (c) c.setItems((p) => p.map((item, i) => (i === idx ? val : item))); };
+  const handleManageDel  = (idx) => { const c = getManageConfig(); if (c) c.setItems((p) => p.filter((_, i) => i !== idx)); };
 
-  const handleManageAdd = (val) => {
-    const cfg = getManageConfig();
-    if (!cfg) return;
-    cfg.setItems((prev) => [...prev, val]);
-  };
-
-  const handleManageEdit = (idx, val) => {
-    const cfg = getManageConfig();
-    if (!cfg) return;
-    cfg.setItems((prev) => prev.map((item, i) => (i === idx ? val : item)));
-  };
-
-  const handleManageDelete = (idx) => {
-    const cfg = getManageConfig();
-    if (!cfg) return;
-    cfg.setItems((prev) => prev.filter((_, i) => i !== idx));
-  };
-
-  // ─── Add ─────────────────────────────────────────────────────────────────
-
+  // ── Add ───────────────────────────────────────────────────────────────────
   const handleAdd = async () => {
     setSaving(true);
     try {
@@ -475,66 +1413,7 @@ const EmployeesPage = () => {
     }
   };
 
-  // ─── Edit ─────────────────────────────────────────────────────────────────
-
-  const openEdit = (emp) => {
-    setEditTarget(emp);
-    setEditForm({
-      email:             emp.email             || '',
-      password:          '',
-      firstName:         emp.firstName         || '',
-      lastName:          emp.lastName          || '',
-      employeeCode:      emp.employeeCode      || '',
-      phone:             emp.phone             || '',
-      personalEmail:     emp.personalEmail     || '',
-      department:        emp.department        || '',
-      position:          emp.position          || '',
-      role:              emp.role              || 'EMPLOYEE',
-      managerId:         emp.managerId         || '',
-      employmentType:    emp.employmentType    || '',
-      sourceOfHire:      emp.sourceOfHire      || '',
-      hireDate:          fmtDate(emp.hireDate),
-      dateOfExit:        fmtDate(emp.dateOfExit),
-      dateOfBirth:       fmtDate(emp.dateOfBirth),
-      gender:            emp.gender            || '',
-      maritalStatus:     emp.maritalStatus     || '',
-      aadharNumber:      emp.aadharNumber      || '',
-      panNumber:         emp.panNumber         || '',
-      uanNumber:         emp.uanNumber         || '',
-      address:           emp.address           || '',
-      presentAddress:    emp.presentAddress    || '',
-      permanentAddress:  emp.permanentAddress  || '',
-      seatingLocation:   emp.seatingLocation   || '',
-      currentExperience: emp.currentExperience || '',
-      totalExperience:   emp.totalExperience   || '',
-      skills:            emp.skills            || '',
-      experience:        emp.experience        || '',
-      photoUrl:          emp.photoUrl          || '',
-      addedBy:           emp.addedBy,
-      modifiedBy:        emp.modifiedBy,
-      createdAt:         emp.createdAt,
-      updatedAt:         emp.updatedAt,
-    });
-  };
-
-  const handleEdit = async () => {
-    setSaving(true);
-    try {
-      const payload = { ...editForm, managerId: editForm.managerId || null };
-      if (!payload.password) delete payload.password;
-      await employeeApi.update(editTarget.id, payload);
-      toast.success('Employee updated successfully');
-      setEditTarget(null);
-      fetchEmployees();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to update employee');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // ─── Toggle status ────────────────────────────────────────────────────────
-
+  // ── Toggle status ─────────────────────────────────────────────────────────
   const handleConfirmToggle = async () => {
     try {
       await employeeApi.toggleStatus(toggleTarget.id);
@@ -546,8 +1425,7 @@ const EmployeesPage = () => {
     }
   };
 
-  // ─── Resume upload ────────────────────────────────────────────────────────
-
+  // ── Resume upload ─────────────────────────────────────────────────────────
   const handleResumeUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -573,17 +1451,24 @@ const EmployeesPage = () => {
     }
   };
 
-  // ─── Render ───────────────────────────────────────────────────────────────
-
   const manageConfig = getManageConfig();
+  const isAdmin = user?.role === 'ADMIN';
 
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <Box>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" fontWeight={700}>Employees</Typography>
-        {user?.role === 'ADMIN' && (
-          <Stack direction="row" spacing={1.5}>
+      {/* ── Tab bar ── */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
+          <Tab icon={<PeopleIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Employees"    sx={{ minHeight: 48, gap: 0.5, textTransform: 'none', fontWeight: 600 }} />
+          <Tab icon={<AccessTimeIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Timesheet"    sx={{ minHeight: 48, gap: 0.5, textTransform: 'none', fontWeight: 600 }} />
+          <Tab icon={<TrendingUpIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Performance"  sx={{ minHeight: 48, gap: 0.5, textTransform: 'none', fontWeight: 600 }} />
+          <Tab icon={<SchoolIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Courses"          sx={{ minHeight: 48, gap: 0.5, textTransform: 'none', fontWeight: 600 }} />
+          {isAdmin && <Tab icon={<PersonRemoveIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Ex-Employees" sx={{ minHeight: 48, gap: 0.5, textTransform: 'none', fontWeight: 600 }} />}
+        </Tabs>
+        {isAdmin && (
+          <Stack direction="row" spacing={1.5} sx={{ flexShrink: 0, pb: 0.5 }}>
             <input
               id="resume-upload-input"
               type="file" accept=".pdf,.docx"
@@ -592,13 +1477,14 @@ const EmployeesPage = () => {
             />
             <Button
               variant="outlined"
-              startIcon={resumeParsing ? <CircularProgress size={16} /> : <UploadFileIcon />}
+              size="small"
+              startIcon={resumeParsing ? <CircularProgress size={14} /> : <UploadFileIcon />}
               disabled={resumeParsing}
               onClick={() => document.getElementById('resume-upload-input').click()}
             >
-              {resumeParsing ? 'Reading Resume…' : 'Upload Resume'}
+              {resumeParsing ? 'Reading…' : 'Upload Resume'}
             </Button>
-            <Button variant="contained" startIcon={<AddIcon />}
+            <Button variant="contained" size="small" startIcon={<AddIcon />}
               onClick={() => { setForm(EMPTY_FORM); setAddOpen(true); }}>
               Add Employee
             </Button>
@@ -606,121 +1492,208 @@ const EmployeesPage = () => {
         )}
       </Box>
 
-      {/* Search + filter bar */}
-      <Card sx={{ mb: 2 }}>
-        <CardContent sx={{ py: 2 }}>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <TextField
-              placeholder="Search by name, code, department..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              size="small" sx={{ width: 340 }}
-              InputProps={{ startAdornment: (
-                <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>
-              )}}
+      {/* ── Tab 0: Employees ── */}
+      {activeTab === 0 && (
+        <>
+          {/* Search + filter bar */}
+          <Card sx={{ mb: 2 }}>
+            <CardContent sx={{ py: 2 }}>
+              <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                <TextField
+                  placeholder="Search by name, code, department..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  size="small" sx={{ width: 300 }}
+                  InputProps={{ startAdornment: (
+                    <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>
+                  )}}
+                />
+                <FormControl size="small" sx={{ minWidth: 130 }}>
+                  <InputLabel>Role</InputLabel>
+                  <Select value={roleFilter} label="Role" onChange={(e) => setRoleFilter(e.target.value)}>
+                    <MenuItem value="ALL">All Roles</MenuItem>
+                    <MenuItem value="ADMIN">Admin</MenuItem>
+                    <MenuItem value="MANAGER">Manager</MenuItem>
+                    <MenuItem value="ASSISTANT_MANAGER">Assistant Manager</MenuItem>
+                    <MenuItem value="HR">HR</MenuItem>
+                    <MenuItem value="EMPLOYEE">Employee</MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControl size="small" sx={{ minWidth: 130 }}>
+                  <InputLabel>Location</InputLabel>
+                  <Select value={locationFilter} label="Location" onChange={(e) => setLocationFilter(e.target.value)}>
+                    <MenuItem value="ALL">All Locations</MenuItem>
+                    {locations.map((loc) => <MenuItem key={loc} value={loc}>{loc}</MenuItem>)}
+                  </Select>
+                </FormControl>
+                {(search || roleFilter !== 'ALL' || locationFilter !== 'ALL') && (
+                  <Button size="small" onClick={() => { setSearch(''); setRoleFilter('ALL'); setLocationFilter('ALL'); }}>
+                    Clear
+                  </Button>
+                )}
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto !important' }}>
+                  {filtered.length} of {employees.length} employees
+                </Typography>
+              </Stack>
+            </CardContent>
+          </Card>
+
+          {/* Employee table */}
+          <Card>
+            <TableContainer sx={{ overflowX: 'auto' }}>
+              <Table size="small" sx={{ minWidth: 1300 }}>
+                <TableHead>
+                  <TableRow sx={{ bgcolor: '#f1f5f9' }}>
+                    <TableCell sx={{ ...stickyId,   ...hdrCell, bgcolor: '#e2e8f0', borderRight: '1px solid #cbd5e1' }}>Emp ID</TableCell>
+                    <TableCell sx={{ ...stickyName, ...hdrCell, bgcolor: '#e2e8f0', borderRight: '1px solid #cbd5e1' }}>Employee Name</TableCell>
+                    <TableCell sx={{ ...stickyLoc,  ...hdrCell, bgcolor: '#e2e8f0', borderRight: '1px solid #cbd5e1' }}>Location</TableCell>
+                    <TableCell sx={hdrCell}>Department</TableCell>
+                    <TableCell sx={hdrCell}>Position</TableCell>
+                    <TableCell sx={hdrCell}>Role</TableCell>
+                    <TableCell sx={hdrCell}>Manager</TableCell>
+                    <TableCell sx={hdrCell}>Current Exp</TableCell>
+                    <TableCell sx={hdrCell}>Total Exp</TableCell>
+                    <TableCell sx={hdrCell}>Employment Type</TableCell>
+                    <TableCell sx={hdrCell}>Source of Hire</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
+                        <CircularProgress />
+                      </TableCell>
+                    </TableRow>
+                  ) : filtered.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={11} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                        No employees found
+                      </TableCell>
+                    </TableRow>
+                  ) : filtered.slice(empPage * empRpp, (empPage + 1) * empRpp).map((emp) => {
+                    const viewerIsAdmin   = user?.role === 'ADMIN';
+                    const viewerIsManager = user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER';
+                    const isDirectReport  = emp.managerId === user?.employeeId;
+                    const canClick        = viewerIsAdmin || (viewerIsManager && isDirectReport);
+
+                    return (
+                      <TableRow key={emp.id} hover
+                        onClick={canClick ? () => navigate(`/employees/${emp.id}`) : undefined}
+                        sx={canClick ? { cursor: 'pointer' } : {}}>
+                        <TableCell sx={{ ...stickyId,   ...cell, bgcolor: 'white', borderRight: '1px solid #e2e8f0' }}>
+                          <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: '#1d4ed8' }}>
+                            {emp.employeeCode || '—'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ ...stickyName, ...cell, bgcolor: 'white', borderRight: '1px solid #e2e8f0' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Avatar sx={{ width: 30, height: 30, bgcolor: '#1976d2', fontSize: '0.78rem', flexShrink: 0 }}>
+                              {emp.firstName?.charAt(0)}
+                            </Avatar>
+                            <Typography variant="body2" fontWeight={600} noWrap
+                              sx={canClick ? { color: 'primary.main' } : {}}>
+                              {emp.fullName}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell sx={{ ...stickyLoc, ...cell, bgcolor: 'white', borderRight: '1px solid #e2e8f0' }}>
+                          {emp.seatingLocation || '—'}
+                        </TableCell>
+                        <TableCell sx={cell}>{emp.department || '—'}</TableCell>
+                        <TableCell sx={cell}>{emp.position || '—'}</TableCell>
+                        <TableCell sx={cell}>
+                          <Chip label={emp.role} size="small" color={roleColors[emp.role] || 'default'} />
+                        </TableCell>
+                        <TableCell sx={cell}>{emp.managerName || '—'}</TableCell>
+                        <TableCell sx={cell}>{emp.currentExperience || '—'}</TableCell>
+                        <TableCell sx={cell}>{emp.totalExperience || '—'}</TableCell>
+                        <TableCell sx={cell}>
+                          {emp.employmentType
+                            ? <Chip label={emp.employmentType} size="small" variant="outlined" sx={{ fontSize: 11 }} />
+                            : '—'}
+                        </TableCell>
+                        <TableCell sx={cell}>{emp.sourceOfHire || '—'}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <TablePagination
+              component="div"
+              count={filtered.length}
+              page={empPage}
+              onPageChange={(_, p) => setEmpPage(p)}
+              rowsPerPage={empRpp}
+              onRowsPerPageChange={(e) => { setEmpRpp(parseInt(e.target.value, 10)); setEmpPage(0); }}
+              rowsPerPageOptions={[10, 25, 50]}
             />
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Role</InputLabel>
-              <Select value={roleFilter} label="Role"
-                onChange={(e) => setRoleFilter(e.target.value)}>
-                <MenuItem value="ALL">All Roles</MenuItem>
-                <MenuItem value="ADMIN">Admin</MenuItem>
-                <MenuItem value="MANAGER">Manager</MenuItem>
-                <MenuItem value="EMPLOYEE">Employee</MenuItem>
-              </Select>
-            </FormControl>
-            {(search || roleFilter !== 'ALL') && (
-              <Button size="small" onClick={() => { setSearch(''); setRoleFilter('ALL'); }}>Clear</Button>
-            )}
-            <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto !important' }}>
-              {filtered.length} of {employees.length} employees
-            </Typography>
-          </Stack>
-        </CardContent>
-      </Card>
+          </Card>
+        </>
+      )}
 
-      {/* Table */}
-      <Card>
-        <TableContainer sx={{ overflowX: 'auto' }}>
-          <Table size="small" sx={{ minWidth: 2300 }}>
-            <TableHead>
-              <TableRow sx={{ bgcolor: '#f1f5f9' }}>
-                {/* ── two sticky columns ── */}
-                <TableCell sx={{ ...stickyId,   ...hdrCell, bgcolor: '#e2e8f0', borderRight: '1px solid #cbd5e1' }}>Emp ID</TableCell>
-                <TableCell sx={{ ...stickyName, ...hdrCell, bgcolor: '#e2e8f0', borderRight: '1px solid #cbd5e1' }}>Employee Name</TableCell>
-                <TableCell sx={hdrCell}>Phone</TableCell>
-                <TableCell sx={hdrCell}>Personal Email</TableCell>
-                <TableCell sx={hdrCell}>Department</TableCell>
-                <TableCell sx={hdrCell}>Position</TableCell>
-                <TableCell sx={hdrCell}>Employment Type</TableCell>
-                <TableCell sx={hdrCell}>Source of Hire</TableCell>
-                <TableCell sx={hdrCell}>Date of Joining</TableCell>
-                <TableCell sx={hdrCell}>Date of Exit</TableCell>
-                <TableCell sx={hdrCell}>Gender</TableCell>
-                <TableCell sx={hdrCell}>Date of Birth</TableCell>
-                <TableCell sx={hdrCell}>Age</TableCell>
-                <TableCell sx={hdrCell}>Marital Status</TableCell>
-                <TableCell sx={hdrCell}>Seating Location</TableCell>
-                <TableCell sx={hdrCell}>Current Exp</TableCell>
-                <TableCell sx={hdrCell}>Total Exp</TableCell>
-                <TableCell sx={hdrCell}>Role</TableCell>
-                <TableCell sx={hdrCell}>Manager</TableCell>
-                <TableCell sx={hdrCell}>Added By</TableCell>
-                <TableCell sx={hdrCell}>Modified By</TableCell>
-                <TableCell sx={hdrCell}>Added Time</TableCell>
-                <TableCell sx={hdrCell}>Modified Time</TableCell>
-                <TableCell sx={hdrCell}>Status</TableCell>
-                {/* sticky last column */}
-                <TableCell sx={{ ...stickyRight, ...hdrCell }} align="center">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={26} align="center" sx={{ py: 4 }}>
-                    <CircularProgress />
-                  </TableCell>
-                </TableRow>
-              ) : filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={26} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                    No employees found
-                  </TableCell>
-                </TableRow>
-              ) : filtered.map((emp) => {
-                const isAdminRow    = emp.role === 'ADMIN';
-                const viewerIsAdmin = user?.role === 'ADMIN';
-                const canClick      = viewerIsAdmin || !isAdminRow;
+      {/* ── Tab 1: Timesheet ── */}
+      {activeTab === 1 && <TimesheetTab employees={employees} user={user} />}
 
-                return (
-                  <TableRow key={emp.id} hover>
-                    {/* ── Emp ID — sticky col 1 ── */}
-                    <TableCell sx={{ ...stickyId, ...cell, bgcolor: 'white', borderRight: '1px solid #e2e8f0' }}>
-                      <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: '#1d4ed8' }}>
+      {/* ── Tab 2: Performance ── */}
+      {activeTab === 2 && <PerformanceTab employees={employees} />}
+
+      {/* ── Tab 3: Courses ── */}
+      {activeTab === 3 && <CoursesTab user={user} />}
+
+      {/* ── Tab 4: Ex-Employees ── */}
+      {activeTab === 4 && (
+        <Card>
+          <TableContainer sx={{ overflowX: 'auto' }}>
+            <Table size="small" sx={{ minWidth: 900 }}>
+              <TableHead>
+                <TableRow sx={{ bgcolor: '#fef2f2' }}>
+                  <TableCell sx={{ ...hdrCell, color: '#991b1b' }}>#</TableCell>
+                  <TableCell sx={{ ...hdrCell, color: '#991b1b' }}>Emp ID</TableCell>
+                  <TableCell sx={{ ...hdrCell, color: '#991b1b' }}>Employee Name</TableCell>
+                  <TableCell sx={{ ...hdrCell, color: '#991b1b' }}>Department</TableCell>
+                  <TableCell sx={{ ...hdrCell, color: '#991b1b' }}>Position</TableCell>
+                  <TableCell sx={{ ...hdrCell, color: '#991b1b' }}>Employment Type</TableCell>
+                  <TableCell sx={{ ...hdrCell, color: '#991b1b' }}>Date of Joining</TableCell>
+                  <TableCell sx={{ ...hdrCell, color: '#991b1b' }}>Date of Exit</TableCell>
+                  <TableCell sx={{ ...hdrCell, color: '#991b1b' }}>Manager</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                      <CircularProgress />
+                    </TableCell>
+                  </TableRow>
+                ) : exEmployees.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                      No ex-employees found
+                    </TableCell>
+                  </TableRow>
+                ) : exEmployees.slice(exPage * exRpp, (exPage + 1) * exRpp).map((emp, i) => (
+                  <TableRow
+                    key={emp.id} hover
+                    onClick={() => navigate(`/employees/${emp.id}`)}
+                    sx={{ bgcolor: i % 2 === 0 ? 'white' : '#fff5f5', cursor: 'pointer' }}
+                  >
+                    <TableCell sx={{ ...cell, color: '#94a3b8' }}>{exPage * exRpp + i + 1}</TableCell>
+                    <TableCell sx={cell}>
+                      <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: '#dc2626' }}>
                         {emp.employeeCode || '—'}
                       </Typography>
                     </TableCell>
-
-                    {/* ── Employee Name — sticky col 2 ── */}
-                    <TableCell sx={{ ...stickyName, ...cell, bgcolor: 'white', borderRight: '1px solid #e2e8f0' }}>
+                    <TableCell sx={cell}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Avatar sx={{ width: 30, height: 30, bgcolor: '#1976d2', fontSize: '0.78rem', flexShrink: 0 }}>
+                        <Avatar sx={{ width: 28, height: 28, bgcolor: '#ef4444', fontSize: '0.72rem', flexShrink: 0 }}>
                           {emp.firstName?.charAt(0)}
                         </Avatar>
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography
-                            variant="body2" fontWeight={600} noWrap
-                            onClick={canClick ? () => navigate(`/employees/${emp.id}`) : undefined}
-                            sx={canClick ? { cursor: 'pointer', '&:hover': { color: 'primary.main', textDecoration: 'underline' } } : {}}
-                          >
-                            {emp.fullName}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary" noWrap>{emp.email}</Typography>
-                        </Box>
+                        <Typography variant="body2" fontWeight={600} sx={{ fontSize: 12.5 }}>
+                          {emp.fullName}
+                        </Typography>
                       </Box>
                     </TableCell>
-                    <TableCell sx={cell}>{emp.phone || '—'}</TableCell>
-                    <TableCell sx={cell}>{emp.personalEmail || '—'}</TableCell>
                     <TableCell sx={cell}>{emp.department || '—'}</TableCell>
                     <TableCell sx={cell}>{emp.position || '—'}</TableCell>
                     <TableCell sx={cell}>
@@ -728,74 +1701,30 @@ const EmployeesPage = () => {
                         ? <Chip label={emp.employmentType} size="small" variant="outlined" sx={{ fontSize: 11 }} />
                         : '—'}
                     </TableCell>
-                    <TableCell sx={cell}>{emp.sourceOfHire || '—'}</TableCell>
-                    <TableCell sx={cell}>{emp.hireDate ? String(emp.hireDate).slice(0,10) : '—'}</TableCell>
-                    <TableCell sx={cell}>{emp.dateOfExit ? String(emp.dateOfExit).slice(0,10) : '—'}</TableCell>
-                    <TableCell sx={cell}>{emp.gender || '—'}</TableCell>
-                    <TableCell sx={cell}>{emp.dateOfBirth ? String(emp.dateOfBirth).slice(0,10) : '—'}</TableCell>
-                    <TableCell sx={cell}>{emp.age != null ? emp.age : '—'}</TableCell>
-                    <TableCell sx={cell}>{emp.maritalStatus || '—'}</TableCell>
-                    <TableCell sx={cell}>{emp.seatingLocation || '—'}</TableCell>
-                    <TableCell sx={cell}>{emp.currentExperience || '—'}</TableCell>
-                    <TableCell sx={cell}>{emp.totalExperience || '—'}</TableCell>
+                    <TableCell sx={cell}>{emp.hireDate ? String(emp.hireDate).slice(0, 10) : '—'}</TableCell>
                     <TableCell sx={cell}>
-                      <Chip label={emp.role} size="small" color={roleColors[emp.role] || 'default'} />
+                      {emp.dateOfExit
+                        ? <Chip label={String(emp.dateOfExit).slice(0, 10)} size="small"
+                            sx={{ bgcolor: '#fee2e2', color: '#991b1b', fontSize: 11, fontFamily: 'monospace' }} />
+                        : '—'}
                     </TableCell>
                     <TableCell sx={cell}>{emp.managerName || '—'}</TableCell>
-                    <TableCell sx={cell}>
-                      <Typography variant="caption" noWrap sx={{ display: 'block', maxWidth: 130 }}>
-                        {emp.addedBy || '—'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={cell}>
-                      <Typography variant="caption" noWrap sx={{ display: 'block', maxWidth: 130 }}>
-                        {emp.modifiedBy || '—'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={cell}>
-                      <Typography variant="caption" noWrap>{emp.createdAt ? fmtDateTime(emp.createdAt) : '—'}</Typography>
-                    </TableCell>
-                    <TableCell sx={cell}>
-                      <Typography variant="caption" noWrap>{emp.updatedAt ? fmtDateTime(emp.updatedAt) : '—'}</Typography>
-                    </TableCell>
-                    <TableCell sx={cell}>
-                      <Chip label={emp.active ? 'Active' : 'Inactive'} size="small"
-                        color={emp.active ? 'success' : 'default'} />
-                    </TableCell>
-
-                    {/* Actions — sticky */}
-                    <TableCell align="center"
-                      sx={{ ...stickyRight, bgcolor: 'white', borderLeft: '1px solid #e2e8f0' }}>
-                      {canClick && (
-                        <Tooltip title="View">
-                          <IconButton size="small" onClick={() => navigate(`/employees/${emp.id}`)}>
-                            <VisibilityIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {user?.role === 'ADMIN' && (
-                        <>
-                          <Tooltip title="Edit">
-                            <IconButton size="small" color="primary" onClick={() => openEdit(emp)}>
-                              <EditIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title={emp.active ? 'Deactivate' : 'Activate'}>
-                            <IconButton size="small" onClick={() => setToggleTarget(emp)}
-                              color={emp.active ? 'error' : 'success'}>
-                              <BlockIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                          </Tooltip>
-                        </>
-                      )}
-                    </TableCell>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Card>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination
+            component="div"
+            count={exEmployees.length}
+            page={exPage}
+            onPageChange={(_, p) => setExPage(p)}
+            rowsPerPage={exRpp}
+            onRowsPerPageChange={(e) => { setExRpp(parseInt(e.target.value, 10)); setExPage(0); }}
+            rowsPerPageOptions={[10, 25, 50]}
+          />
+        </Card>
+      )}
 
       {/* ── Add Employee dialog ── */}
       <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="md" fullWidth
@@ -807,7 +1736,7 @@ const EmployeesPage = () => {
             values={form} setter={setForm} isEdit={false}
             employees={employees}
             departments={departments} positions={positions} locations={locations}
-            onManage={handleManage}
+            onManage={(k) => setManageOpen(k)}
           />
         </DialogContent>
         <Divider />
@@ -816,31 +1745,6 @@ const EmployeesPage = () => {
           <Button variant="contained" onClick={handleAdd} disabled={saving}
             startIcon={saving ? <CircularProgress size={16} /> : null}>
             {saving ? 'Adding…' : 'Add Employee'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* ── Edit Employee dialog ── */}
-      <Dialog open={Boolean(editTarget)} onClose={() => setEditTarget(null)} maxWidth="md" fullWidth
-        PaperProps={{ sx: { maxHeight: '90vh' } }}>
-        <DialogTitle fontWeight={700}>Edit Employee — {editTarget?.fullName}</DialogTitle>
-        <Divider />
-        <DialogContent sx={{ pt: 2 }}>
-          {editTarget && (
-            <EmployeeForm
-              values={editForm} setter={setEditForm} isEdit={true}
-              employees={employees}
-              departments={departments} positions={positions} locations={locations}
-              onManage={handleManage}
-            />
-          )}
-        </DialogContent>
-        <Divider />
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={() => setEditTarget(null)}>Cancel</Button>
-          <Button variant="contained" onClick={handleEdit} disabled={saving}
-            startIcon={saving ? <CircularProgress size={16} /> : null}>
-            {saving ? 'Saving…' : 'Save Changes'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -866,7 +1770,7 @@ const EmployeesPage = () => {
         </DialogActions>
       </Dialog>
 
-      {/* ── Manage List dialog (Departments / Positions / Locations) ── */}
+      {/* ── Manage List dialog ── */}
       {manageConfig && (
         <ManageListDialog
           open={Boolean(manageOpen)}
@@ -875,7 +1779,7 @@ const EmployeesPage = () => {
           items={manageConfig.items}
           onAdd={handleManageAdd}
           onEdit={handleManageEdit}
-          onDelete={handleManageDelete}
+          onDelete={handleManageDel}
         />
       )}
     </Box>

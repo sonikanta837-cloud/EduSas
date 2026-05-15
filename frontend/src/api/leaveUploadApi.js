@@ -10,4 +10,6 @@ export const leaveUploadApi = {
   },
   downloadTemplate: () =>
     api.get('/leave-upload/template', { responseType: 'blob' }),
+  getHolidays: () =>
+    api.get('/leave-upload/holidays'),
 };

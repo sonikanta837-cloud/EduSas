@@ -258,11 +258,15 @@ public class LeaveService {
     }
 
     private LeaveDTO toDTO(Leave l) {
+        EmployeeDetails emp = l.getEmployee();
+        EmployeeDetails mgr = emp.getManager();
         return LeaveDTO.builder()
                 .id(l.getId())
-                .employeeId(l.getEmployee().getId())
-                .employeeName(l.getEmployee().getFullName())
-                .department(l.getEmployee().getDepartment())
+                .employeeId(emp.getId())
+                .employeeName(emp.getFullName())
+                .department(emp.getDepartment())
+                .managerName(mgr != null ? mgr.getFullName() : null)
+                .location(emp.getSeatingLocation())
                 .leaveType(l.getLeaveType())
                 .startDate(l.getStartDate())
                 .endDate(l.getEndDate())

@@ -30,13 +30,13 @@ public class LeaveController {
     }
 
     @GetMapping("/manager/{managerId}/pending")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER')")
     public ResponseEntity<List<LeaveDTO>> getPendingForManager(@PathVariable Long managerId) {
         return ResponseEntity.ok(leaveService.getPendingLeavesForManager(managerId));
     }
 
     @GetMapping("/manager/{managerId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER')")
     public ResponseEntity<List<LeaveDTO>> getAllForManager(@PathVariable Long managerId) {
         return ResponseEntity.ok(leaveService.getLeavesForManager(managerId));
     }
@@ -48,7 +48,7 @@ public class LeaveController {
     }
 
     @PatchMapping("/{leaveId}/action")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER')")
     public ResponseEntity<LeaveDTO> processLeave(@PathVariable Long leaveId,
                                                    @RequestBody Map<String, String> body,
                                                    @RequestParam Long managerId) {

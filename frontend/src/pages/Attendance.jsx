@@ -94,7 +94,7 @@ const SessionRow = ({ session, index, isOpen }) => (
 
 // ── Day card ──────────────────────────────────────────────────────────────────
 
-const DayCard = ({ date, sessions, isToday, liveSec }) => {
+const DayCard = ({ date, sessions, isToday, liveSec, storedHours }) => {
   const [expanded, setExpanded] = useState(isToday);
 
   const dow = date.format('ddd').toUpperCase();
@@ -105,10 +105,15 @@ const DayCard = ({ date, sessions, isToday, liveSec }) => {
   const hasData = sessions.length > 0;
   const openSession = sessions.find(s => !s.logoutTime);
   const totalSec = isToday ? calcTotalSeconds(sessions, liveSec) : null;
-  const totalHours = hasData
+
+  // Session-computed hours (used as fallback when no stored override)
+  const sessionHours = hasData
     ? sessions.filter(s => s.sessionHours != null).reduce((a, s) => a + s.sessionHours, 0)
     : null;
+  // storedHours from Timesheet entity is authoritative — reflects any manual edits by admin/manager
+  const totalHours = storedHours != null ? storedHours : sessionHours;
 
+  const isPresent = hasData || storedHours != null;
   const firstLogin = hasData ? fmtTime(sessions[0].loginTime) : null;
   const lastLogout = hasData ? fmtTime(sessions[sessions.length - 1].logoutTime) : null;
 
@@ -117,7 +122,7 @@ const DayCard = ({ date, sessions, isToday, liveSec }) => {
     statusChip = <Chip label="Weekend" size="small" sx={{ bgcolor: '#fef3c7', color: '#b45309', height: 20, fontSize: '0.65rem' }} />;
   } else if (isFuture) {
     statusChip = null;
-  } else if (!hasData) {
+  } else if (!isPresent) {
     statusChip = <Chip label="Absent" size="small" sx={{ bgcolor: '#fee2e2', color: '#dc2626', height: 20, fontSize: '0.65rem' }} />;
   } else if (openSession) {
     statusChip = <Chip label="In Progress" size="small" color="success" sx={{ height: 20, fontSize: '0.65rem' }} />;
@@ -195,7 +200,7 @@ const DayCard = ({ date, sessions, isToday, liveSec }) => {
 
         {/* Hours */}
         <Box sx={{ flex: 1 }}>
-          {isToday && totalSec != null ? (
+          {isToday && openSession ? (
             <>
               <Typography variant="caption" color="text.secondary" display="block">Today's Hours</Typography>
               <Typography variant="body2" fontWeight={700} color={totalSec / 3600 > 8 ? '#dc2626' : '#1e293b'}
@@ -245,6 +250,7 @@ const AttendancePage = () => {
   const [weekStart, setWeekStart] = useState(dayjs().startOf('week'));
   const [sessions, setSessions] = useState([]);   // all sessions for the week
   const [todaySessions, setTodaySessions] = useState([]);
+  const [workingHoursMap, setWorkingHoursMap] = useState({}); // date → stored workingHours
   const [loading, setLoading] = useState(true);
 
   // Live counter
@@ -291,13 +297,21 @@ const AttendancePage = () => {
     try {
       const start = weekStart.format('YYYY-MM-DD');
       const end = weekStart.add(6, 'day').format('YYYY-MM-DD');
-      const today = dayjs().format('YYYY-MM-DD');
-      const [weekData, todayData] = await Promise.all([
+      const [weekData, todayData, weekTimesheets] = await Promise.all([
         timesheetApi.getSessionsByRange(emp.id, start, end),
         timesheetApi.getTodaySessions(emp.id),
+        timesheetApi.getAttendanceByRange(emp.id, start, end),
       ]);
       setSessions(weekData);
       setTodaySessions(todayData);
+      // Build date → workingHours map so manual edits by admin/manager are reflected
+      const hoursMap = {};
+      (Array.isArray(weekTimesheets) ? weekTimesheets : []).forEach(ts => {
+        if (ts.workDate && ts.workingHours != null) {
+          hoursMap[String(ts.workDate)] = ts.workingHours;
+        }
+      });
+      setWorkingHoursMap(hoursMap);
     } catch {
       toast.error('Failed to load attendance');
     } finally {
@@ -312,6 +326,18 @@ const AttendancePage = () => {
   useEffect(() => {
     if (myEmployee) loadData(myEmployee);
   }, [myEmployee, loadData]);
+
+  // Listen for working-hours changes made by admin/manager so the employee sees them instantly
+  useEffect(() => {
+    const handler = (e) => {
+      const { empId, date, hours } = e.detail;
+      if (myEmployee && empId === myEmployee.id) {
+        setWorkingHoursMap(prev => ({ ...prev, [date]: hours }));
+      }
+    };
+    window.addEventListener('working-hours-updated', handler);
+    return () => window.removeEventListener('working-hours-updated', handler);
+  }, [myEmployee]);
 
   const todayTotalSec = calcTotalSeconds(todaySessions, isCheckedIn ? liveSec : null);
 
@@ -457,6 +483,7 @@ const AttendancePage = () => {
                   sessions={daySessions}
                   isToday={isToday}
                   liveSec={isToday ? (isCheckedIn ? liveSec : 0) : 0}
+                  storedHours={workingHoursMap[dateStr] ?? null}
                 />
               );
             })

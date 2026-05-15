@@ -36,6 +36,8 @@ public class Timesheet {
 
     private Double workingHours;
 
+    private boolean manualOverride;   // true = hours were manually set; skip auto-recalc on logout
+
     @Column(columnDefinition = "TEXT")
     private String notes;
 

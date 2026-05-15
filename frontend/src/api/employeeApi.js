@@ -2,6 +2,7 @@ import api from './axios';
 
 export const employeeApi = {
   getAll: (search) => api.get('/employees', { params: search ? { search } : {} }),
+  getExEmployees: () => api.get('/employees/ex'),
   getById: (id) => api.get(`/employees/${id}`),
   getByUserId: (userId) => api.get(`/employees/user/${userId}`),
   getTeam: (managerId) => api.get(`/employees/manager/${managerId}/team`),

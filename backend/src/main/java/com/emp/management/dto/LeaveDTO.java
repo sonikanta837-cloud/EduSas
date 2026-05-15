@@ -18,6 +18,8 @@ public class LeaveDTO {
     private Long employeeId;
     private String employeeName;
     private String department;
+    private String managerName;
+    private String location;
     private String leaveType;
     private LocalDate startDate;
     private LocalDate endDate;

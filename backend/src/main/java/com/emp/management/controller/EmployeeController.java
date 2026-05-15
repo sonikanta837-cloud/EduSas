@@ -20,13 +20,13 @@ public class EmployeeController {
     private final EmployeeService employeeService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER', 'HR', 'EMPLOYEE')")
     public ResponseEntity<List<EmployeeDTO>> getAllEmployees(
             @RequestParam(required = false) String search) {
         if (search != null && !search.isBlank()) {
             return ResponseEntity.ok(employeeService.searchEmployees(search));
         }
-        return ResponseEntity.ok(employeeService.getActiveEmployees());
+        return ResponseEntity.ok(employeeService.getAllEmployees());
     }
 
     @GetMapping("/{id}")
@@ -44,6 +44,12 @@ public class EmployeeController {
         return ResponseEntity.ok(employeeService.getEmployeesByManager(managerId));
     }
 
+    @GetMapping("/ex")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<EmployeeDTO>> getExEmployees() {
+        return ResponseEntity.ok(employeeService.getExEmployees());
+    }
+
     @GetMapping("/org-chart")
     public ResponseEntity<List<EmployeeDTO>> getOrgChart() {
         return ResponseEntity.ok(employeeService.getOrgChart());
@@ -57,7 +63,7 @@ public class EmployeeController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE')")
     public ResponseEntity<EmployeeDTO> updateEmployee(@PathVariable Long id,
                                                        @RequestBody EmployeeDTO dto,
                                                        Authentication authentication) {

@@ -1,4 +1,5 @@
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\config\DataInitializer.java
+C:\Employee Managment Tool\backend\src\main\java\com\emp\management\dto\CertificateDTO.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\entity\Certificate.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\entity\EmployeeDetails.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\repository\EnrollmentRepository.java
@@ -22,6 +23,7 @@ C:\Employee Managment Tool\backend\src\main\java\com\emp\management\security\Jwt
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\service\PerformanceService.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\service\AIQuizService.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\entity\Leave.java
+C:\Employee Managment Tool\backend\src\main\java\com\emp\management\repository\AnnouncementRepository.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\entity\TimesheetEntry.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\controller\DashboardController.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\service\TimesheetEntryService.java
@@ -33,10 +35,12 @@ C:\Employee Managment Tool\backend\src\main\java\com\emp\management\repository\A
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\controller\LeaveUploadController.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\entity\Exam.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\security\UserDetailsServiceImpl.java
+C:\Employee Managment Tool\backend\src\main\java\com\emp\management\controller\CertificateController.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\security\JwtTokenProvider.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\service\EmployeeService.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\dto\PerformanceReviewDTO.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\dto\LeaveUploadResult.java
+C:\Employee Managment Tool\backend\src\main\java\com\emp\management\entity\Announcement.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\exception\BadRequestException.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\service\LeaveUploadService.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\dto\DashboardDTO.java
@@ -47,6 +51,7 @@ C:\Employee Managment Tool\backend\src\main\java\com\emp\management\repository\P
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\controller\PerformanceController.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\entity\AttendanceSession.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\repository\EmployeeDetailsRepository.java
+C:\Employee Managment Tool\backend\src\main\java\com\emp\management\service\CertificateService.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\dto\ResumeParseResponse.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\service\EmailService.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\controller\AuthController.java
@@ -67,7 +72,10 @@ C:\Employee Managment Tool\backend\src\main\java\com\emp\management\exception\Gl
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\repository\UserRepository.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\service\DashboardService.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\config\AppConfig.java
+C:\Employee Managment Tool\backend\src\main\java\com\emp\management\service\AnnouncementService.java
+C:\Employee Managment Tool\backend\src\main\java\com\emp\management\dto\AnnouncementDTO.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\entity\LeaveStatus.java
+C:\Employee Managment Tool\backend\src\main\java\com\emp\management\controller\AnnouncementController.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\service\CourseService.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\repository\CertificateRepository.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\dto\EmployeeDTO.java

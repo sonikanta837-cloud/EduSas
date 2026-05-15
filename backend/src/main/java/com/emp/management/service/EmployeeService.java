@@ -33,13 +33,19 @@ public class EmployeeService {
 
     @Transactional(readOnly = true)
     public List<EmployeeDTO> getAllEmployees() {
-        return employeeDetailsRepository.findAll().stream()
+        return employeeDetailsRepository.findByActive(true).stream()
                 .map(this::toDTO).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<EmployeeDTO> getActiveEmployees() {
         return employeeDetailsRepository.findByActive(true).stream()
+                .map(this::toDTO).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<EmployeeDTO> getExEmployees() {
+        return employeeDetailsRepository.findByActive(false).stream()
                 .map(this::toDTO).collect(Collectors.toList());
     }
 
@@ -55,13 +61,19 @@ public class EmployeeService {
 
         if (requester != null) {
             String role = requester.getUser().getRole().name();
-            boolean isAdmin    = "ADMIN".equals(role);
+
+            if (!target.isActive() && !"ADMIN".equals(role)) {
+                throw new AccessDeniedException("Only admins can view inactive employee profiles");
+            }
+
+            boolean isAdmin      = "ADMIN".equals(role) || "HR".equals(role);
+            boolean isManagerRole = "MANAGER".equals(role) || "ASSISTANT_MANAGER".equals(role);
             boolean isOwnProfile = requester.getId().equals(id);
-            boolean isDirectReport = "MANAGER".equals(role)
+            boolean isDirectReport = isManagerRole
                     && target.getManager() != null
                     && target.getManager().getId().equals(requester.getId());
 
-            if (!isAdmin && !isOwnProfile && !isDirectReport) {
+            if (!isAdmin && !isManagerRole && !isOwnProfile && !isDirectReport) {
                 throw new AccessDeniedException("You do not have permission to view this employee's profile");
             }
         }
@@ -77,13 +89,13 @@ public class EmployeeService {
 
     @Transactional(readOnly = true)
     public List<EmployeeDTO> getEmployeesByManager(Long managerId) {
-        return employeeDetailsRepository.findByManagerId(managerId).stream()
+        return employeeDetailsRepository.findByManagerIdAndActiveTrue(managerId).stream()
                 .map(this::toDTO).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<EmployeeDTO> searchEmployees(String query) {
-        return employeeDetailsRepository.searchEmployees(query).stream()
+        return employeeDetailsRepository.searchActiveEmployees(query).stream()
                 .map(this::toDTO).collect(Collectors.toList());
     }
 
@@ -147,11 +159,30 @@ public class EmployeeService {
     @Transactional
     public EmployeeDTO updateEmployee(Long id, EmployeeDTO dto, String requesterEmail) {
         EmployeeDetails emp = findEmployee(id);
+        EmployeeDetails requester = employeeDetailsRepository.findByUserEmail(requesterEmail).orElse(null);
+
+        // Managers may only update their direct reports
+        if (requester != null) {
+            String requesterRole = requester.getUser().getRole().name();
+            boolean isAdminOrHR = "ADMIN".equals(requesterRole) || "HR".equals(requesterRole);
+            boolean isManagerRole = "MANAGER".equals(requesterRole) || "ASSISTANT_MANAGER".equals(requesterRole);
+            boolean isDirectReport = isManagerRole
+                    && emp.getManager() != null
+                    && emp.getManager().getId().equals(requester.getId());
+            boolean isSelf = emp.getId().equals(requester.getId());
+            if (!isAdminOrHR && !isDirectReport && !isSelf) {
+                throw new AccessDeniedException("You do not have permission to update this employee");
+            }
+        }
+
         User user = emp.getUser();
 
-        // Update User-level fields
+        // Update User-level fields (role changes restricted to ADMIN/HR)
         if (dto.getRole() != null) {
-            user.setRole(Role.valueOf(dto.getRole()));
+            String requesterRole = requester != null ? requester.getUser().getRole().name() : "ADMIN";
+            if ("ADMIN".equals(requesterRole) || "HR".equals(requesterRole)) {
+                user.setRole(Role.valueOf(dto.getRole()));
+            }
         }
         if (dto.getEmail() != null && !dto.getEmail().isBlank()
                 && !dto.getEmail().equalsIgnoreCase(user.getEmail())) {
@@ -225,8 +256,13 @@ public class EmployeeService {
     @Transactional
     public void toggleEmployeeStatus(Long id) {
         EmployeeDetails emp = findEmployee(id);
-        emp.setActive(!emp.isActive());
-        emp.getUser().setActive(emp.isActive());
+        boolean wasActive = emp.isActive();
+        emp.setActive(!wasActive);
+        emp.getUser().setActive(!wasActive);
+        // When deactivating: clear this employee as manager for all their active reports
+        if (wasActive) {
+            transferSubordinatesToAdmin(emp);
+        }
         employeeDetailsRepository.save(emp);
     }
 
@@ -235,7 +271,24 @@ public class EmployeeService {
         EmployeeDetails emp = findEmployee(id);
         emp.setActive(false);
         emp.getUser().setActive(false);
+        transferSubordinatesToAdmin(emp);
         employeeDetailsRepository.save(emp);
+    }
+
+    private void transferSubordinatesToAdmin(EmployeeDetails deactivated) {
+        List<EmployeeDetails> subordinates = employeeDetailsRepository.findByManagerId(deactivated.getId());
+        if (subordinates.isEmpty()) return;
+
+        // Find the first active ADMIN (System Administrator) who is not the deactivated employee
+        EmployeeDetails admin = employeeDetailsRepository.findActiveAdmins().stream()
+                .filter(a -> !a.getId().equals(deactivated.getId()))
+                .findFirst()
+                .orElse(null);
+
+        for (EmployeeDetails sub : subordinates) {
+            sub.setManager(admin); // null if no admin found (edge case)
+            employeeDetailsRepository.save(sub);
+        }
     }
 
     @Transactional(readOnly = true)
@@ -326,9 +379,10 @@ public class EmployeeService {
                 .photoUrl(emp.getPhotoUrl())
                 .active(emp.isActive())
                 .role(emp.getUser().getRole().name())
-                .managerId(emp.getManager() != null ? emp.getManager().getId() : null)
-                .managerName(emp.getManager() != null ? emp.getManager().getFullName() : null)
-                .subordinateCount(emp.getSubordinates() != null ? emp.getSubordinates().size() : 0)
+                .managerId(emp.getManager() != null && emp.getManager().isActive() ? emp.getManager().getId() : null)
+                .managerName(emp.getManager() != null && emp.getManager().isActive() ? emp.getManager().getFullName() : null)
+                .subordinateCount(emp.getSubordinates() != null
+                        ? (int) emp.getSubordinates().stream().filter(EmployeeDetails::isActive).count() : 0)
                 .addedBy(emp.getAddedBy())
                 .modifiedBy(emp.getModifiedBy())
                 .createdAt(emp.getCreatedAt())

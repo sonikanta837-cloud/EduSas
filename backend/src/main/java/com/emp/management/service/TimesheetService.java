@@ -3,7 +3,6 @@ package com.emp.management.service;
 import com.emp.management.dto.AttendanceSessionDTO;
 import com.emp.management.dto.TimesheetDTO;
 import com.emp.management.entity.*;
-import com.emp.management.exception.BadRequestException;
 import com.emp.management.exception.ResourceNotFoundException;
 import com.emp.management.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -12,9 +11,11 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -27,6 +28,7 @@ public class TimesheetService {
     private final AttendanceSessionRepository sessionRepository;
     private final EmployeeDetailsRepository employeeDetailsRepository;
     private final UserRepository userRepository;
+    private final LeaveRepository leaveRepository;
     private final EmailService emailService;
 
     // ── Auto record on app login / logout ────────────────────────────────────
@@ -96,9 +98,10 @@ public class TimesheetService {
             final double finalTotal = totalHours;
             timesheetRepository.findByEmployeeIdAndWorkDate(employee.getId(), today).ifPresent(t -> {
                 t.setLogoutTime(logoutTime);
-                t.setWorkingHours(finalTotal);
+                if (!t.isManualOverride()) {
+                    t.setWorkingHours(finalTotal);
+                }
                 timesheetRepository.save(t);
-                if (finalTotal > 8.0 && !t.isAlertSent()) sendOvertimeAlerts(t, employee);
             });
         } catch (Exception e) {
             log.warn("Could not record logout for email={}: {}", email, e.getMessage());
@@ -155,37 +158,110 @@ public class TimesheetService {
                 .map(this::toDTO).orElse(null);
     }
 
-    // ── Overtime alerts ───────────────────────────────────────────────────────
+    // ── Admin: direct edit of working hours ───────────────────────────────────
 
-    private void sendOvertimeAlerts(Timesheet timesheet, EmployeeDetails employee) {
-        try {
-            String recipientEmail = null;
-            if (employee.getManager() != null && employee.getManager().getUser() != null) {
-                recipientEmail = employee.getManager().getUser().getEmail();
-            } else {
-                // Fall back to any admin
-                List<User> admins = userRepository.findByRole(Role.ADMIN);
-                if (!admins.isEmpty()) recipientEmail = admins.get(0).getEmail();
+    @Transactional
+    public TimesheetDTO updateWorkingHours(Long empId, LocalDate date, Double hours) {
+        EmployeeDetails emp = findEmployee(empId);
+        Timesheet t = timesheetRepository.findByEmployeeIdAndWorkDate(empId, date)
+                .orElse(Timesheet.builder().employee(emp).workDate(date).alertSent(false).build());
+        t.setWorkingHours(hours);
+        t.setManualOverride(true);
+        return toDTO(timesheetRepository.save(t));
+    }
+
+    public java.util.Map<String, Double> getWorkingHoursMap(Long empId, int year, int month) {
+        LocalDate start = LocalDate.of(year, month, 1);
+        LocalDate end   = start.withDayOfMonth(start.lengthOfMonth());
+        java.util.Map<String, Double> map = new java.util.HashMap<>();
+        timesheetRepository.findByEmployeeIdAndDateRange(empId, start, end).forEach(t -> {
+            if (t.getWorkingHours() != null) map.put(t.getWorkDate().toString(), t.getWorkingHours());
+        });
+        return map;
+    }
+
+    // ── Daily under-hours alert (10:00 AM) ───────────────────────────────────
+
+    @Scheduled(cron = "0 0 10 * * *")
+    public void sendDailyUnderhoursAlerts() {
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+
+        // Skip weekends — no working-hours expectation on Sat/Sun
+        DayOfWeek dow = yesterday.getDayOfWeek();
+        if (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY) return;
+
+        List<String> adminEmails = userRepository.findByRole(Role.ADMIN).stream()
+                .map(u -> u.getEmail())
+                .filter(e -> e != null && !e.isBlank())
+                .collect(Collectors.toList());
+
+        for (EmployeeDetails emp : employeeDetailsRepository.findByActive(true)) {
+            try {
+                if (emp.getUser() == null) continue;
+
+                // Skip employees on approved leave yesterday
+                if (leaveRepository.hasLeaveOnDate(emp.getId(), yesterday, LeaveStatus.APPROVED)) continue;
+
+                Timesheet ts = timesheetRepository
+                        .findByEmployeeIdAndWorkDate(emp.getId(), yesterday).orElse(null);
+
+                // Already alerted for this day
+                if (ts != null && ts.isAlertSent()) continue;
+
+                double hours = (ts != null && ts.getWorkingHours() != null) ? ts.getWorkingHours() : 0.0;
+                if (hours >= 8.0) continue;
+
+                dispatchUnderhoursAlert(emp, yesterday, hours, adminEmails);
+
+                // Persist alert flag so we never send twice for the same day
+                if (ts == null) {
+                    ts = Timesheet.builder()
+                            .employee(emp).workDate(yesterday)
+                            .alertSent(true).build();
+                } else {
+                    ts.setAlertSent(true);
+                }
+                timesheetRepository.save(ts);
+
+            } catch (Exception e) {
+                log.warn("Underhours alert failed for {}: {}", emp.getFullName(), e.getMessage());
             }
-            if (recipientEmail != null) {
-                emailService.sendOvertimeAlert(
-                    recipientEmail,
-                    employee.getFullName(),
-                    timesheet.getWorkingHours(),
-                    timesheet.getWorkDate()
-                );
-            }
-            timesheet.setAlertSent(true);
-            timesheetRepository.save(timesheet);
-        } catch (Exception e) {
-            log.error("Failed to send overtime alert", e);
         }
     }
 
-    @Scheduled(cron = "0 0 * * * *")
-    public void checkPendingOvertimeAlerts() {
-        timesheetRepository.findByAlertSentFalseAndWorkingHoursGreaterThan(8.0)
-                .forEach(t -> sendOvertimeAlerts(t, t.getEmployee()));
+    private void dispatchUnderhoursAlert(EmployeeDetails emp, LocalDate date,
+                                         double hours, List<String> adminEmails) {
+        String empEmail = emp.getUser().getEmail();
+        Role empRole   = emp.getUser().getRole();
+        String managerEmail = (emp.getManager() != null && emp.getManager().getUser() != null)
+                ? emp.getManager().getUser().getEmail() : null;
+
+        List<String> toList = new ArrayList<>();
+
+        switch (empRole) {
+            case MANAGER:
+                // Only their manager; no manager → admin
+                if (managerEmail != null) {
+                    toList.add(managerEmail);
+                } else {
+                    adminEmails.stream().filter(e -> !e.equalsIgnoreCase(empEmail)).forEach(toList::add);
+                }
+                break;
+            default:
+                // ASSISTANT_MANAGER, EMPLOYEE, HR, ADMIN → manager + all admins
+                if (managerEmail != null) toList.add(managerEmail);
+                adminEmails.stream().filter(e -> !e.equalsIgnoreCase(empEmail)).forEach(toList::add);
+                break;
+        }
+
+        // Deduplicate
+        toList = toList.stream().distinct().filter(e -> !e.isBlank()).collect(Collectors.toList());
+        if (toList.isEmpty()) return;
+
+        emailService.sendUnderhoursAlert(
+                toList.toArray(new String[0]),
+                new String[]{ empEmail },
+                emp.getFullName(), date, hours);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

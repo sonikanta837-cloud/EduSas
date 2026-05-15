@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   Box, Typography, Button, Card, CardContent, Chip,
   Table, TableHead, TableRow, TableCell, TableBody,
@@ -23,10 +23,19 @@ const SAMPLE_HOLIDAYS = [
 ];
 
 const LeaveUploadPage = () => {
-  const inputRef                = useRef(null);
-  const [dragging, setDragging] = useState(false);
+  const inputRef                  = useRef(null);
+  const [dragging,  setDragging]  = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [result,   setResult]   = useState(null);
+  const [result,    setResult]    = useState(null);
+  const [holidays,  setHolidays]  = useState([]);
+
+  const loadHolidays = () => {
+    leaveUploadApi.getHolidays()
+      .then(setHolidays)
+      .catch(() => {});
+  };
+
+  useEffect(() => { loadHolidays(); }, []);
 
   const handleFile = async (file) => {
     if (!file) return;
@@ -42,6 +51,7 @@ const LeaveUploadPage = () => {
       setResult(data);
       if (data.imported > 0) {
         toast.success(`${data.imported} holiday(s) applied to all employees`);
+        loadHolidays();
       } else {
         toast.warning('No holidays were imported — check the error log below');
       }
@@ -224,6 +234,56 @@ const LeaveUploadPage = () => {
                 ))}
               </Box>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Uploaded Holidays List ── */}
+      {holidays.length > 0 && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <CalendarMonthIcon sx={{ color: '#14b8a6', fontSize: 20 }} />
+              <Typography variant="h6" fontWeight={700}>
+                Uploaded Public Holidays ({holidays.length})
+              </Typography>
+            </Box>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: '#f1f5f9' }}>
+                  <TableCell sx={{ fontWeight: 700, width: 40 }}>#</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Holiday Name</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }} align="center">Applied To</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {holidays.map((h, i) => (
+                  <TableRow key={i} hover sx={{ bgcolor: i % 2 === 0 ? 'white' : '#f8fafc' }}>
+                    <TableCell sx={{ color: '#94a3b8', fontSize: 12 }}>{i + 1}</TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={600}>{h.name}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={h.date}
+                        size="small"
+                        sx={{ bgcolor: '#f0fdfa', color: '#0f766e', fontFamily: 'monospace', fontSize: 12 }}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Chip
+                        icon={<PeopleIcon sx={{ fontSize: '14px !important' }} />}
+                        label={`${h.employeeCount} employees`}
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       )}

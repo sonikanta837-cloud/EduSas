@@ -15,4 +15,7 @@ public interface PerformanceReviewRepository extends JpaRepository<PerformanceRe
 
     @Query("SELECT AVG(p.rating) FROM PerformanceReview p WHERE p.employee.id = :employeeId")
     Double getAverageRatingByEmployee(@Param("employeeId") Long employeeId);
+
+    @Query("SELECT p FROM PerformanceReview p WHERE p.employee.active = true ORDER BY p.reviewDate DESC")
+    List<PerformanceReview> findAllActiveEmployeeReviews();
 }

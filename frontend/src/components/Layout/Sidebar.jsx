@@ -22,18 +22,18 @@ export const SIDEBAR_W_OPEN   = 240;
 export const SIDEBAR_W_CLOSED = 72;
 
 const allNavItems = [
-  { label: 'Dashboard',    path: '/dashboard',    icon: <DashboardIcon />,    roles: ['ADMIN', 'MANAGER', 'EMPLOYEE'] },
-  { label: 'Employees',    path: '/employees',    icon: <PeopleIcon />,       roles: ['ADMIN', 'MANAGER'] },
-  { label: 'Org Chart',    path: '/org-chart',    icon: <AccountTreeIcon />,  roles: ['ADMIN', 'MANAGER', 'EMPLOYEE'] },
-  { label: 'Courses',      path: '/courses',      icon: <SchoolIcon />,       roles: ['ADMIN', 'MANAGER', 'EMPLOYEE'] },
-  { label: 'Timesheets',   path: '/timesheets',   icon: <AccessTimeIcon />,   roles: ['ADMIN', 'MANAGER', 'EMPLOYEE'] },
-  { label: 'Attendance',   path: '/attendance',   icon: <HowToRegIcon />,     roles: ['ADMIN', 'MANAGER', 'EMPLOYEE'] },
-  { label: 'Leaves',       path: '/leaves',       icon: <EventNoteIcon />,    roles: ['ADMIN', 'MANAGER', 'EMPLOYEE'] },
-  { label: 'Leave Upload', path: '/leave-upload', icon: <FileUploadIcon />,   roles: ['ADMIN'] },
-  { label: 'Performance',  path: '/performance',  icon: <StarIcon />,         roles: ['ADMIN', 'MANAGER', 'EMPLOYEE'] },
-  { label: 'Reports',      path: '/reports',      icon: <BarChartIcon />,     roles: ['ADMIN', 'MANAGER'] },
-  { label: 'Resources',    path: '/resources',    icon: <FolderIcon />,       roles: ['ADMIN', 'MANAGER', 'EMPLOYEE'] },
-  { label: 'My Profile',   path: '/profile',      icon: <PersonIcon />,       roles: ['ADMIN', 'MANAGER', 'EMPLOYEE'] },
+  { label: 'Dashboard',    path: '/dashboard',    icon: <DashboardIcon />,    roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Employees',    path: '/employees',    icon: <PeopleIcon />,       roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER'] },
+  { label: 'Organisation', path: '/org-chart',    icon: <AccountTreeIcon />,  roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Courses',      path: '/courses',      icon: <SchoolIcon />,       roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Timesheets',   path: '/timesheets',   icon: <AccessTimeIcon />,   roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Attendance',   path: '/attendance',   icon: <HowToRegIcon />,     roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Leaves',       path: '/leaves',       icon: <EventNoteIcon />,    roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Leave Upload', path: '/leave-upload', icon: <FileUploadIcon />,   roles: ['ADMIN', 'HR'] },
+  { label: 'Performance',  path: '/performance',  icon: <StarIcon />,         roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Reports',      path: '/reports',      icon: <BarChartIcon />,     roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER'] },
+  { label: 'Resources',    path: '/resources',    icon: <FolderIcon />,       roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'My Profile',   path: '/profile',      icon: <PersonIcon />,       roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
 ];
 
 const Sidebar = () => {
@@ -103,17 +103,21 @@ const Sidebar = () => {
           px: sidebarOpen ? 2 : 0,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', flexDirection: sidebarOpen ? 'row' : 'column', alignItems: 'center', gap: sidebarOpen ? 1.5 : 0.4 }}>
           <img
             src="/logo.png"
             alt="EduSAS"
-            style={{ height: 34, width: 34, objectFit: 'contain', flexShrink: 0 }}
+            style={{ height: sidebarOpen ? 34 : 28, width: sidebarOpen ? 34 : 28, objectFit: 'contain', flexShrink: 0 }}
           />
-          {sidebarOpen && (
-            <Typography sx={{ fontSize: '1rem', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>
-              EduSAS
-            </Typography>
-          )}
+          <Typography sx={{
+            fontWeight: 700,
+            color: '#fff',
+            whiteSpace: 'nowrap',
+            fontSize: sidebarOpen ? '1rem' : '0.58rem',
+            letterSpacing: sidebarOpen ? '0.02em' : '0.05em',
+          }}>
+            EduSAS
+          </Typography>
         </Box>
       </Box>
 

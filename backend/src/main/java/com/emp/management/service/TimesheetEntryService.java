@@ -7,6 +7,7 @@ import com.emp.management.exception.ResourceNotFoundException;
 import com.emp.management.repository.EmployeeDetailsRepository;
 import com.emp.management.repository.TimesheetEntryRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,8 +29,26 @@ public class TimesheetEntryService {
                 .stream().map(this::toDTO).collect(Collectors.toList());
     }
 
+    public void verifyAccess(Long targetEmpId, String callerEmail) {
+        EmployeeDetails caller = employeeDetailsRepository.findByUserEmail(callerEmail).orElse(null);
+        if (caller == null) return;
+        String role = caller.getUser().getRole().name();
+        if ("ADMIN".equals(role)) return;
+        if ("MANAGER".equals(role) || "ASSISTANT_MANAGER".equals(role)) {
+            if (caller.getId().equals(targetEmpId)) return;
+            EmployeeDetails target = employeeDetailsRepository.findById(targetEmpId).orElse(null);
+            if (target != null && target.getManager() != null
+                    && target.getManager().getId().equals(caller.getId())) return;
+            throw new AccessDeniedException("You can only edit timesheets for your direct reports");
+        }
+        if (!caller.getId().equals(targetEmpId)) {
+            throw new AccessDeniedException("You can only edit your own timesheet");
+        }
+    }
+
     @Transactional
-    public TimesheetEntryDTO saveEntry(TimesheetEntryDTO dto) {
+    public TimesheetEntryDTO saveEntry(TimesheetEntryDTO dto, String callerEmail) {
+        verifyAccess(dto.getEmployeeId(), callerEmail);
         EmployeeDetails employee = employeeDetailsRepository.findById(dto.getEmployeeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Employee", dto.getEmployeeId()));
 
@@ -50,12 +69,16 @@ public class TimesheetEntryService {
     }
 
     @Transactional
-    public void deleteEntry(Long id) {
+    public void deleteEntry(Long id, String callerEmail) {
+        TimesheetEntry entry = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("TimesheetEntry", id));
+        verifyAccess(entry.getEmployee().getId(), callerEmail);
         repository.deleteById(id);
     }
 
     @Transactional
-    public void deleteProjectRows(Long empId, String projectName, String taskName) {
+    public void deleteProjectRows(Long empId, String projectName, String taskName, String callerEmail) {
+        verifyAccess(empId, callerEmail);
         repository.deleteByEmployeeIdAndProjectNameAndTaskName(empId, projectName, taskName);
     }
 

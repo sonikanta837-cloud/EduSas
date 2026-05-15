@@ -11,4 +11,8 @@ export const timesheetApi = {
   getTodaySessions: (empId) => api.get(`/timesheets/sessions/today/${empId}`),
   getSessionsByRange: (empId, start, end) =>
     api.get(`/timesheets/sessions/${empId}/range`, { params: { start, end } }),
+  getWorkingHoursMap: (empId, year, month) =>
+    api.get(`/timesheets/working-hours/${empId}/month`, { params: { year, month } }),
+  updateWorkingHours: (empId, date, hours) =>
+    api.patch(`/timesheets/working-hours/${empId}/${date}`, { hours }),
 };

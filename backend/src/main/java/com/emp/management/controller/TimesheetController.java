@@ -9,7 +9,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -70,10 +73,29 @@ public class TimesheetController {
     }
 
     @GetMapping("/date/{date}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER')")
     public ResponseEntity<List<TimesheetDTO>> getByDate(
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return ResponseEntity.ok(timesheetService.getTimesheetsByDate(date));
+    }
+
+    // ── Admin: edit working hours directly ────────────────────────────────────
+
+    @GetMapping("/working-hours/{empId}/month")
+    public ResponseEntity<Map<String, Double>> getWorkingHoursMap(
+            @PathVariable Long empId,
+            @RequestParam int year,
+            @RequestParam int month) {
+        return ResponseEntity.ok(timesheetService.getWorkingHoursMap(empId, year, month));
+    }
+
+    @PatchMapping("/working-hours/{empId}/{date}")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','ASSISTANT_MANAGER')")
+    public ResponseEntity<TimesheetDTO> updateWorkingHours(
+            @PathVariable Long empId,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestBody Map<String, Double> body) {
+        return ResponseEntity.ok(timesheetService.updateWorkingHours(empId, date, body.get("hours")));
     }
 
     // ── Timesheet Entries (project-based hours) ────────────────────────────
@@ -87,13 +109,14 @@ public class TimesheetController {
     }
 
     @PostMapping("/entries")
-    public ResponseEntity<TimesheetEntryDTO> saveEntry(@RequestBody TimesheetEntryDTO dto) {
-        return ResponseEntity.ok(timesheetEntryService.saveEntry(dto));
+    public ResponseEntity<TimesheetEntryDTO> saveEntry(@RequestBody TimesheetEntryDTO dto,
+                                                        Authentication authentication) {
+        return ResponseEntity.ok(timesheetEntryService.saveEntry(dto, authentication.getName()));
     }
 
     @DeleteMapping("/entries/{id}")
-    public ResponseEntity<Void> deleteEntry(@PathVariable Long id) {
-        timesheetEntryService.deleteEntry(id);
+    public ResponseEntity<Void> deleteEntry(@PathVariable Long id, Authentication authentication) {
+        timesheetEntryService.deleteEntry(id, authentication.getName());
         return ResponseEntity.noContent().build();
     }
 
@@ -101,8 +124,9 @@ public class TimesheetController {
     public ResponseEntity<Void> deleteProjectRows(
             @RequestParam Long empId,
             @RequestParam String projectName,
-            @RequestParam String taskName) {
-        timesheetEntryService.deleteProjectRows(empId, projectName, taskName);
+            @RequestParam String taskName,
+            Authentication authentication) {
+        timesheetEntryService.deleteProjectRows(empId, projectName, taskName, authentication.getName());
         return ResponseEntity.noContent().build();
     }
 }

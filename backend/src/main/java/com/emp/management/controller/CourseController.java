@@ -1,11 +1,14 @@
 package com.emp.management.controller;
 
 import com.emp.management.dto.CourseDTO;
+import com.emp.management.repository.EmployeeDetailsRepository;
 import com.emp.management.service.AIQuizService;
 import com.emp.management.service.CourseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,14 +21,38 @@ public class CourseController {
 
     private final CourseService courseService;
     private final AIQuizService aiQuizService;
+    private final EmployeeDetailsRepository employeeDetailsRepository;
 
     @GetMapping
     public ResponseEntity<List<CourseDTO>> getAllCourses() {
         return ResponseEntity.ok(courseService.getAllCourses());
     }
 
+    @GetMapping("/manager/{managerId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER')")
+    public ResponseEntity<List<CourseDTO>> getCoursesForManager(@PathVariable Long managerId) {
+        return ResponseEntity.ok(courseService.getCoursesForManager(managerId));
+    }
+
     @GetMapping("/employee/{employeeId}")
-    public ResponseEntity<List<CourseDTO>> getCoursesForEmployee(@PathVariable Long employeeId) {
+    public ResponseEntity<List<CourseDTO>> getCoursesForEmployee(
+            @PathVariable Long employeeId, Authentication authentication) {
+        if (authentication != null) {
+            var requester = employeeDetailsRepository.findByUserEmail(authentication.getName()).orElse(null);
+            if (requester != null) {
+                String role = requester.getUser().getRole().name();
+                if (!"ADMIN".equals(role)) {
+                    boolean isSelf = requester.getId().equals(employeeId);
+                    var target = employeeDetailsRepository.findById(employeeId).orElse(null);
+                    boolean isDirectReport = ("MANAGER".equals(role) || "ASSISTANT_MANAGER".equals(role))
+                            && target != null && target.getManager() != null
+                            && target.getManager().getId().equals(requester.getId());
+                    if (!isSelf && !isDirectReport) {
+                        throw new AccessDeniedException("You can only view course data for employees in your reporting hierarchy");
+                    }
+                }
+            }
+        }
         return ResponseEntity.ok(courseService.getCoursesForEmployee(employeeId));
     }
 
@@ -65,7 +92,7 @@ public class CourseController {
     }
 
     @PostMapping("/{courseId}/assign")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','ASSISTANT_MANAGER')")
     public ResponseEntity<String> assignCourse(@PathVariable Long courseId,
                                                 @RequestBody Map<String, Object> body) {
         Long employeeId = body.get("employeeId") != null
@@ -83,7 +110,7 @@ public class CourseController {
     }
 
     @GetMapping("/{courseId}/enrolled-employee-ids")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','ASSISTANT_MANAGER')")
     public ResponseEntity<List<Long>> getEnrolledEmployeeIds(@PathVariable Long courseId) {
         return ResponseEntity.ok(courseService.getEnrolledEmployeeIds(courseId));
     }

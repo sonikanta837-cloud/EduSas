@@ -17,13 +17,20 @@ public interface EmployeeDetailsRepository extends JpaRepository<EmployeeDetails
     Optional<EmployeeDetails> findByUserId(Long userId);
     Optional<EmployeeDetails> findByUserEmail(String email);
     List<EmployeeDetails> findByManagerId(Long managerId);
+    List<EmployeeDetails> findByManagerIdAndActiveTrue(Long managerId);
     List<EmployeeDetails> findByDepartment(String department);
     List<EmployeeDetails> findByActive(boolean active);
 
     List<EmployeeDetails> findByManagerIsNullAndActiveTrue();
 
+    @Query("SELECT e FROM EmployeeDetails e WHERE e.user.role = com.emp.management.entity.Role.ADMIN AND e.active = true ORDER BY e.id ASC")
+    List<EmployeeDetails> findActiveAdmins();
+
     @Query("SELECT e FROM EmployeeDetails e WHERE (LOWER(e.firstName) LIKE LOWER(CONCAT('%', :q, '%')) OR LOWER(e.lastName) LIKE LOWER(CONCAT('%', :q, '%')) OR LOWER(e.department) LIKE LOWER(CONCAT('%', :q, '%')))")
     List<EmployeeDetails> searchEmployees(@Param("q") String query);
+
+    @Query("SELECT e FROM EmployeeDetails e WHERE e.active = true AND (LOWER(e.firstName) LIKE LOWER(CONCAT('%', :q, '%')) OR LOWER(e.lastName) LIKE LOWER(CONCAT('%', :q, '%')) OR LOWER(e.department) LIKE LOWER(CONCAT('%', :q, '%')))")
+    List<EmployeeDetails> searchActiveEmployees(@Param("q") String query);
 
     long countByActive(boolean active);
     long countByManagerIsNotNull();

@@ -14,8 +14,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -98,7 +100,7 @@ public class CourseService {
     public void assignCourse(Long courseId, Long employeeId, boolean assignAll) {
         Course course = findCourse(courseId);
         List<EmployeeDetails> targets = assignAll
-                ? employeeDetailsRepository.findAll()
+                ? employeeDetailsRepository.findByActive(true)
                 : List.of(employeeDetailsRepository.findById(employeeId)
                     .orElseThrow(() -> new ResourceNotFoundException("Employee", employeeId)));
 
@@ -256,6 +258,50 @@ public class CourseService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
+    @Transactional(readOnly = true)
+    public List<CourseDTO> getCoursesForManager(Long managerId) {
+        Set<Long> teamIds = employeeDetailsRepository.findByManagerIdAndActiveTrue(managerId)
+                .stream().map(EmployeeDetails::getId).collect(Collectors.toSet());
+        teamIds.add(managerId);
+        return courseRepository.findByActive(true).stream()
+                .map(c -> toDTOForTeam(c, teamIds))
+                .filter(dto -> dto.getEnrollmentCount() > 0)
+                .collect(Collectors.toList());
+    }
+
+    private CourseDTO toDTOForTeam(Course c, Set<Long> teamIds) {
+        List<com.emp.management.entity.Enrollment> all =
+                c.getEnrollments() != null ? c.getEnrollments() : List.of();
+        List<com.emp.management.entity.Enrollment> teamEnrollments = all.stream()
+                .filter(e -> e.getEmployee() != null && teamIds.contains(e.getEmployee().getId()))
+                .collect(Collectors.toList());
+
+        int completedCount  = (int) teamEnrollments.stream().filter(e -> e.getStatus() == EnrollmentStatus.COMPLETED).count();
+        int inProgressCount = (int) teamEnrollments.stream().filter(e -> e.getStatus() == EnrollmentStatus.IN_PROGRESS).count();
+        List<String> enrolledNames = teamEnrollments.stream()
+                .map(e -> e.getEmployee().getFirstName() + " " + e.getEmployee().getLastName())
+                .collect(Collectors.toList());
+
+        return CourseDTO.builder()
+                .id(c.getId())
+                .title(c.getTitle())
+                .description(c.getDescription())
+                .content(c.getContent())
+                .youtubeUrl(c.getYoutubeUrl())
+                .durationHours(c.getDurationHours())
+                .active(c.isActive())
+                .createdByName(c.getCreatedBy() != null ? c.getCreatedBy().getEmail() : null)
+                .createdById(c.getCreatedBy() != null ? c.getCreatedBy().getId() : null)
+                .createdAt(c.getCreatedAt())
+                .enrollmentCount(teamEnrollments.size())
+                .completedCount(completedCount)
+                .inProgressCount(inProgressCount)
+                .enrolledEmployeeNames(enrolledNames)
+                .hasExam(c.getExam() != null)
+                .examPassingScore(c.getExam() != null ? c.getExam().getPassingScore() : null)
+                .build();
+    }
+
     private Course findCourse(Long id) {
         return courseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course", id));
@@ -277,6 +323,18 @@ public class CourseService {
             }
         }
 
+        List<com.emp.management.entity.Enrollment> enrollments =
+                c.getEnrollments() != null ? c.getEnrollments() : List.of();
+
+        int completedCount = (int) enrollments.stream()
+                .filter(e -> e.getStatus() == EnrollmentStatus.COMPLETED).count();
+        int inProgressCount = (int) enrollments.stream()
+                .filter(e -> e.getStatus() == EnrollmentStatus.IN_PROGRESS).count();
+        List<String> enrolledNames = enrollments.stream()
+                .filter(e -> e.getEmployee() != null)
+                .map(e -> e.getEmployee().getFirstName() + " " + e.getEmployee().getLastName())
+                .collect(Collectors.toList());
+
         return CourseDTO.builder()
                 .id(c.getId())
                 .title(c.getTitle())
@@ -288,7 +346,10 @@ public class CourseService {
                 .createdByName(c.getCreatedBy() != null ? c.getCreatedBy().getEmail() : null)
                 .createdById(c.getCreatedBy() != null ? c.getCreatedBy().getId() : null)
                 .createdAt(c.getCreatedAt())
-                .enrollmentCount(c.getEnrollments() != null ? c.getEnrollments().size() : 0)
+                .enrollmentCount(enrollments.size())
+                .completedCount(completedCount)
+                .inProgressCount(inProgressCount)
+                .enrolledEmployeeNames(enrolledNames)
                 .hasExam(c.getExam() != null)
                 .examPassingScore(c.getExam() != null ? c.getExam().getPassingScore() : null)
                 .enrollmentStatus(enrollStatus)

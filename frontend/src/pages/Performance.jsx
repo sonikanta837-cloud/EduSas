@@ -35,7 +35,7 @@ const QUARTER_OPTIONS = buildQuarterOptions();
 const PerformancePage = () => {
   const { user } = useSelector((s) => s.auth);
   const isAdmin   = user?.role === 'ADMIN';
-  const isManager = user?.role === 'MANAGER';
+  const isManager = user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER';
 
   const [myEmployee,   setMyEmployee]   = useState(null);
   const [reviews,      setReviews]      = useState([]);
@@ -49,14 +49,22 @@ const PerformancePage = () => {
 
   // ── Initial load ────────────────────────────────────────────────────────────
   useEffect(() => {
+    const isAdminOrMgr = user?.role === 'ADMIN' || user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER';
     employeeApi.getByUserId(user.userId)
       .then(async (emp) => {
         setMyEmployee(emp);
-        const [revs, avg] = await Promise.all([
-          performanceApi.getByEmployee(emp.id).catch(() => []),
+        const [revs, avg, allEmps] = await Promise.all([
+          isAdminOrMgr
+            ? performanceApi.getAll().catch(() => [])
+            : performanceApi.getByEmployee(emp.id).catch(() => []),
           performanceApi.getAverage(emp.id).catch(() => ({ averageRating: 0 })),
+          isAdminOrMgr ? employeeApi.getAll().catch(() => []) : Promise.resolve([]),
         ]);
-        setReviews(revs);
+        const activeIds = new Set((allEmps || []).filter((e) => e.active !== false).map((e) => e.id));
+        const filtered = (Array.isArray(revs) ? revs : []).filter((r) =>
+          isAdminOrMgr ? activeIds.has(r.employeeId) : true
+        );
+        setReviews(filtered);
         setAvgRating(avg?.averageRating || 0);
       })
       .catch(() => toast.error('Failed to load performance data'))
@@ -76,8 +84,8 @@ const PerformancePage = () => {
       } else {
         list = await employeeApi.getTeam(myEmployee.id);
       }
-      // Exclude self and admins — managers/admins can only review non-admin employees
-      setEmpOptions((list || []).filter((e) => e.id !== myEmployee.id && e.role !== 'ADMIN'));
+      // Exclude self, admins, and inactive employees
+      setEmpOptions((list || []).filter((e) => e.id !== myEmployee.id && e.role !== 'ADMIN' && e.active !== false));
     } catch {
       toast.error('Failed to load employees');
     } finally {
@@ -99,8 +107,17 @@ const PerformancePage = () => {
       await performanceApi.create(payload);
       toast.success('Review submitted!');
       setAddOpen(false);
-      const revs = await performanceApi.getByEmployee(myEmployee.id);
-      setReviews(revs);
+      if (isAdmin || isManager) {
+        const [revs, allEmps] = await Promise.all([
+          performanceApi.getAll().catch(() => []),
+          employeeApi.getAll().catch(() => []),
+        ]);
+        const activeIds = new Set((allEmps || []).filter((e) => e.active !== false).map((e) => e.id));
+        setReviews((Array.isArray(revs) ? revs : []).filter((r) => activeIds.has(r.employeeId)));
+      } else {
+        const revs = await performanceApi.getByEmployee(myEmployee.id).catch(() => []);
+        setReviews(Array.isArray(revs) ? revs : []);
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to submit review');
     } finally {
@@ -169,10 +186,17 @@ const PerformancePage = () => {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <Avatar sx={{ width: 36, height: 36, bgcolor: '#1976d2', fontSize: '0.85rem' }}>
-                      {r.reviewerName?.charAt(0)}
+                      {r.employeeName?.charAt(0) || r.reviewerName?.charAt(0)}
                     </Avatar>
                     <Box>
-                      <Typography variant="subtitle2" fontWeight={600}>{r.reviewerName}</Typography>
+                      {(isAdmin || isManager) && r.employeeName && (
+                        <Typography variant="subtitle2" fontWeight={700} color="#0f172a">
+                          {r.employeeName}
+                        </Typography>
+                      )}
+                      <Typography variant="subtitle2" fontWeight={600} color="text.secondary">
+                        Reviewed by: {r.reviewerName}
+                      </Typography>
                       <Typography variant="caption" color="text.secondary">{r.reviewPeriod}</Typography>
                     </Box>
                   </Box>

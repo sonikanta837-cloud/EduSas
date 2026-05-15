@@ -55,7 +55,7 @@ public class PerformanceService {
     }
 
     public List<PerformanceReviewDTO> getAllReviews() {
-        return reviewRepository.findAll().stream()
+        return reviewRepository.findAllActiveEmployeeReviews().stream()
                 .map(this::toDTO).collect(Collectors.toList());
     }
 

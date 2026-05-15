@@ -1,19 +1,23 @@
 com\emp\management\controller\ResourceController.class
 com\emp\management\config\DataInitializer.class
+com\emp\management\repository\AnnouncementRepository.class
 com\emp\management\service\LeaveService.class
 com\emp\management\entity\AttendanceSession.class
 com\emp\management\config\SecurityConfig.class
 com\emp\management\service\EmailService.class
+com\emp\management\entity\Announcement$AnnouncementBuilder.class
 com\emp\management\dto\LoginRequest.class
 com\emp\management\service\ResourceStorageService.class
 com\emp\management\entity\Certificate.class
 com\emp\management\service\CourseService$2.class
 com\emp\management\repository\CourseRepository.class
+com\emp\management\controller\AnnouncementController.class
 com\emp\management\entity\Exam$ExamBuilder.class
 com\emp\management\service\ResumeService.class
 com\emp\management\entity\EmployeeDetails.class
 com\emp\management\exception\GlobalExceptionHandler.class
 com\emp\management\repository\UserRepository.class
+com\emp\management\dto\AnnouncementDTO.class
 com\emp\management\entity\Exam.class
 com\emp\management\entity\LeaveStatus.class
 com\emp\management\entity\TimesheetEntry$TimesheetEntryBuilder.class
@@ -41,6 +45,7 @@ com\emp\management\dto\LoginResponse.class
 com\emp\management\entity\Enrollment$EnrollmentBuilder.class
 com\emp\management\dto\LeaveDTO$LeaveDTOBuilder.class
 com\emp\management\entity\EnrollmentStatus.class
+com\emp\management\dto\CertificateDTO.class
 com\emp\management\repository\TimesheetRepository.class
 com\emp\management\repository\AttendanceSessionRepository.class
 com\emp\management\repository\CertificateRepository.class
@@ -48,8 +53,12 @@ com\emp\management\dto\CourseDTO$CourseDTOBuilder.class
 com\emp\management\service\LeaveUploadService$1.class
 com\emp\management\dto\AttendanceSessionDTO.class
 com\emp\management\dto\RegisterRequest.class
+com\emp\management\controller\CertificateController.class
+com\emp\management\dto\AnnouncementDTO$AnnouncementDTOBuilder.class
+com\emp\management\entity\Announcement.class
 com\emp\management\controller\EmployeeController.class
 com\emp\management\EmployeeManagementApplication.class
+com\emp\management\service\CertificateService.class
 com\emp\management\dto\DashboardDTO.class
 com\emp\management\dto\EmployeeDTO$EmployeeDTOBuilder.class
 com\emp\management\controller\LeaveController.class
@@ -65,6 +74,7 @@ com\emp\management\entity\User.class
 com\emp\management\service\CourseService$1.class
 com\emp\management\controller\TimesheetController.class
 com\emp\management\controller\PerformanceController.class
+com\emp\management\service\AnnouncementService.class
 com\emp\management\dto\LoginResponse$LoginResponseBuilder.class
 com\emp\management\dto\EmployeeDTO.class
 com\emp\management\config\AppConfig.class
@@ -91,6 +101,7 @@ com\emp\management\service\AuthService.class
 com\emp\management\service\TimesheetService.class
 com\emp\management\entity\TimesheetEntry.class
 com\emp\management\service\DashboardService.class
+com\emp\management\dto\CertificateDTO$CertificateDTOBuilder.class
 com\emp\management\dto\ResumeParseResponse.class
 com\emp\management\repository\EnrollmentRepository.class
 com\emp\management\entity\Enrollment.class
@@ -99,4 +110,5 @@ com\emp\management\dto\TimesheetDTO$TimesheetDTOBuilder.class
 com\emp\management\service\CourseService.class
 com\emp\management\service\CourseService$3.class
 com\emp\management\entity\PerformanceReview$PerformanceReviewBuilder.class
+com\emp\management\service\TimesheetService$1.class
 com\emp\management\dto\DashboardDTO$DashboardDTOBuilder.class

@@ -24,5 +24,4 @@ public interface TimesheetRepository extends JpaRepository<Timesheet, Long> {
     @Query("SELECT SUM(t.workingHours) FROM Timesheet t WHERE t.workDate = :date")
     Double getTotalWorkHoursByDate(@Param("date") LocalDate date);
 
-    List<Timesheet> findByAlertSentFalseAndWorkingHoursGreaterThan(Double hours);
 }

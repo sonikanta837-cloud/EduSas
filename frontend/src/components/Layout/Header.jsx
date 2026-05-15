@@ -3,25 +3,26 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar, Toolbar, Typography, Box, Avatar, Menu,
-  MenuItem, Divider, Tooltip, Badge, InputBase, IconButton
+  MenuItem, Divider, Tooltip, Badge, IconButton
 } from '@mui/material';
 import NotificationsIcon from '@mui/icons-material/Notifications';
+import ArrowBackIcon     from '@mui/icons-material/ArrowBack';
 import LogoutIcon        from '@mui/icons-material/Logout';
 import PersonIcon        from '@mui/icons-material/Person';
-import SearchIcon        from '@mui/icons-material/Search';
 import { logout }       from '../../store/authSlice';
 import { timesheetApi } from '../../api/timesheetApi';
 import { SIDEBAR_W_OPEN, SIDEBAR_W_CLOSED } from './Sidebar';
 
 const pageTitles = {
   '/dashboard':   'Dashboard',
-  '/employees':   'Employees',
+  '/employees':   'Employee Dashboard',
   '/org-chart':   'Org Chart',
   '/courses':     'Courses',
   '/timesheets':  'Timesheets',
   '/attendance':  'Attendance',
-  '/leaves':      'Leave Management',
-  '/performance': 'Performance',
+  '/leaves':        'Leave Management',
+  '/leave-upload':  'Leave Upload',
+  '/performance':   'Performance',
   '/reports':     'Reports',
   '/resources':   'Resources',
   '/profile':     'My Profile',
@@ -73,33 +74,28 @@ const Header = () => {
     >
       <Toolbar sx={{ gap: 1, minHeight: '64px !important', px: { xs: 2, sm: 3 } }}>
 
-        {/* Page title */}
-        <Typography
-          variant="h6"
-          sx={{ fontWeight: 700, color: '#0f172a', fontSize: '1.05rem', whiteSpace: 'nowrap', flexShrink: 0 }}
-        >
-          {pageTitle}
-        </Typography>
+        {/* Back button — shown on all pages except dashboard */}
+        {location.pathname !== '/dashboard' && (
+          <Tooltip title="Go back">
+            <IconButton
+              size="small"
+              onClick={() => navigate(-1)}
+              sx={{ color: '#64748b', mr: 0.5, flexShrink: 0, '&:hover': { bgcolor: '#f1f5f9' } }}
+            >
+              <ArrowBackIcon sx={{ fontSize: '1.2rem' }} />
+            </IconButton>
+          </Tooltip>
+        )}
 
-        {/* Search bar */}
-        <Box sx={{
-          display: 'flex', alignItems: 'center', gap: 1,
-          bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px',
-          px: 1.5, py: 0.6, mx: 3, flex: '1 1 200px', maxWidth: 380, minWidth: 0,
-          '&:focus-within': { borderColor: '#14b8a6', boxShadow: '0 0 0 3px rgba(20,184,166,0.12)' },
-          transition: 'all 0.2s ease',
-        }}>
-          <SearchIcon sx={{ color: '#94a3b8', fontSize: '1.1rem', flexShrink: 0 }} />
-          <InputBase
-            placeholder="Search employees, courses..."
-            sx={{
-              flex: 1, minWidth: 0,
-              fontSize: '0.875rem',
-              color: '#475569',
-              '& input::placeholder': { color: '#94a3b8', opacity: 1 },
-            }}
-          />
-        </Box>
+        {/* Page title */}
+        {pageTitle && (
+          <Typography
+            variant="h6"
+            sx={{ fontWeight: 700, color: '#0f172a', fontSize: '1.35rem', whiteSpace: 'nowrap', flexShrink: 0 }}
+          >
+            {pageTitle}
+          </Typography>
+        )}
 
         <Box sx={{ flexGrow: 1 }} />
 

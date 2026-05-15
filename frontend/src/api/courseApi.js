@@ -3,6 +3,7 @@ import api from './axios';
 export const courseApi = {
   getAll: () => api.get('/courses'),
   getForEmployee: (empId) => api.get(`/courses/employee/${empId}`),
+  getForManager: (managerId) => api.get(`/courses/manager/${managerId}`),
   getById: (id) => api.get(`/courses/${id}`),
   create: (data, createdBy) => api.post('/courses', data, { params: { createdBy } }),
   update: (id, data) => api.put(`/courses/${id}`, data),
@@ -18,4 +19,6 @@ export const courseApi = {
   generateQuestions: (courseId) => api.get(`/courses/${courseId}/generate-questions`),
   getAdminExamQuestions: (courseId) => api.get(`/courses/${courseId}/admin-exam-questions`),
   getEnrolledEmployeeIds: (courseId) => api.get(`/courses/${courseId}/enrolled-employee-ids`),
+  getMyCertificates: () => api.get('/certificates/my'),
+  getAllCertificates: () => api.get('/certificates'),
 };

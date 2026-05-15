@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { setUser } from '../store/authSlice';
 import {
   Box, Typography, Avatar, Chip, Button, CircularProgress,
   Tab, Tabs, Grid, Divider, TextField, Card, IconButton,
   Table, TableBody, TableCell, TableHead, TableRow, Alert,
-  FormControl, InputLabel, Select, MenuItem, List, ListItem, ListItemText, Tooltip, Dialog,
+  FormControl, InputLabel, Select, MenuItem, List, ListItem, ListItemText, Tooltip,
+  Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import ArrowBackIcon        from '@mui/icons-material/ArrowBack';
+import BlockIcon            from '@mui/icons-material/Block';
 import LockIcon             from '@mui/icons-material/Lock';
 import EditIcon             from '@mui/icons-material/Edit';
 import SaveIcon             from '@mui/icons-material/Save';
@@ -129,13 +132,14 @@ const InfoCard = ({ icon, label, value }) => (
 );
 
 // ── Role chip colours ─────────────────────────────────────────────────────────
-const roleColor = { ADMIN: '#ef4444', MANAGER: '#f59e0b', EMPLOYEE: '#3b82f6' };
+const roleColor = { ADMIN: '#ef4444', MANAGER: '#f59e0b', ASSISTANT_MANAGER: '#f59e0b', HR: '#8b5cf6', EMPLOYEE: '#3b82f6' };
 
 // ── Main component ────────────────────────────────────────────────────────────
 const EmployeeDetailPage = () => {
-  const { id }   = useParams();
-  const navigate = useNavigate();
-  const { user } = useSelector((s) => s.auth);
+  const { id }    = useParams();
+  const navigate  = useNavigate();
+  const dispatch  = useDispatch();
+  const { user }  = useSelector((s) => s.auth);
 
   const [employee,     setEmployee]     = useState(null);
   const [myEmployee,   setMyEmployee]   = useState(null);
@@ -145,9 +149,10 @@ const EmployeeDetailPage = () => {
   const [form,         setForm]         = useState({});
   const [tab,          setTab]          = useState('profile');
   const [deptOptions,  setDeptOptions]  = useState(['Human Resource','Operation','Management','Marketing','IT']);
-  const [posOptions,   setPosOptions]   = useState(['Accounts Trainee','Accounts Executive','Senior Accountant','Sr. Payroll Administrator','Manager','Business Development and Operation','HR','System Administrator']);
+  const [posOptions,   setPosOptions]   = useState(['Accounts Trainee','Accounts Executive','Senior Accountant','Sr. Payroll Administrator','Assistant Manager','Manager','Business Development and Operation','HR','System Administrator']);
   const [locOptions,   setLocOptions]   = useState(['Mandsaur','Ahmedabad','Jamnagar']);
-  const [manageOpen,   setManageOpen]   = useState(null); // null | 'dept' | 'pos' | 'loc'
+  const [manageOpen,   setManageOpen]   = useState(null);
+  const [allEmployees, setAllEmployees] = useState([]);
 
   const MANAGE_CFG = {
     dept: { label: 'Departments', items: deptOptions, setItems: setDeptOptions },
@@ -164,13 +169,15 @@ const EmployeeDetailPage = () => {
   const [timesheets,   setTimesheets]   = useState([]);
   const [courses,      setCourses]      = useState([]);
 
-  const isAdmin  = user?.role === 'ADMIN';
-  const isManager = user?.role === 'MANAGER';
+  const isAdmin   = user?.role === 'ADMIN';
+  const isHR      = user?.role === 'HR';
+  const isManager = user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER';
 
-  const isOwnProfile   = myEmployee && parseInt(id) === myEmployee.id;
-  const isTheirManager = isManager && employee && myEmployee && employee.managerId === myEmployee.id;
-  const canEdit        = isAdmin;
-  const canViewFull    = isAdmin || isOwnProfile || isTheirManager;
+  const isOwnProfile    = myEmployee && parseInt(id) === myEmployee.id;
+  const isTheirManager  = isManager && employee && myEmployee && employee.managerId === myEmployee.id;
+  const canEdit         = isAdmin || isHR || isTheirManager || isOwnProfile;
+  const canViewFull     = isAdmin || isHR || isOwnProfile || isTheirManager;
+  const canViewCourses  = isAdmin || isOwnProfile || isTheirManager;
 
   // Load viewer's own employee record
   useEffect(() => {
@@ -178,6 +185,13 @@ const EmployeeDetailPage = () => {
       employeeApi.getByUserId(user.userId).then(setMyEmployee).catch(() => {});
     }
   }, [user?.userId]);
+
+  // Load all employees for manager dropdown (admin + HR)
+  useEffect(() => {
+    if (user?.role === 'ADMIN' || user?.role === 'HR') {
+      employeeApi.getAll().then(setAllEmployees).catch(() => {});
+    }
+  }, [user?.role]);
 
   // Load employee
   useEffect(() => {
@@ -203,6 +217,10 @@ const EmployeeDetailPage = () => {
         employeeApi.getTeam(id).then(setReportees).catch(() => {});
       }
     }
+    if (tab === 'courses') {
+      if (canViewCourses) courseApi.getForEmployee(id).then(setCourses).catch(() => {});
+      return;
+    }
     if (!canViewFull) return;
     if (tab === 'leave')        leaveApi.getMyLeaves(id).then(setLeaves).catch(() => {});
     if (tab === 'performance')  performanceApi.getByEmployee(id).then(setReviews).catch(() => {});
@@ -225,17 +243,63 @@ const EmployeeDetailPage = () => {
       }).catch(() => {});
       return;
     }
-    if (tab === 'courses')      courseApi.getForEmployee(id).then(setCourses).catch(() => {});
-  }, [tab, employee, canViewFull, id]); // eslint-disable-line
+  }, [tab, employee, canViewFull, canViewCourses, id]); // eslint-disable-line
+
+  useEffect(() => {
+    const handler = (e) => {
+      const { empId, date, hours } = e.detail;
+      if (empId !== parseInt(id)) return;
+      setAttendance((prev) => prev.map((a) =>
+        String(a.workDate).slice(0, 10) === date ? { ...a, workingHours: hours } : a
+      ));
+    };
+    window.addEventListener('working-hours-updated', handler);
+    return () => window.removeEventListener('working-hours-updated', handler);
+  }, [id]);
+
+  const [confirmToggle, setConfirmToggle] = useState(false);
 
   const handleSave = async () => {
     try {
-      const updated = await employeeApi.update(id, form);
+      const payload = {
+        ...form,
+        managerId: form.managerId ? Number(form.managerId) : null,
+      };
+      const updated = await employeeApi.update(id, payload);
       setEmployee(updated);
+      setForm(updated);
       setEditing(false);
-      toast.success('Profile updated');
+      toast.success('Profile updated successfully');
+
+      // If the saved employee is the logged-in user, sync Redux + localStorage
+      if (user && updated.userId === user.userId) {
+        const updatedUser = {
+          ...user,
+          fullName:  updated.fullName,
+          email:     updated.email,
+          role:      updated.role,
+        };
+        dispatch(setUser(updatedUser));
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+      }
+
+      // Notify other pages (OrgChart) so they can patch stale state
+      window.dispatchEvent(new CustomEvent('employee-updated', { detail: updated }));
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to update employee';
+      toast.error(msg);
+    }
+  };
+
+  const handleToggleStatus = async () => {
+    try {
+      await employeeApi.toggleStatus(id);
+      const updated = await employeeApi.getById(id);
+      setEmployee(updated);
+      setConfirmToggle(false);
+      toast.success(`Employee ${updated.active ? 'activated' : 'deactivated'} successfully`);
     } catch {
-      toast.error('Failed to update');
+      toast.error('Failed to update status');
     }
   };
 
@@ -258,7 +322,7 @@ const EmployeeDetailPage = () => {
       </Box>
       <Typography variant="h6" fontWeight={700} color="#0f172a">Access Restricted</Typography>
       <Typography color="text.secondary" textAlign="center" maxWidth={380}>
-        You don't have permission to view this employee's profile. Only admins and direct managers can access detailed profiles.
+        You don't have permission to view this profile. Inactive employee profiles are accessible to admins only.
       </Typography>
       <Button
         variant="outlined" startIcon={<ArrowBackIcon />}
@@ -281,7 +345,7 @@ const EmployeeDetailPage = () => {
     { key: 'attendance',  label: 'Attendance',   locked: !canViewFull },
     { key: 'timesheets',  label: 'Timesheets',   locked: !canViewFull },
     { key: 'performance', label: 'Performance',  locked: !canViewFull },
-    { key: 'courses',     label: 'Courses' },
+    { key: 'courses',     label: 'Courses',      locked: !canViewCourses },
   ].filter((t) => !t.hidden);
 
   return (
@@ -293,6 +357,24 @@ const EmployeeDetailPage = () => {
           <ArrowBackIcon fontSize="small" />
         </IconButton>
       </Box>
+
+      {/* ── Inactive banner (admin viewing ex-employee) ──────────────── */}
+      {!employee.active && isAdmin && (
+        <Box sx={{
+          mx: { xs: 2, md: 4 }, mt: 1.5,
+          px: 2.5, py: 1.5,
+          bgcolor: '#fef2f2', border: '1px solid #fecaca', borderRadius: 2,
+          display: 'flex', alignItems: 'center', gap: 1.5,
+        }}>
+          <BlockIcon sx={{ color: '#dc2626', fontSize: 20 }} />
+          <Typography sx={{ fontSize: 13.5, color: '#991b1b', fontWeight: 600 }}>
+            Inactive Employee — Historical Record
+          </Typography>
+          <Typography sx={{ fontSize: 13, color: '#b91c1c', ml: 0.5 }}>
+            This employee is no longer active. You are viewing their archived profile and historical data.
+          </Typography>
+        </Box>
+      )}
 
       {/* ── Cover banner ──────────────────────────────────────────────── */}
       <Box sx={{
@@ -362,9 +444,9 @@ const EmployeeDetailPage = () => {
             </Typography>
           </Box>
 
-          {/* Edit / Save buttons */}
+          {/* Edit / Save / Toggle Status buttons */}
           {canEdit && (
-            <Box sx={{ pb: 1, display: 'flex', gap: 1 }}>
+            <Box sx={{ pb: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               {editing ? (
                 <>
                   <Button size="small" startIcon={<CancelIcon />}
@@ -379,11 +461,23 @@ const EmployeeDetailPage = () => {
                   </Button>
                 </>
               ) : (
-                <Button size="small" variant="outlined" startIcon={<EditIcon />}
-                  onClick={() => setEditing(true)}
-                  sx={{ textTransform: 'none' }}>
-                  Edit Profile
-                </Button>
+                <>
+                  <Button size="small" variant="outlined" startIcon={<EditIcon />}
+                    onClick={() => setEditing(true)}
+                    sx={{ textTransform: 'none' }}>
+                    Edit Profile
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color={employee.active ? 'error' : 'success'}
+                    startIcon={<BlockIcon />}
+                    onClick={() => setConfirmToggle(true)}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    {employee.active ? 'Deactivate' : 'Activate'}
+                  </Button>
+                </>
               )}
             </Box>
           )}
@@ -478,19 +572,35 @@ const EmployeeDetailPage = () => {
                       </Tooltip>
                     </Box>
                   </Grid>
-                  {[
-                    ['employmentType','Employment Type'], ['sourceOfHire','Source of Hire'],
-                  ].map(([f, l]) => (
-                    <Grid item xs={12} sm={6} key={f}>
-                      <TextField fullWidth size="small" label={l} value={form[f] || ''}
-                        onChange={(e) => setForm({ ...form, [f]: e.target.value })} />
-                    </Grid>
-                  ))}
+                  <Grid item xs={12} sm={6}>
+                    <FormControl size="small" fullWidth>
+                      <InputLabel>Employment Type</InputLabel>
+                      <Select value={form.employmentType || ''} label="Employment Type"
+                        onChange={(e) => setForm({ ...form, employmentType: e.target.value })}>
+                        <MenuItem value=""><em>None</em></MenuItem>
+                        {['Full-time','Part-time','Contract','Intern','Consultant'].map((o) => (
+                          <MenuItem key={o} value={o}>{o}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <FormControl size="small" fullWidth>
+                      <InputLabel>Source of Hire</InputLabel>
+                      <Select value={form.sourceOfHire || ''} label="Source of Hire"
+                        onChange={(e) => setForm({ ...form, sourceOfHire: e.target.value })}>
+                        <MenuItem value=""><em>None</em></MenuItem>
+                        {['LinkedIn','Referral','Job Portal','Walk-in','Campus','Other'].map((o) => (
+                          <MenuItem key={o} value={o}>{o}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
                   <Grid item xs={12} sm={6}>
                     <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'flex-start' }}>
                       <FormControl size="small" fullWidth>
-                        <InputLabel>Seating Location</InputLabel>
-                        <Select value={form.seatingLocation || ''} label="Seating Location"
+                        <InputLabel>Location</InputLabel>
+                        <Select value={form.seatingLocation || ''} label="Location"
                           onChange={(e) => setForm({ ...form, seatingLocation: e.target.value })}>
                           <MenuItem value=""><em>None</em></MenuItem>
                           {locOptions.map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
@@ -504,6 +614,47 @@ const EmployeeDetailPage = () => {
                       </Tooltip>
                     </Box>
                   </Grid>
+                  {/* Role — admin/HR only */}
+                  {(isAdmin || isHR) && (
+                    <Grid item xs={12} sm={6}>
+                      <FormControl size="small" fullWidth>
+                        <InputLabel>Role</InputLabel>
+                        <Select
+                          value={form.role || 'EMPLOYEE'}
+                          label="Role"
+                          onChange={(e) => setForm({ ...form, role: e.target.value })}
+                        >
+                          <MenuItem value="EMPLOYEE">Employee</MenuItem>
+                          <MenuItem value="MANAGER">Manager</MenuItem>
+                          <MenuItem value="ASSISTANT_MANAGER">Assistant Manager</MenuItem>
+                          <MenuItem value="HR">HR</MenuItem>
+                          <MenuItem value="ADMIN">Admin</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  )}
+                  {/* Manager — admin/HR only */}
+                  {(isAdmin || isHR) && (
+                    <Grid item xs={12} sm={6}>
+                      <FormControl size="small" fullWidth>
+                        <InputLabel>Manager</InputLabel>
+                        <Select
+                          value={form.managerId || ''}
+                          label="Manager"
+                          onChange={(e) => setForm({ ...form, managerId: e.target.value || null })}
+                        >
+                          <MenuItem value="">None</MenuItem>
+                          {allEmployees
+                            .filter((e) => e.id !== employee?.id && e.active !== false && (e.role === 'MANAGER' || e.role === 'ASSISTANT_MANAGER' || e.role === 'ADMIN'))
+                            .map((e) => (
+                              <MenuItem key={e.id} value={e.id}>
+                                {e.fullName} ({e.role})
+                              </MenuItem>
+                            ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  )}
                   <Grid item xs={12} sm={6}>
                     <TextField fullWidth size="small" label="Date of Joining" type="date"
                       InputLabelProps={{ shrink: true }}
@@ -607,7 +758,7 @@ const EmployeeDetailPage = () => {
                     )}
                     {employee.seatingLocation && (
                       <Grid item xs={12} sm={6} md={4}>
-                        <InfoCard icon={<BusinessIcon />} label="Seating Location" value={employee.seatingLocation} />
+                        <InfoCard icon={<BusinessIcon />} label="Location" value={employee.seatingLocation} />
                       </Grid>
                     )}
                   </Grid>
@@ -976,6 +1127,30 @@ const EmployeeDetailPage = () => {
           onDelete={(i) => mgCfg.setItems((p) => p.filter((_, idx) => idx !== i))}
         />
       )}
+
+      {/* ── Confirm Deactivate / Activate ── */}
+      <Dialog open={confirmToggle} onClose={() => setConfirmToggle(false)} maxWidth="xs" fullWidth>
+        <DialogTitle fontWeight={700}>
+          {employee?.active ? 'Deactivate Employee' : 'Activate Employee'}
+        </DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to {employee?.active ? 'deactivate' : 'activate'}{' '}
+            <strong>{employee?.fullName}</strong>?
+            {employee?.active && ' They will lose access to the system.'}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setConfirmToggle(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color={employee?.active ? 'error' : 'success'}
+            onClick={handleToggleStatus}
+          >
+            {employee?.active ? 'Deactivate' : 'Activate'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

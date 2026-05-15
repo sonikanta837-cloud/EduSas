@@ -125,9 +125,6 @@ const TimesheetsPage = () => {
   const todayStr = dayjs().format('YYYY-MM-DD');
 
   // ── Dynamic column width ──────────────────────────────────────────────────
-  // useLayoutEffect fires before paint so the first render already has the right width.
-  // measureRef sits on a plain div (not the Table) so its offsetWidth = the true
-  // available container width, unaffected by the table's own content.
   useLayoutEffect(() => {
     if (!measureRef.current) return;
     const calc = () => {

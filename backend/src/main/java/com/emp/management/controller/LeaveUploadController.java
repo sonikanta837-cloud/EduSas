@@ -1,6 +1,7 @@
 package com.emp.management.controller;
 
 import com.emp.management.dto.LeaveUploadResult;
+import com.emp.management.repository.LeaveRepository;
 import com.emp.management.service.LeaveUploadService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -10,6 +11,12 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 @RestController
 @RequestMapping("/api/leave-upload")
 @RequiredArgsConstructor
@@ -17,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class LeaveUploadController {
 
     private final LeaveUploadService leaveUploadService;
+    private final LeaveRepository    leaveRepository;
 
     @PostMapping
     public ResponseEntity<LeaveUploadResult> upload(@RequestParam("file") MultipartFile file) {
@@ -26,6 +34,21 @@ public class LeaveUploadController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
         }
+    }
+
+    @GetMapping("/holidays")
+    public ResponseEntity<List<Map<String, Object>>> getUploadedHolidays() {
+        List<Map<String, Object>> result = leaveRepository.findDistinctPublicHolidays()
+                .stream()
+                .map(row -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("name",          row[0]);
+                    m.put("date",          row[1].toString());
+                    m.put("employeeCount", row[2]);
+                    return m;
+                })
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/template")

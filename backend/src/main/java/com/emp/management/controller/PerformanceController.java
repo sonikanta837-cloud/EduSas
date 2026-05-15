@@ -18,7 +18,7 @@ public class PerformanceController {
     private final PerformanceService performanceService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER')")
     public ResponseEntity<PerformanceReviewDTO> createReview(@RequestBody PerformanceReviewDTO dto) {
         return ResponseEntity.ok(performanceService.createReview(dto));
     }
@@ -29,7 +29,7 @@ public class PerformanceController {
     }
 
     @GetMapping("/reviewer/{reviewerId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER')")
     public ResponseEntity<List<PerformanceReviewDTO>> getReviewsByReviewer(@PathVariable Long reviewerId) {
         return ResponseEntity.ok(performanceService.getReviewsByReviewer(reviewerId));
     }

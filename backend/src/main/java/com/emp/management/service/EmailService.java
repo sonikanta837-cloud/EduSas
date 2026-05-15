@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 
 @Slf4j
 @Service
@@ -87,23 +88,26 @@ public class EmailService {
         }
     }
 
-    public void sendOvertimeAlert(String to, String employeeName, Double hours, LocalDate date) {
+    public void sendUnderhoursAlert(String[] to, String[] cc, String employeeName,
+                                    LocalDate date, double hours) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(to);
-            message.setSubject("Overtime Alert - " + employeeName);
+            message.setCc(cc);
+            message.setSubject("Under Hours Alert – " + employeeName
+                    + " – " + date.format(DateTimeFormatter.ofPattern("dd MMM yyyy")));
             message.setText(
-                "Overtime Alert\n\n" +
-                "Employee: " + employeeName + "\n" +
-                "Date: " + date + "\n" +
-                "Hours Worked: " + String.format("%.1f", hours) + "h\n\n" +
-                "This employee has exceeded 8 hours today.\n\n" +
+                "Under Hours Alert\n\n" +
+                "Employee : " + employeeName + "\n" +
+                "Date     : " + date.format(DateTimeFormatter.ofPattern("dd MMM yyyy")) + "\n" +
+                "Hours    : " + String.format("%.1f", hours) + " / 8.0 hrs\n\n" +
+                "This employee's total working hours were below the required 8 hours.\n\n" +
                 "EmpSAS Team"
             );
             mailSender.send(message);
-            log.info("Overtime alert sent to {} for employee {}", to, employeeName);
+            log.info("Underhours alert sent to {} for employee {}", Arrays.toString(to), employeeName);
         } catch (Exception e) {
-            log.error("Failed to send overtime alert to {}: {}", to, e.getMessage());
+            log.error("Failed to send underhours alert for {}: {}", employeeName, e.getMessage());
         }
     }
 }

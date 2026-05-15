@@ -14,11 +14,11 @@ import java.util.List;
 public interface LeaveRepository extends JpaRepository<Leave, Long> {
     List<Leave> findByEmployeeIdOrderByAppliedAtDesc(Long employeeId);
 
-    // PENDING first, then newest appliedAt — used for admin "all leaves" view
-    @Query("SELECT l FROM Leave l ORDER BY CASE WHEN l.status = 'PENDING' THEN 0 ELSE 1 END ASC, l.appliedAt DESC")
+    // PENDING first, then newest appliedAt — active employees only (admin view)
+    @Query("SELECT l FROM Leave l WHERE l.employee.active = true ORDER BY CASE WHEN l.status = 'PENDING' THEN 0 ELSE 1 END ASC, l.appliedAt DESC")
     List<Leave> findAllOrderByPendingFirst();
 
-    @Query("SELECT l FROM Leave l WHERE l.status = :status ORDER BY l.appliedAt DESC")
+    @Query("SELECT l FROM Leave l WHERE l.employee.active = true AND l.status = :status ORDER BY l.appliedAt DESC")
     List<Leave> findByStatus(@Param("status") LeaveStatus status);
 
     // Overlap check for new leave
@@ -51,4 +51,13 @@ public interface LeaveRepository extends JpaRepository<Leave, Long> {
 
     long countByStatus(LeaveStatus status);
     long countByEmployeeIdAndStatus(Long employeeId, LeaveStatus status);
+
+    @Query("SELECT COUNT(l) > 0 FROM Leave l WHERE l.employee.id = :empId " +
+           "AND l.status = :status AND l.startDate <= :date AND l.endDate >= :date")
+    boolean hasLeaveOnDate(@Param("empId") Long empId,
+                           @Param("date") LocalDate date,
+                           @Param("status") LeaveStatus status);
+
+    @Query("SELECT l.reason, l.startDate, COUNT(l) FROM Leave l WHERE l.leaveType = 'Public Holiday' GROUP BY l.reason, l.startDate ORDER BY l.startDate DESC")
+    List<Object[]> findDistinctPublicHolidays();
 }

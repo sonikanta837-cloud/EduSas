@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -23,6 +24,9 @@ public class CourseDTO {
     private Long createdById;
     private LocalDateTime createdAt;
     private int enrollmentCount;
+    private int completedCount;
+    private int inProgressCount;
+    private List<String> enrolledEmployeeNames;
     private boolean hasExam;
     private Integer examPassingScore;
     private String enrollmentStatus;
