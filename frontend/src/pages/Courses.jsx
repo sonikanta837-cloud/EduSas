@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { jsPDF } from 'jspdf';
 import { useSelector } from 'react-redux';
 import {
   Box, Card, CardContent, CardActions, Typography, Button,
@@ -479,170 +478,20 @@ const CoursesPage = () => {
     setExamAnswers(new Array(examQuestions.length).fill(null));
   };
 
-  const downloadCertificate = (courseName, employeeName, certNo) => {
-    const logoImg = new Image();
-    logoImg.onload = () => {
-      const W = 1400, H = 990, HDR = 176;
-      const CX = W / 2;
-
-      const canvas = document.createElement('canvas');
-      canvas.width = W; canvas.height = H;
-      const ctx = canvas.getContext('2d');
-
-      const poly = (pts, color) => {
-        ctx.beginPath();
-        pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
-        ctx.closePath(); ctx.fillStyle = color; ctx.fill();
-      };
-      const diamond = (cx, cy, hw, color) => {
-        ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.PI / 4);
-        ctx.fillStyle = color; ctx.fillRect(-hw, -hw, hw * 2, hw * 2);
-        ctx.restore();
-      };
-
-      /* ══ 1. WHITE BASE ══════════════════════════ */
-      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
-
-      /* ══ 2. LEFT DARK PARALLELOGRAMS ═══════════
-         Outer right edge goes (302,0)→(194,584).
-         Gold bands are drawn AFTER to straddle that edge. */
-      poly([[0,0],[302,0],[194,584],[0,654]], '#1c1c2e');  // outer charcoal
-      poly([[0,0],[202,0],[128,544],[0,608]], '#141424');  // mid
-      poly([[0,0],[120,0],[ 70,498],[0,556]], '#0d0d1c'); // inner darkest
-
-      /* gold metallic band on outer-shape right edge:
-         inner half (over dark shape): x=272→302 at top, x=164→194 at y=584
-         outer half (over white area): x=302→330 at top, x=194→222 at y=584 */
-      poly([[272,0],[302,0],[194,584],[164,584]], '#b8960a'); // dark gold inner
-      poly([[302,0],[330,0],[222,584],[194,584]], '#e8c000'); // bright gold outer
-
-      /* white ">>" chevrons */
-      ctx.save();
-      ctx.strokeStyle = 'rgba(255,255,255,0.92)';
-      ctx.lineWidth = 6; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo( 98,338); ctx.lineTo(150,416); ctx.lineTo( 98,494); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(134,338); ctx.lineTo(186,416); ctx.lineTo(134,494); ctx.stroke();
-      ctx.restore();
-
-      /* ══ 3. RIGHT GOLD STRIPE (wide + vivid) ═══ */
-      poly([[958,0],[1062,0],[994,HDR],[890,HDR]],  '#2a1a04'); // dark edge
-      poly([[1062,0],[1228,0],[1152,HDR],[994,HDR]], '#b88010'); // mid gold
-      poly([[1228,0],[1390,0],[1332,HDR],[1152,HDR]], '#e8c000'); // vivid gold
-      poly([[1390,0],[  W,0],[  W,HDR],[1332,HDR]],  '#c09808'); // right taper
-
-      /* ══ 4. BOTTOM-RIGHT DARK DIAMONDS ═════════ */
-      diamond(1255, 855, 132, '#1c1c2e');
-      diamond(1306, 900, 104, '#151520');
-      diamond(1350, 938,  80, '#0f0f18');
-      diamond(1386, 968,  58, '#080810');
-      /* gold sparkle dots */
-      ctx.fillStyle = '#c9a227';
-      [[1306,855],[1334,869],[1318,887],[1300,873],[1358,873],[1342,891]]
-        .forEach(([x,y]) => { ctx.beginPath(); ctx.arc(x,y,3.5,0,Math.PI*2); ctx.fill(); });
-
-      /* ══ 5. HEADER BAR ══════════════════════════
-         Very dark at edges, deep purple in centre. */
-      const hGrad = ctx.createLinearGradient(0, 0, W, 0);
-      hGrad.addColorStop(0,    '#020206');
-      hGrad.addColorStop(0.18, '#140428');
-      hGrad.addColorStop(0.50, '#1c083c');
-      hGrad.addColorStop(0.82, '#140428');
-      hGrad.addColorStop(1,    '#020206');
-      ctx.fillStyle = hGrad; ctx.fillRect(0, 0, W, HDR);
-
-      /* dark corner overlays for depth/texture */
-      poly([[0,0],[250,0],[220,HDR],[0,HDR]], 'rgba(2,1,8,0.62)');
-      poly([[W-270,0],[W,0],[W,HDR],[W-300,HDR]], 'rgba(2,1,8,0.58)');
-
-      /* ══ 6. LOGO — dynamically centered ════════ */
-      const lR = 58, lY = HDR / 2;
-      ctx.font = 'bold 30px Arial, sans-serif';
-      const nameW = ctx.measureText('SAS KPO SERVICES').width;
-      const blockX = CX - (lR * 2 + 20 + nameW) / 2;
-      const lX = blockX + lR;
-      const tx = blockX + lR * 2 + 20;
-      ctx.drawImage(logoImg, lX - lR, lY - lR, lR * 2, lR * 2);
-      ctx.fillStyle = '#d4af37'; ctx.font = 'bold 30px Arial, sans-serif';
-      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-      ctx.fillText('SAS KPO SERVICES', tx, lY + 9);
-      ctx.fillStyle = '#b89a30'; ctx.font = '15px Arial, sans-serif';
-      ctx.fillText('Partners in Business Extension', tx, lY + 33);
-
-      /* ══ 7. CERTIFICATE OF COMPLETION ══════════
-         No gold rule underneath — matches reference. */
-      ctx.fillStyle = '#111827'; ctx.font = 'bold 58px Arial, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-      ctx.fillText('CERTIFICATE OF COMPLETION', CX, 308);
-
-      /* ══ 8. AWARDED TO ══════════════════════════ */
-      ctx.fillStyle = '#9ca3af'; ctx.font = '500 16px Arial, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('AWARDED TO', CX, 392);
-
-      /* ══ 9. EMPLOYEE NAME ═══════════════════════ */
-      ctx.fillStyle = '#c9a227';
-      ctx.font = 'italic bold 84px Georgia, "Times New Roman", serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-      ctx.fillText(employeeName, CX, 496);
-
-      /* ══ 10. for successfully completing ════════ */
-      ctx.fillStyle = '#4b5563'; ctx.font = '18px Arial, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('for successfully completing', CX, 554);
-
-      /* ══ 11. COURSE NAME (auto-wrap) ════════════ */
-      ctx.fillStyle = '#111827';
-      ctx.font = 'bold italic 32px Georgia, "Times New Roman", serif';
-      ctx.textAlign = 'center';
-      const maxCW = W * 0.58;
-      const words = courseName.split(' ');
-      let line = '', lineY = 616;
-      for (let i = 0; i < words.length; i++) {
-        const test = line + words[i] + ' ';
-        if (ctx.measureText(test).width > maxCW && i > 0) {
-          ctx.fillText(line.trim(), CX, lineY); line = words[i] + ' '; lineY += 44;
-        } else { line = test; }
-      }
-      ctx.fillText(line.trim(), CX, lineY);
-
-      /* ══ 12. DATE ═══════════════════════════════ */
-      const dateStr = new Date().toLocaleDateString('en-US',
-        { month: 'long', day: 'numeric', year: 'numeric' });
-      const dateY = lineY + 72;
-      ctx.fillStyle = '#4b5563'; ctx.font = '17px Arial, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(`Date of Completion  ${dateStr}`, CX, dateY);
-
-      /* ══ 13. SIGNATURE — cursive script font ════ */
-      const sigY = dateY + 102;
-      ctx.fillStyle = '#1a1a2e';
-      ctx.font = '56px "Brush Script MT", "Segoe Script", cursive';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-      ctx.fillText('Swati Soni', CX, sigY);
-      /* underline */
-      ctx.strokeStyle = '#374151'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(CX - 132, sigY + 14); ctx.lineTo(CX + 132, sigY + 14); ctx.stroke();
-      /* director title */
-      ctx.fillStyle = '#111827'; ctx.font = 'bold 17px Arial, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('Director, SAS KPO Services', CX, sigY + 40);
-      /* cert number */
-      ctx.fillStyle = '#6b7280'; ctx.font = '15px Arial, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(`CertificateNo: ${certNo}`, CX, sigY + 64);
-
-      /* ══ 14. EXPORT PDF ═════════════════════════ */
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
-      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const pW = pdf.internal.pageSize.getWidth();
-      const pH = pdf.internal.pageSize.getHeight();
-      pdf.addImage(imgData, 'JPEG', 0, 0, pW, pH);
-      pdf.save(
-        `Certificate_${(employeeName || 'Employee').replace(/\s+/g, '_')}_` +
-        `${courseName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.pdf`
-      );
-    };
-    logoImg.src = '/logo.png';
+  const downloadCertificate = async (courseName, employeeName, certNo) => {
+    try {
+      const blob = await courseApi.downloadCertificatePdf(certNo);
+      const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Certificate_${(employeeName || 'Employee').replace(/\s+/g, '_')}_${courseName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Certificate download failed', err);
+    }
   };
 
   const getEmployeeName = () =>

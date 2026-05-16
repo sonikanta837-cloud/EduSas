@@ -21,4 +21,6 @@ export const courseApi = {
   getEnrolledEmployeeIds: (courseId) => api.get(`/courses/${courseId}/enrolled-employee-ids`),
   getMyCertificates: () => api.get('/certificates/my'),
   getAllCertificates: () => api.get('/certificates'),
+  downloadCertificatePdf: (certNo) =>
+    api.get('/certificates/download', { params: { certNo }, responseType: 'blob' }),
 };

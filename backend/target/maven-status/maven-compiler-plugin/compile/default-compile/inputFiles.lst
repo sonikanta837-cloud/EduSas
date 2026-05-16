@@ -62,6 +62,7 @@ C:\Employee Managment Tool\backend\src\main\java\com\emp\management\entity\Cours
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\controller\CourseController.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\entity\Enrollment.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\service\TimesheetService.java
+C:\Employee Managment Tool\backend\src\main\java\com\emp\management\service\CertificatePdfService.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\service\ResourceStorageService.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\entity\EnrollmentStatus.java
 C:\Employee Managment Tool\backend\src\main\java\com\emp\management\repository\TimesheetEntryRepository.java

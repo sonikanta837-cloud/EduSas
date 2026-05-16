@@ -43,7 +43,6 @@ import { performanceApi } from '../api/performanceApi';
 import { timesheetApi } from '../api/timesheetApi';
 import { leaveApi } from '../api/leaveApi';
 import { toast } from 'react-toastify';
-import { jsPDF } from 'jspdf';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, ChartTooltip, Legend, ArcElement);
 
@@ -113,26 +112,21 @@ const TimeDonut = ({ pct, label, hours, target, breakdown }) => {
   );
 };
 
-/* ── PDF download ── */
-const downloadCertificate = (courseName, employeeName, certNo) => {
-  const canvas = document.createElement('canvas');
-  canvas.width = 1400; canvas.height = 990;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#fdfcfa'; ctx.fillRect(0, 0, 1400, 990);
-  ctx.strokeStyle = '#c9a84c'; ctx.lineWidth = 18; ctx.strokeRect(22, 22, 1356, 946);
-  ctx.strokeStyle = '#e8d5a3'; ctx.lineWidth = 4; ctx.strokeRect(38, 38, 1324, 914);
-  ctx.fillStyle = '#1a3a6b'; ctx.font = 'bold 52px Georgia,serif'; ctx.textAlign = 'center';
-  ctx.fillText('CERTIFICATE OF COMPLETION', 700, 160);
-  ctx.fillStyle = '#94a3b8'; ctx.font = '22px Arial'; ctx.fillText('This certifies that', 700, 240);
-  ctx.fillStyle = '#0f1f3d'; ctx.font = 'bold 68px Palatino Linotype,Georgia,serif';
-  ctx.fillText(employeeName || 'Employee', 700, 340);
-  ctx.fillStyle = '#64748b'; ctx.font = '22px Arial'; ctx.fillText('has successfully completed', 700, 410);
-  ctx.fillStyle = '#1a3a6b'; ctx.font = 'bold 36px Georgia'; ctx.fillText(courseName, 700, 475);
-  ctx.fillStyle = '#6b7280'; ctx.font = '15px Arial'; ctx.fillText(`CertificateNo: ${certNo}`, 700, 900);
-  const imgData = canvas.toDataURL('image/jpeg', 1.0);
-  const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  pdf.addImage(imgData, 'JPEG', 0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight());
-  pdf.save(`Certificate_${(employeeName || '').replace(/\s+/g, '_')}_${courseName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.pdf`);
+/* ── PDF download — delegates to server-side iText certificate generator ── */
+const downloadCertificate = async (courseName, employeeName, certNo) => {
+  try {
+    const blob = await courseApi.downloadCertificatePdf(certNo);
+    const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Certificate_${(employeeName || '').replace(/\s+/g, '_')}_${courseName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('Certificate download failed', err);
+  }
 };
 
 /* ═══════════════════════════════════════════════ */
