@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CourseController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">employee-management</a> &gt; <a href="index.source.html" class="el_package">com.emp.management.controller</a> &gt; <span class="el_source">CourseController.java</span></div><h1>CourseController.java</h1><pre class="source lang-java linenums">package com.emp.management.controller;
+
+import com.emp.management.dto.CourseDTO;
+import com.emp.management.repository.EmployeeDetailsRepository;
+import com.emp.management.service.AIQuizService;
+import com.emp.management.service.CourseService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping(&quot;/api/courses&quot;)
+<span class="nc" id="L19">@RequiredArgsConstructor</span>
+public class CourseController {
+
+    private final CourseService courseService;
+    private final AIQuizService aiQuizService;
+    private final EmployeeDetailsRepository employeeDetailsRepository;
+
+    @GetMapping
+    public ResponseEntity&lt;List&lt;CourseDTO&gt;&gt; getAllCourses() {
+<span class="nc" id="L28">        return ResponseEntity.ok(courseService.getAllCourses());</span>
+    }
+
+    @GetMapping(&quot;/manager/{managerId}&quot;)
+    @PreAuthorize(&quot;hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER')&quot;)
+    public ResponseEntity&lt;List&lt;CourseDTO&gt;&gt; getCoursesForManager(@PathVariable Long managerId) {
+<span class="nc" id="L34">        return ResponseEntity.ok(courseService.getCoursesForManager(managerId));</span>
+    }
+
+    @GetMapping(&quot;/employee/{employeeId}&quot;)
+    public ResponseEntity&lt;List&lt;CourseDTO&gt;&gt; getCoursesForEmployee(
+            @PathVariable Long employeeId, Authentication authentication) {
+<span class="nc bnc" id="L40" title="All 2 branches missed.">        if (authentication != null) {</span>
+<span class="nc" id="L41">            var requester = employeeDetailsRepository.findByUserEmail(authentication.getName()).orElse(null);</span>
+<span class="nc bnc" id="L42" title="All 2 branches missed.">            if (requester != null) {</span>
+<span class="nc" id="L43">                String role = requester.getUser().getRole().name();</span>
+<span class="nc bnc" id="L44" title="All 2 branches missed.">                if (!&quot;ADMIN&quot;.equals(role)) {</span>
+<span class="nc" id="L45">                    boolean isSelf = requester.getId().equals(employeeId);</span>
+<span class="nc" id="L46">                    var target = employeeDetailsRepository.findById(employeeId).orElse(null);</span>
+<span class="nc bnc" id="L47" title="All 6 branches missed.">                    boolean isDirectReport = (&quot;MANAGER&quot;.equals(role) || &quot;ASSISTANT_MANAGER&quot;.equals(role))</span>
+<span class="nc bnc" id="L48" title="All 2 branches missed.">                            &amp;&amp; target != null &amp;&amp; target.getManager() != null</span>
+<span class="nc bnc" id="L49" title="All 2 branches missed.">                            &amp;&amp; target.getManager().getId().equals(requester.getId());</span>
+<span class="nc bnc" id="L50" title="All 4 branches missed.">                    if (!isSelf &amp;&amp; !isDirectReport) {</span>
+<span class="nc" id="L51">                        throw new AccessDeniedException(&quot;You can only view course data for employees in your reporting hierarchy&quot;);</span>
+                    }
+                }
+            }
+        }
+<span class="nc" id="L56">        return ResponseEntity.ok(courseService.getCoursesForEmployee(employeeId));</span>
+    }
+
+    @GetMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;CourseDTO&gt; getCourse(@PathVariable Long id) {
+<span class="nc" id="L61">        return ResponseEntity.ok(courseService.getCourseById(id));</span>
+    }
+
+    @PostMapping
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    public ResponseEntity&lt;CourseDTO&gt; createCourse(@RequestBody CourseDTO dto,
+                                                   @RequestParam Long createdBy) {
+<span class="nc" id="L68">        CourseDTO saved = courseService.createCourse(dto, createdBy);</span>
+<span class="nc" id="L69">        aiQuizService.generateAndSaveQuiz(saved.getId());</span>
+<span class="nc" id="L70">        return ResponseEntity.ok(saved);</span>
+    }
+
+    @PutMapping(&quot;/{id}&quot;)
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    public ResponseEntity&lt;CourseDTO&gt; updateCourse(@PathVariable Long id,
+                                                   @RequestBody CourseDTO dto) {
+<span class="nc" id="L77">        return ResponseEntity.ok(courseService.updateCourse(id, dto));</span>
+    }
+
+    @DeleteMapping(&quot;/{id}&quot;)
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    public ResponseEntity&lt;String&gt; deleteCourse(@PathVariable Long id) {
+<span class="nc" id="L83">        courseService.deleteCourse(id);</span>
+<span class="nc" id="L84">        return ResponseEntity.ok(&quot;Course deleted&quot;);</span>
+    }
+
+    @PostMapping(&quot;/{courseId}/enroll/{employeeId}&quot;)
+    public ResponseEntity&lt;String&gt; enroll(@PathVariable Long courseId,
+                                          @PathVariable Long employeeId) {
+<span class="nc" id="L90">        courseService.enrollEmployee(courseId, employeeId);</span>
+<span class="nc" id="L91">        return ResponseEntity.ok(&quot;Enrolled successfully&quot;);</span>
+    }
+
+    @PostMapping(&quot;/{courseId}/assign&quot;)
+    @PreAuthorize(&quot;hasAnyRole('ADMIN','MANAGER','ASSISTANT_MANAGER')&quot;)
+    public ResponseEntity&lt;String&gt; assignCourse(@PathVariable Long courseId,
+                                                @RequestBody Map&lt;String, Object&gt; body) {
+<span class="nc bnc" id="L98" title="All 2 branches missed.">        Long employeeId = body.get(&quot;employeeId&quot;) != null</span>
+<span class="nc" id="L99">                ? ((Number) body.get(&quot;employeeId&quot;)).longValue() : null;</span>
+<span class="nc" id="L100">        boolean assignAll = Boolean.TRUE.equals(body.get(&quot;assignAll&quot;));</span>
+<span class="nc" id="L101">        courseService.assignCourse(courseId, employeeId, assignAll);</span>
+<span class="nc" id="L102">        return ResponseEntity.ok(&quot;Course assigned successfully&quot;);</span>
+    }
+
+    @PostMapping(&quot;/{courseId}/watch/{employeeId}&quot;)
+    public ResponseEntity&lt;String&gt; markVideoWatched(@PathVariable Long courseId,
+                                                    @PathVariable Long employeeId) {
+<span class="nc" id="L108">        courseService.markVideoWatched(courseId, employeeId);</span>
+<span class="nc" id="L109">        return ResponseEntity.ok(&quot;Progress updated&quot;);</span>
+    }
+
+    @GetMapping(&quot;/{courseId}/enrolled-employee-ids&quot;)
+    @PreAuthorize(&quot;hasAnyRole('ADMIN','MANAGER','ASSISTANT_MANAGER')&quot;)
+    public ResponseEntity&lt;List&lt;Long&gt;&gt; getEnrolledEmployeeIds(@PathVariable Long courseId) {
+<span class="nc" id="L115">        return ResponseEntity.ok(courseService.getEnrolledEmployeeIds(courseId));</span>
+    }
+
+    @GetMapping(&quot;/{courseId}/exam-questions&quot;)
+    public ResponseEntity&lt;List&lt;Map&lt;String, Object&gt;&gt;&gt; getExamQuestions(@PathVariable Long courseId) {
+<span class="nc" id="L120">        return ResponseEntity.ok(courseService.getExamQuestions(courseId));</span>
+    }
+
+    @GetMapping(&quot;/{courseId}/generate-questions&quot;)
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    public ResponseEntity&lt;List&lt;Map&lt;String, Object&gt;&gt;&gt; generateQuestions(@PathVariable Long courseId) {
+<span class="nc" id="L126">        return ResponseEntity.ok(aiQuizService.generateQuestionsOnly(courseId));</span>
+    }
+
+    @GetMapping(&quot;/{courseId}/admin-exam-questions&quot;)
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    public ResponseEntity&lt;List&lt;Map&lt;String, Object&gt;&gt;&gt; getAdminExamQuestions(@PathVariable Long courseId) {
+<span class="nc" id="L132">        return ResponseEntity.ok(courseService.getAdminExamQuestions(courseId));</span>
+    }
+
+    @PostMapping(&quot;/{courseId}/exam/{employeeId}&quot;)
+    public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; submitExam(@PathVariable Long courseId,
+                                                           @PathVariable Long employeeId,
+                                                           @RequestBody Map&lt;String, Object&gt; body) {
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L140">        List&lt;Integer&gt; answers = (List&lt;Integer&gt;) body.get(&quot;answers&quot;);</span>
+<span class="nc" id="L141">        return ResponseEntity.ok(courseService.submitExam(courseId, employeeId, answers));</span>
+    }
+
+    @PostMapping(&quot;/{courseId}/exam&quot;)
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    public ResponseEntity&lt;String&gt; createExam(@PathVariable Long courseId,
+                                              @RequestBody Map&lt;String, Object&gt; body) {
+<span class="nc" id="L148">        courseService.createExam(courseId, body.get(&quot;questions&quot;),</span>
+<span class="nc" id="L149">            ((Number) body.get(&quot;passingScore&quot;)).intValue());</span>
+<span class="nc" id="L150">        return ResponseEntity.ok(&quot;Exam created&quot;);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

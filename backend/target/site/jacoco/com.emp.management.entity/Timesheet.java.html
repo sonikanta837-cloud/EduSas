@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Timesheet.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">employee-management</a> &gt; <a href="index.source.html" class="el_package">com.emp.management.entity</a> &gt; <span class="el_source">Timesheet.java</span></div><h1>Timesheet.java</h1><pre class="source lang-java linenums">package com.emp.management.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+
+@Entity
+@Table(name = &quot;timesheets&quot;, uniqueConstraints = {
+    @UniqueConstraint(columnNames = {&quot;employee_id&quot;, &quot;work_date&quot;})
+})
+<span class="nc bnc" id="L15" title="All 70 branches missed.">@Data</span>
+<span class="nc" id="L16">@NoArgsConstructor</span>
+<span class="nc" id="L17">@AllArgsConstructor</span>
+<span class="nc" id="L18">@Builder</span>
+public class Timesheet {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+<span class="nc" id="L23">    private Long id;</span>
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = &quot;employee_id&quot;, nullable = false)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+<span class="nc" id="L29">    private EmployeeDetails employee;</span>
+
+    @Column(name = &quot;work_date&quot;, nullable = false)
+<span class="nc" id="L32">    private LocalDate workDate;</span>
+
+<span class="nc" id="L34">    private LocalTime loginTime;</span>
+<span class="nc" id="L35">    private LocalTime logoutTime;</span>
+
+<span class="nc" id="L37">    private Double workingHours;</span>
+
+<span class="nc" id="L39">    private boolean manualOverride;   // true = hours were manually set; skip auto-recalc on logout</span>
+
+    @Column(columnDefinition = &quot;TEXT&quot;)
+<span class="nc" id="L42">    private String notes;</span>
+
+<span class="nc" id="L44">    private boolean alertSent;</span>
+
+    @CreationTimestamp
+<span class="nc" id="L47">    private LocalDateTime createdAt;</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

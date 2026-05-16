@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TimesheetController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">employee-management</a> &gt; <a href="index.source.html" class="el_package">com.emp.management.controller</a> &gt; <span class="el_source">TimesheetController.java</span></div><h1>TimesheetController.java</h1><pre class="source lang-java linenums">package com.emp.management.controller;
+
+import com.emp.management.dto.AttendanceSessionDTO;
+import com.emp.management.dto.TimesheetDTO;
+import com.emp.management.dto.TimesheetEntryDTO;
+import com.emp.management.service.TimesheetEntryService;
+import com.emp.management.service.TimesheetService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+import java.time.LocalDate;
+import java.util.List;
+
+@RestController
+@RequestMapping(&quot;/api/timesheets&quot;)
+<span class="nc" id="L22">@RequiredArgsConstructor</span>
+public class TimesheetController {
+
+    private final TimesheetService timesheetService;
+    private final TimesheetEntryService timesheetEntryService;
+
+    // ── Manual check-in / check-out ──────────────────────────────────────────
+
+    @PostMapping(&quot;/check-in/{employeeId}&quot;)
+    public ResponseEntity&lt;Void&gt; checkIn(@PathVariable Long employeeId) {
+<span class="nc" id="L32">        timesheetService.checkIn(employeeId);</span>
+<span class="nc" id="L33">        return ResponseEntity.ok().build();</span>
+    }
+
+    @PostMapping(&quot;/check-out/{employeeId}&quot;)
+    public ResponseEntity&lt;Void&gt; checkOut(@PathVariable Long employeeId) {
+<span class="nc" id="L38">        timesheetService.checkOut(employeeId);</span>
+<span class="nc" id="L39">        return ResponseEntity.ok().build();</span>
+    }
+
+    // ── Attendance sessions (auto-recorded on app login/logout) ──────────────
+
+    @GetMapping(&quot;/sessions/today/{employeeId}&quot;)
+    public ResponseEntity&lt;List&lt;AttendanceSessionDTO&gt;&gt; getTodaySessions(@PathVariable Long employeeId) {
+<span class="nc" id="L46">        return ResponseEntity.ok(timesheetService.getTodaySessions(employeeId));</span>
+    }
+
+    @GetMapping(&quot;/sessions/{employeeId}/range&quot;)
+    public ResponseEntity&lt;List&lt;AttendanceSessionDTO&gt;&gt; getSessionsByRange(
+            @PathVariable Long employeeId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
+<span class="nc" id="L54">        return ResponseEntity.ok(timesheetService.getSessionsByRange(employeeId, start, end));</span>
+    }
+
+    @GetMapping(&quot;/today/{employeeId}&quot;)
+    public ResponseEntity&lt;TimesheetDTO&gt; getTodayTimesheet(@PathVariable Long employeeId) {
+<span class="nc" id="L59">        return ResponseEntity.ok(timesheetService.getTodayTimesheet(employeeId));</span>
+    }
+
+    @GetMapping(&quot;/attendance/{employeeId}&quot;)
+    public ResponseEntity&lt;List&lt;TimesheetDTO&gt;&gt; getAttendance(@PathVariable Long employeeId) {
+<span class="nc" id="L64">        return ResponseEntity.ok(timesheetService.getMyTimesheets(employeeId));</span>
+    }
+
+    @GetMapping(&quot;/attendance/{employeeId}/range&quot;)
+    public ResponseEntity&lt;List&lt;TimesheetDTO&gt;&gt; getAttendanceByRange(
+            @PathVariable Long employeeId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
+<span class="nc" id="L72">        return ResponseEntity.ok(timesheetService.getTimesheetsByDateRange(employeeId, start, end));</span>
+    }
+
+    @GetMapping(&quot;/date/{date}&quot;)
+    @PreAuthorize(&quot;hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER')&quot;)
+    public ResponseEntity&lt;List&lt;TimesheetDTO&gt;&gt; getByDate(
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+<span class="nc" id="L79">        return ResponseEntity.ok(timesheetService.getTimesheetsByDate(date));</span>
+    }
+
+    // ── Admin: edit working hours directly ────────────────────────────────────
+
+    @GetMapping(&quot;/working-hours/{empId}/month&quot;)
+    public ResponseEntity&lt;Map&lt;String, Double&gt;&gt; getWorkingHoursMap(
+            @PathVariable Long empId,
+            @RequestParam int year,
+            @RequestParam int month) {
+<span class="nc" id="L89">        return ResponseEntity.ok(timesheetService.getWorkingHoursMap(empId, year, month));</span>
+    }
+
+    @PatchMapping(&quot;/working-hours/{empId}/{date}&quot;)
+    @PreAuthorize(&quot;hasAnyRole('ADMIN','MANAGER','ASSISTANT_MANAGER')&quot;)
+    public ResponseEntity&lt;TimesheetDTO&gt; updateWorkingHours(
+            @PathVariable Long empId,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestBody Map&lt;String, Double&gt; body) {
+<span class="nc" id="L98">        return ResponseEntity.ok(timesheetService.updateWorkingHours(empId, date, body.get(&quot;hours&quot;)));</span>
+    }
+
+    // ── Timesheet Entries (project-based hours) ────────────────────────────
+
+    @GetMapping(&quot;/entries/employee/{empId}&quot;)
+    public ResponseEntity&lt;List&lt;TimesheetEntryDTO&gt;&gt; getEntries(
+            @PathVariable Long empId,
+            @RequestParam int year,
+            @RequestParam int month) {
+<span class="nc" id="L108">        return ResponseEntity.ok(timesheetEntryService.getMonthlyEntries(empId, year, month));</span>
+    }
+
+    @PostMapping(&quot;/entries&quot;)
+    public ResponseEntity&lt;TimesheetEntryDTO&gt; saveEntry(@RequestBody TimesheetEntryDTO dto,
+                                                        Authentication authentication) {
+<span class="nc" id="L114">        return ResponseEntity.ok(timesheetEntryService.saveEntry(dto, authentication.getName()));</span>
+    }
+
+    @DeleteMapping(&quot;/entries/{id}&quot;)
+    public ResponseEntity&lt;Void&gt; deleteEntry(@PathVariable Long id, Authentication authentication) {
+<span class="nc" id="L119">        timesheetEntryService.deleteEntry(id, authentication.getName());</span>
+<span class="nc" id="L120">        return ResponseEntity.noContent().build();</span>
+    }
+
+    @DeleteMapping(&quot;/entries/project&quot;)
+    public ResponseEntity&lt;Void&gt; deleteProjectRows(
+            @RequestParam Long empId,
+            @RequestParam String projectName,
+            @RequestParam String taskName,
+            Authentication authentication) {
+<span class="nc" id="L129">        timesheetEntryService.deleteProjectRows(empId, projectName, taskName, authentication.getName());</span>
+<span class="nc" id="L130">        return ResponseEntity.noContent().build();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

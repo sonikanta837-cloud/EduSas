@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PerformanceController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">employee-management</a> &gt; <a href="index.source.html" class="el_package">com.emp.management.controller</a> &gt; <span class="el_source">PerformanceController.java</span></div><h1>PerformanceController.java</h1><pre class="source lang-java linenums">package com.emp.management.controller;
+
+import com.emp.management.dto.PerformanceReviewDTO;
+import com.emp.management.service.PerformanceService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping(&quot;/api/performance&quot;)
+<span class="nc" id="L15">@RequiredArgsConstructor</span>
+public class PerformanceController {
+
+    private final PerformanceService performanceService;
+
+    @PostMapping
+    @PreAuthorize(&quot;hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER')&quot;)
+    public ResponseEntity&lt;PerformanceReviewDTO&gt; createReview(@RequestBody PerformanceReviewDTO dto) {
+<span class="nc" id="L23">        return ResponseEntity.ok(performanceService.createReview(dto));</span>
+    }
+
+    @GetMapping(&quot;/employee/{employeeId}&quot;)
+    public ResponseEntity&lt;List&lt;PerformanceReviewDTO&gt;&gt; getEmployeeReviews(@PathVariable Long employeeId) {
+<span class="nc" id="L28">        return ResponseEntity.ok(performanceService.getEmployeeReviews(employeeId));</span>
+    }
+
+    @GetMapping(&quot;/reviewer/{reviewerId}&quot;)
+    @PreAuthorize(&quot;hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER')&quot;)
+    public ResponseEntity&lt;List&lt;PerformanceReviewDTO&gt;&gt; getReviewsByReviewer(@PathVariable Long reviewerId) {
+<span class="nc" id="L34">        return ResponseEntity.ok(performanceService.getReviewsByReviewer(reviewerId));</span>
+    }
+
+    @GetMapping
+    @PreAuthorize(&quot;hasRole('ADMIN')&quot;)
+    public ResponseEntity&lt;List&lt;PerformanceReviewDTO&gt;&gt; getAllReviews() {
+<span class="nc" id="L40">        return ResponseEntity.ok(performanceService.getAllReviews());</span>
+    }
+
+    @GetMapping(&quot;/employee/{employeeId}/average&quot;)
+    public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; getAverageRating(@PathVariable Long employeeId) {
+<span class="nc" id="L45">        Double avg = performanceService.getAverageRating(employeeId);</span>
+<span class="nc bnc" id="L46" title="All 2 branches missed.">        return ResponseEntity.ok(Map.of(&quot;employeeId&quot;, employeeId, &quot;averageRating&quot;, avg != null ? avg : 0.0));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,7 +1,10 @@
+C:\Employee Managment Tool\backend\src\test\java\com\emp\management\service\CertificatePdfServiceTest.java
 C:\Employee Managment Tool\backend\src\test\java\com\emp\management\controller\EmployeeControllerTest.java
 C:\Employee Managment Tool\backend\src\test\java\com\emp\management\service\EmployeeServiceTest.java
 C:\Employee Managment Tool\backend\src\test\java\com\emp\management\config\TestSecurityConfig.java
+C:\Employee Managment Tool\backend\src\test\java\com\emp\management\controller\CertificateControllerTest.java
 C:\Employee Managment Tool\backend\src\test\java\com\emp\management\security\JwtTokenProviderTest.java
+C:\Employee Managment Tool\backend\src\test\java\com\emp\management\service\CertificateServiceTest.java
 C:\Employee Managment Tool\backend\src\test\java\com\emp\management\service\LeaveServiceTest.java
 C:\Employee Managment Tool\backend\src\test\java\com\emp\management\controller\AuthControllerTest.java
 C:\Employee Managment Tool\backend\src\test\java\com\emp\management\service\AuthServiceTest.java

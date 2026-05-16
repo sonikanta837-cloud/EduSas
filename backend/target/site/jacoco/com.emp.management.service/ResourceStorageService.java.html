@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ResourceStorageService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">employee-management</a> &gt; <a href="index.source.html" class="el_package">com.emp.management.service</a> &gt; <span class="el_source">ResourceStorageService.java</span></div><h1>ResourceStorageService.java</h1><pre class="source lang-java linenums">package com.emp.management.service;
+
+import com.emp.management.entity.Resource;
+import com.emp.management.entity.User;
+import com.emp.management.exception.BadRequestException;
+import com.emp.management.exception.ResourceNotFoundException;
+import com.emp.management.repository.ResourceRepository;
+import com.emp.management.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.UrlResource;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.nio.file.*;
+import java.util.List;
+import java.util.UUID;
+
+<span class="nc" id="L23">@Slf4j</span>
+@Service
+<span class="nc" id="L25">@RequiredArgsConstructor</span>
+public class ResourceStorageService {
+
+    private final ResourceRepository resourceRepository;
+    private final UserRepository userRepository;
+
+    @Value(&quot;${app.file.upload-dir}&quot;)
+    private String uploadDir;
+
+    @Transactional
+    public Resource uploadFile(MultipartFile file, String description, Long uploadedByUserId) {
+<span class="nc" id="L36">        User user = userRepository.findById(uploadedByUserId)</span>
+<span class="nc" id="L37">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;User&quot;, uploadedByUserId));</span>
+
+<span class="nc" id="L39">        String originalName = file.getOriginalFilename();</span>
+<span class="nc" id="L40">        String uniqueName = UUID.randomUUID() + &quot;_&quot; + originalName;</span>
+
+<span class="nc" id="L42">        Path uploadPath = Paths.get(uploadDir);</span>
+        try {
+<span class="nc" id="L44">            Files.createDirectories(uploadPath);</span>
+<span class="nc" id="L45">            Path filePath = uploadPath.resolve(uniqueName);</span>
+<span class="nc" id="L46">            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);</span>
+<span class="nc" id="L47">        } catch (IOException e) {</span>
+<span class="nc" id="L48">            throw new BadRequestException(&quot;Failed to store file: &quot; + e.getMessage());</span>
+<span class="nc" id="L49">        }</span>
+
+<span class="nc" id="L51">        return resourceRepository.save(Resource.builder()</span>
+<span class="nc" id="L52">                .fileName(uniqueName)</span>
+<span class="nc" id="L53">                .originalFileName(originalName)</span>
+<span class="nc" id="L54">                .fileType(file.getContentType())</span>
+<span class="nc" id="L55">                .fileSize(file.getSize())</span>
+<span class="nc" id="L56">                .filePath(uploadDir + &quot;/&quot; + uniqueName)</span>
+<span class="nc" id="L57">                .description(description)</span>
+<span class="nc" id="L58">                .uploadedBy(user)</span>
+<span class="nc" id="L59">                .build());</span>
+    }
+
+    public org.springframework.core.io.Resource downloadFile(Long id) {
+<span class="nc" id="L63">        Resource resource = resourceRepository.findById(id)</span>
+<span class="nc" id="L64">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;Resource&quot;, id));</span>
+        try {
+<span class="nc" id="L66">            Path path = Paths.get(resource.getFilePath());</span>
+<span class="nc" id="L67">            org.springframework.core.io.Resource res = new UrlResource(path.toUri());</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">            if (res.exists()) return res;</span>
+<span class="nc" id="L69">            throw new ResourceNotFoundException(&quot;File not found on disk&quot;);</span>
+<span class="nc" id="L70">        } catch (MalformedURLException e) {</span>
+<span class="nc" id="L71">            throw new ResourceNotFoundException(&quot;File not found: &quot; + e.getMessage());</span>
+        }
+    }
+
+    public List&lt;Resource&gt; getAllResources() {
+<span class="nc" id="L76">        return resourceRepository.findAllByOrderByUploadedAtDesc();</span>
+    }
+
+    @Transactional
+    public void deleteResource(Long id) {
+<span class="nc" id="L81">        Resource resource = resourceRepository.findById(id)</span>
+<span class="nc" id="L82">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;Resource&quot;, id));</span>
+        try {
+<span class="nc" id="L84">            Files.deleteIfExists(Paths.get(resource.getFilePath()));</span>
+<span class="nc" id="L85">        } catch (IOException e) {</span>
+<span class="nc" id="L86">            log.warn(&quot;Could not delete file: {}&quot;, resource.getFilePath());</span>
+<span class="nc" id="L87">        }</span>
+<span class="nc" id="L88">        resourceRepository.delete(resource);</span>
+<span class="nc" id="L89">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

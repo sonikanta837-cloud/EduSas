@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CertificatePdfService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">employee-management</a> &gt; <a href="index.source.html" class="el_package">com.emp.management.service</a> &gt; <span class="el_source">CertificatePdfService.java</span></div><h1>CertificatePdfService.java</h1><pre class="source lang-java linenums">package com.emp.management.service;
+
+import com.emp.management.entity.Certificate;
+import com.emp.management.exception.ResourceNotFoundException;
+import com.emp.management.repository.CertificateRepository;
+import com.itextpdf.io.font.constants.StandardFonts;
+import com.itextpdf.io.image.ImageDataFactory;
+import com.itextpdf.kernel.colors.DeviceRgb;
+import com.itextpdf.kernel.font.PdfFont;
+import com.itextpdf.kernel.font.PdfFontFactory;
+import com.itextpdf.kernel.geom.PageSize;
+import com.itextpdf.kernel.geom.Rectangle;
+import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.kernel.pdf.PdfPage;
+import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.kernel.pdf.canvas.PdfCanvas;
+import com.itextpdf.layout.Canvas;
+import com.itextpdf.layout.element.Paragraph;
+import com.itextpdf.layout.properties.TextAlignment;
+import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.stereotype.Service;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.time.format.DateTimeFormatter;
+
+@Service
+<span class="fc" id="L29">@RequiredArgsConstructor</span>
+public class CertificatePdfService {
+
+    private final CertificateRepository certificateRepository;
+
+    // Color palette matching SAS KPO logo aesthetic (dark navy + gold)
+<span class="fc" id="L35">    private static final DeviceRgb C_DARK     = new DeviceRgb(28,  28,  46);</span>
+<span class="fc" id="L36">    private static final DeviceRgb C_GOLD     = new DeviceRgb(201, 168, 76);</span>
+<span class="fc" id="L37">    private static final DeviceRgb C_GOLD_LT  = new DeviceRgb(232, 203, 122);</span>
+<span class="fc" id="L38">    private static final DeviceRgb C_GOLD_DK  = new DeviceRgb(150, 118, 40);</span>
+<span class="fc" id="L39">    private static final DeviceRgb C_WHITE     = new DeviceRgb(255, 255, 255);</span>
+<span class="fc" id="L40">    private static final DeviceRgb C_OFF_WHITE = new DeviceRgb(250, 248, 242);</span>
+<span class="fc" id="L41">    private static final DeviceRgb C_GRAY      = new DeviceRgb(110, 110, 110);</span>
+<span class="fc" id="L42">    private static final DeviceRgb C_LT_GRAY   = new DeviceRgb(175, 175, 175);</span>
+
+    public byte[] generateByCertNumber(String certNumber) throws IOException {
+<span class="fc" id="L45">        Certificate cert = certificateRepository.findByCertificateNumber(certNumber)</span>
+<span class="fc" id="L46">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;Certificate not found: &quot; + certNumber));</span>
+<span class="fc" id="L47">        return generate(cert);</span>
+    }
+
+    public byte[] generateById(Long id) throws IOException {
+<span class="fc" id="L51">        Certificate cert = certificateRepository.findById(id)</span>
+<span class="fc" id="L52">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;Certificate not found: &quot; + id));</span>
+<span class="fc" id="L53">        return generate(cert);</span>
+    }
+
+    private byte[] generate(Certificate cert) throws IOException {
+<span class="fc bfc" id="L57" title="All 2 branches covered.">        String empName = cert.getEmployee() != null</span>
+<span class="fc" id="L58">                ? cert.getEmployee().getFirstName() + &quot; &quot; + cert.getEmployee().getLastName() : &quot;—&quot;;</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        String course  = cert.getCourse() != null ? cert.getCourse().getTitle() : &quot;—&quot;;</span>
+<span class="fc" id="L60">        String certNo  = cert.getCertificateNumber();</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">        String date    = cert.getIssuedAt() != null</span>
+<span class="fc" id="L62">                ? cert.getIssuedAt().format(DateTimeFormatter.ofPattern(&quot;MMMM dd, yyyy&quot;)) : &quot;—&quot;;</span>
+<span class="fc" id="L63">        return buildPdf(empName, course, date, certNo);</span>
+    }
+
+    private byte[] buildPdf(String empName, String course, String date, String certNo) throws IOException {
+<span class="fc" id="L67">        ByteArrayOutputStream out = new ByteArrayOutputStream();</span>
+
+<span class="fc" id="L69">        PageSize ps = PageSize.A4.rotate();   // Landscape A4</span>
+<span class="fc" id="L70">        float W  = ps.getWidth();   // 841.89 pt</span>
+<span class="fc" id="L71">        float H  = ps.getHeight();  // 595.28 pt</span>
+<span class="fc" id="L72">        float CX = W / 2f;          // horizontal centre</span>
+
+<span class="fc" id="L74">        try (PdfDocument pdf = new PdfDocument(new PdfWriter(out))) {</span>
+<span class="fc" id="L75">            pdf.setDefaultPageSize(ps);</span>
+<span class="fc" id="L76">            PdfPage page = pdf.addNewPage();</span>
+<span class="fc" id="L77">            PdfCanvas cv  = new PdfCanvas(page);</span>
+
+<span class="fc" id="L79">            PdfFont fHBold = PdfFontFactory.createFont(StandardFonts.HELVETICA_BOLD);</span>
+<span class="fc" id="L80">            PdfFont fHReg  = PdfFontFactory.createFont(StandardFonts.HELVETICA);</span>
+<span class="fc" id="L81">            PdfFont fTBold = PdfFontFactory.createFont(StandardFonts.TIMES_BOLD);</span>
+<span class="fc" id="L82">            PdfFont fTItal = PdfFontFactory.createFont(StandardFonts.TIMES_ITALIC);</span>
+
+            // ── 1. WHITE BASE + WARM OFF-WHITE INNER ────────────────────────
+<span class="fc" id="L85">            cv.setFillColor(C_WHITE).rectangle(0, 0, W, H).fill();</span>
+<span class="fc" id="L86">            float bm = 10f;</span>
+<span class="fc" id="L87">            cv.setFillColor(C_OFF_WHITE).rectangle(bm, bm, W - 2*bm, H - 2*bm).fill();</span>
+
+            // ── 2. GOLD DOUBLE BORDER ─────────────────────────────────────
+<span class="fc" id="L90">            cv.setStrokeColor(C_GOLD).setLineWidth(2.5f)</span>
+<span class="fc" id="L91">              .rectangle(bm, bm, W - 2*bm, H - 2*bm).stroke();</span>
+<span class="fc" id="L92">            float ib = bm + 7f;</span>
+<span class="fc" id="L93">            cv.setStrokeColor(C_GOLD_LT).setLineWidth(0.5f)</span>
+<span class="fc" id="L94">              .rectangle(ib, ib, W - 2*ib, H - 2*ib).stroke();</span>
+
+            // ── 3. DARK HEADER BAR ────────────────────────────────────────
+<span class="fc" id="L97">            float hdrH = 120f;</span>
+<span class="fc" id="L98">            float hdrY = H - bm - hdrH;</span>
+<span class="fc" id="L99">            cv.setFillColor(C_DARK).rectangle(bm, hdrY, W - 2*bm, hdrH).fill();</span>
+
+            // Gold accent stripes below header
+<span class="fc" id="L102">            cv.setFillColor(C_GOLD).rectangle(bm, hdrY - 0.5f, W - 2*bm, 4f).fill();</span>
+<span class="fc" id="L103">            cv.setFillColor(C_GOLD_LT).rectangle(bm, hdrY - 4f, W - 2*bm, 1.5f).fill();</span>
+
+            // ── 4. HEADER: LOGO + TEXT BLOCK (centred as a group) ────────
+<span class="fc" id="L106">            float hdrMid = hdrY + hdrH / 2f;</span>
+<span class="fc" id="L107">            float logoSz = 72f;</span>
+<span class="fc" id="L108">            float gap    = 6f;</span>
+            // Approximate text block width so the group is centred
+<span class="fc" id="L110">            float textBlockW = 230f;</span>
+<span class="fc" id="L111">            float groupW     = logoSz + gap + textBlockW;</span>
+<span class="fc" id="L112">            float groupLeft  = CX - groupW / 2f;</span>
+
+            // Logo
+<span class="fc" id="L115">            float logoX = groupLeft;</span>
+<span class="fc" id="L116">            float logoY = hdrMid - logoSz / 2f + 10f;</span>
+            try {
+<span class="fc" id="L118">                ClassPathResource res = new ClassPathResource(&quot;static/logo_with_white_background.png&quot;);</span>
+<span class="fc" id="L119">                byte[] logoBytes = res.getInputStream().readAllBytes();</span>
+<span class="fc" id="L120">                cv.addImageFittedIntoRectangle(</span>
+<span class="fc" id="L121">                        ImageDataFactory.create(logoBytes),</span>
+                        new Rectangle(logoX, logoY, logoSz, logoSz),
+                        false);
+<span class="pc" id="L124">            } catch (Exception ignored) {}</span>
+
+            // Text — centred within the text block
+<span class="fc" id="L127">            float textCX = groupLeft + logoSz + gap + textBlockW / 2f;</span>
+<span class="fc" id="L128">            Canvas mc = new Canvas(cv, new Rectangle(0, 0, W, H));</span>
+
+<span class="fc" id="L130">            mc.showTextAligned(</span>
+                    new Paragraph(&quot;SAS KPO SERVICES&quot;)
+<span class="fc" id="L132">                            .setFont(fHBold).setFontSize(26)</span>
+<span class="fc" id="L133">                            .setFontColor(C_GOLD).setMargin(0),</span>
+                    textCX, hdrMid + 9f, TextAlignment.CENTER);
+<span class="fc" id="L135">            mc.showTextAligned(</span>
+                    new Paragraph(&quot;Partners in Business Extension&quot;)
+<span class="fc" id="L137">                            .setFont(fHReg).setFontSize(11)</span>
+<span class="fc" id="L138">                            .setFontColor(C_LT_GRAY).setMargin(0),</span>
+                    textCX, hdrMid - 12f, TextAlignment.CENTER);
+
+            // ── 7. CERTIFICATE TITLE ──────────────────────────────────────
+<span class="fc" id="L142">            float titleY = hdrY - 46f;</span>
+<span class="fc" id="L143">            mc.showTextAligned(</span>
+                    new Paragraph(&quot;CERTIFICATE OF COMPLETION&quot;)
+<span class="fc" id="L145">                            .setFont(fHBold).setFontSize(30)</span>
+<span class="fc" id="L146">                            .setFontColor(C_DARK).setMargin(0),</span>
+                    CX, titleY, TextAlignment.CENTER);
+
+            // Gold double underline below title
+<span class="fc" id="L150">            cv.setStrokeColor(C_GOLD).setLineWidth(2f)</span>
+<span class="fc" id="L151">              .moveTo(CX - 205f, titleY - 8f).lineTo(CX + 205f, titleY - 8f).stroke();</span>
+<span class="fc" id="L152">            cv.setStrokeColor(C_GOLD_LT).setLineWidth(0.5f)</span>
+<span class="fc" id="L153">              .moveTo(CX - 205f, titleY - 12f).lineTo(CX + 205f, titleY - 12f).stroke();</span>
+
+            // ── 8. &quot;AWARDED TO&quot; LABEL ────────────────────────────────────
+<span class="fc" id="L156">            float awardY = titleY - 52f;</span>
+<span class="fc" id="L157">            mc.showTextAligned(</span>
+                    new Paragraph(&quot;This certificate is proudly presented to&quot;)
+<span class="fc" id="L159">                            .setFont(fTItal).setFontSize(13)</span>
+<span class="fc" id="L160">                            .setFontColor(C_GRAY).setMargin(0),</span>
+                    CX, awardY, TextAlignment.CENTER);
+
+            // ── 9. EMPLOYEE NAME ─────────────────────────────────────────
+<span class="fc" id="L164">            float nameY = awardY - 62f;</span>
+<span class="fc" id="L165">            mc.showTextAligned(</span>
+                    new Paragraph(empName)
+<span class="fc" id="L167">                            .setFont(fTBold).setFontSize(42)</span>
+<span class="fc" id="L168">                            .setFontColor(C_DARK).setMargin(0),</span>
+                    CX, nameY, TextAlignment.CENTER);
+
+            // Gold underline below name
+<span class="fc" id="L172">            cv.setStrokeColor(C_GOLD).setLineWidth(1.5f)</span>
+<span class="fc" id="L173">              .moveTo(CX - 220f, nameY - 8f).lineTo(CX + 220f, nameY - 8f).stroke();</span>
+
+            // ── 10. COMPLETION BODY TEXT ─────────────────────────────────
+<span class="fc" id="L176">            float forY = nameY - 52f;</span>
+<span class="fc" id="L177">            mc.showTextAligned(</span>
+                    new Paragraph(&quot;For successfully completing the course&quot;)
+<span class="fc" id="L179">                            .setFont(fHReg).setFontSize(13)</span>
+<span class="fc" id="L180">                            .setFontColor(C_GRAY).setMargin(0),</span>
+                    CX, forY, TextAlignment.CENTER);
+
+<span class="fc" id="L183">            float courseY = forY - 34f;</span>
+<span class="fc" id="L184">            mc.showTextAligned(</span>
+                    new Paragraph(&quot;\&quot; &quot; + course + &quot; \&quot;&quot;)
+<span class="fc" id="L186">                            .setFont(fTBold).setFontSize(17)</span>
+<span class="fc" id="L187">                            .setFontColor(C_GOLD_DK).setMargin(0),</span>
+                    CX, courseY, TextAlignment.CENTER);
+
+            // ── 11. DATE ─────────────────────────────────────────────────
+<span class="fc" id="L191">            float dateY = courseY - 34f;</span>
+<span class="fc" id="L192">            mc.showTextAligned(</span>
+                    new Paragraph(&quot;Completion Date:   &quot; + date)
+<span class="fc" id="L194">                            .setFont(fHReg).setFontSize(12)</span>
+<span class="fc" id="L195">                            .setFontColor(C_GRAY).setMargin(0),</span>
+                    CX, dateY, TextAlignment.CENTER);
+
+            // ── 12. SHORT GOLD SEPARATOR ──────────────────────────────────
+<span class="fc" id="L199">            float sepY = dateY - 36f;</span>
+<span class="fc" id="L200">            cv.setStrokeColor(C_GOLD_LT).setLineWidth(0.5f)</span>
+<span class="fc" id="L201">              .moveTo(CX - 90f, sepY).lineTo(CX + 90f, sepY).stroke();</span>
+
+            // ── 13. DIRECTOR NAME (centred, below date) ───────────────────
+<span class="fc" id="L204">            float dirNameY = sepY - 26f;</span>
+<span class="fc" id="L205">            mc.showTextAligned(</span>
+                    new Paragraph(&quot;Abhishek Soni&quot;)
+<span class="fc" id="L207">                            .setFont(fHBold).setFontSize(18)</span>
+<span class="fc" id="L208">                            .setFontColor(C_DARK).setMargin(0),</span>
+                    CX, dirNameY, TextAlignment.CENTER);
+<span class="fc" id="L210">            mc.showTextAligned(</span>
+                    new Paragraph(&quot;Director, SAS KPO Services&quot;)
+<span class="fc" id="L212">                            .setFont(fHReg).setFontSize(13)</span>
+<span class="fc" id="L213">                            .setFontColor(C_GRAY).setMargin(0),</span>
+                    CX, dirNameY - 24f, TextAlignment.CENTER);
+
+            // ── 14. CERTIFICATE NUMBER (below director) ───────────────────
+<span class="fc" id="L217">            mc.showTextAligned(</span>
+                    new Paragraph(&quot;Certificate No:  &quot; + certNo)
+<span class="fc" id="L219">                            .setFont(fHReg).setFontSize(10)</span>
+<span class="fc" id="L220">                            .setFontColor(C_LT_GRAY).setMargin(0),</span>
+                    CX, dirNameY - 46f, TextAlignment.CENTER);
+
+<span class="fc" id="L223">            mc.close();</span>
+
+            // ── 15. CORNER ORNAMENTS ──────────────────────────────────────
+<span class="fc" id="L226">            float ornLen = 22f;</span>
+<span class="fc" id="L227">            cv.setStrokeColor(C_GOLD).setLineWidth(2.2f);</span>
+            // Top-left
+<span class="fc" id="L229">            cv.moveTo(ib, H - ib).lineTo(ib + ornLen, H - ib).stroke();</span>
+<span class="fc" id="L230">            cv.moveTo(ib, H - ib).lineTo(ib, H - ib - ornLen).stroke();</span>
+            // Top-right
+<span class="fc" id="L232">            cv.moveTo(W - ib, H - ib).lineTo(W - ib - ornLen, H - ib).stroke();</span>
+<span class="fc" id="L233">            cv.moveTo(W - ib, H - ib).lineTo(W - ib, H - ib - ornLen).stroke();</span>
+            // Bottom-left
+<span class="fc" id="L235">            cv.moveTo(ib, ib).lineTo(ib + ornLen, ib).stroke();</span>
+<span class="fc" id="L236">            cv.moveTo(ib, ib).lineTo(ib, ib + ornLen).stroke();</span>
+            // Bottom-right
+<span class="fc" id="L238">            cv.moveTo(W - ib, ib).lineTo(W - ib - ornLen, ib).stroke();</span>
+<span class="fc" id="L239">            cv.moveTo(W - ib, ib).lineTo(W - ib, ib + ornLen).stroke();</span>
+
+            // ── 16. CIRCULAR VERIFIED SEAL ───────────────────────────────
+<span class="fc" id="L242">            float sealX = bm + 108f, sealY = bm + 55f, sealR = 44f;</span>
+<span class="fc" id="L243">            cv.setFillColor(C_OFF_WHITE).circle(sealX, sealY, sealR).fill();</span>
+<span class="fc" id="L244">            cv.setStrokeColor(C_GOLD).setLineWidth(2f).circle(sealX, sealY, sealR).stroke();</span>
+<span class="fc" id="L245">            cv.setStrokeColor(C_GOLD_LT).setLineWidth(0.75f).circle(sealX, sealY, sealR - 6f).stroke();</span>
+
+            // Render seal text on main canvas to avoid clipping
+<span class="fc" id="L248">            mc.showTextAligned(</span>
+                    new Paragraph(&quot;VERIFIED&quot;)
+<span class="fc" id="L250">                            .setFont(fHBold).setFontSize(9)</span>
+<span class="fc" id="L251">                            .setFontColor(C_GOLD).setMargin(0),</span>
+                    sealX, sealY + 14f, TextAlignment.CENTER);
+<span class="fc" id="L253">            mc.showTextAligned(</span>
+                    new Paragraph(&quot;- - -&quot;)
+<span class="fc" id="L255">                            .setFont(fHBold).setFontSize(7)</span>
+<span class="fc" id="L256">                            .setFontColor(C_GOLD_LT).setMargin(0),</span>
+                    sealX, sealY + 3f, TextAlignment.CENTER);
+<span class="fc" id="L258">            mc.showTextAligned(</span>
+                    new Paragraph(&quot;SAS KPO&quot;)
+<span class="fc" id="L260">                            .setFont(fHBold).setFontSize(8)</span>
+<span class="fc" id="L261">                            .setFontColor(C_GOLD_DK).setMargin(0),</span>
+                    sealX, sealY - 10f, TextAlignment.CENTER);
+<span class="fc" id="L263">            mc.showTextAligned(</span>
+                    new Paragraph(&quot;SERVICES&quot;)
+<span class="fc" id="L265">                            .setFont(fHReg).setFontSize(6)</span>
+<span class="fc" id="L266">                            .setFontColor(C_GOLD_DK).setMargin(0),</span>
+                    sealX, sealY - 20f, TextAlignment.CENTER);
+        }
+
+<span class="fc" id="L270">        return out.toByteArray();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

@@ -1,0 +1,393 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EmployeeService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">employee-management</a> &gt; <a href="index.source.html" class="el_package">com.emp.management.service</a> &gt; <span class="el_source">EmployeeService.java</span></div><h1>EmployeeService.java</h1><pre class="source lang-java linenums">package com.emp.management.service;
+
+import com.emp.management.dto.EmployeeDTO;
+import com.emp.management.dto.RegisterRequest;
+import com.emp.management.entity.EmployeeDetails;
+import com.emp.management.entity.Role;
+import com.emp.management.entity.User;
+import com.emp.management.exception.BadRequestException;
+import com.emp.management.exception.ResourceNotFoundException;
+import com.emp.management.repository.EmployeeDetailsRepository;
+import com.emp.management.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
+
+import java.time.LocalDate;
+import java.time.Period;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+<span class="fc" id="L27">@RequiredArgsConstructor</span>
+public class EmployeeService {
+
+    private final EmployeeDetailsRepository employeeDetailsRepository;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    @Transactional(readOnly = true)
+    public List&lt;EmployeeDTO&gt; getAllEmployees() {
+<span class="fc" id="L36">        return employeeDetailsRepository.findByActive(true).stream()</span>
+<span class="fc" id="L37">                .map(this::toDTO).collect(Collectors.toList());</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;EmployeeDTO&gt; getActiveEmployees() {
+<span class="nc" id="L42">        return employeeDetailsRepository.findByActive(true).stream()</span>
+<span class="nc" id="L43">                .map(this::toDTO).collect(Collectors.toList());</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;EmployeeDTO&gt; getExEmployees() {
+<span class="fc" id="L48">        return employeeDetailsRepository.findByActive(false).stream()</span>
+<span class="fc" id="L49">                .map(this::toDTO).collect(Collectors.toList());</span>
+    }
+
+    @Transactional(readOnly = true)
+    public EmployeeDTO getEmployeeById(Long id) {
+<span class="fc" id="L54">        return toDTO(findEmployee(id));</span>
+    }
+
+    @Transactional(readOnly = true)
+    public EmployeeDTO getEmployeeById(Long id, String requesterEmail) {
+<span class="fc" id="L59">        EmployeeDetails target = findEmployee(id);</span>
+<span class="fc" id="L60">        EmployeeDetails requester = employeeDetailsRepository.findByUserEmail(requesterEmail).orElse(null);</span>
+
+<span class="pc bpc" id="L62" title="1 of 2 branches missed.">        if (requester != null) {</span>
+<span class="fc" id="L63">            String role = requester.getUser().getRole().name();</span>
+
+<span class="pc bpc" id="L65" title="1 of 4 branches missed.">            if (!target.isActive() &amp;&amp; !&quot;ADMIN&quot;.equals(role)) {</span>
+<span class="fc" id="L66">                throw new AccessDeniedException(&quot;Only admins can view inactive employee profiles&quot;);</span>
+            }
+
+<span class="pc bpc" id="L69" title="3 of 4 branches missed.">            boolean isAdmin      = &quot;ADMIN&quot;.equals(role) || &quot;HR&quot;.equals(role);</span>
+<span class="pc bpc" id="L70" title="2 of 4 branches missed.">            boolean isManagerRole = &quot;MANAGER&quot;.equals(role) || &quot;ASSISTANT_MANAGER&quot;.equals(role);</span>
+<span class="fc" id="L71">            boolean isOwnProfile = requester.getId().equals(id);</span>
+<span class="pc bpc" id="L72" title="1 of 2 branches missed.">            boolean isDirectReport = isManagerRole</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">                    &amp;&amp; target.getManager() != null</span>
+<span class="pc bnc" id="L74" title="All 2 branches missed.">                    &amp;&amp; target.getManager().getId().equals(requester.getId());</span>
+
+<span class="pc bpc" id="L76" title="7 of 8 branches missed.">            if (!isAdmin &amp;&amp; !isManagerRole &amp;&amp; !isOwnProfile &amp;&amp; !isDirectReport) {</span>
+<span class="nc" id="L77">                throw new AccessDeniedException(&quot;You do not have permission to view this employee's profile&quot;);</span>
+            }
+        }
+
+<span class="fc" id="L81">        return toDTO(target);</span>
+    }
+
+    public EmployeeDTO getEmployeeByUserId(Long userId) {
+<span class="nc" id="L85">        EmployeeDetails emp = employeeDetailsRepository.findByUserId(userId)</span>
+<span class="nc" id="L86">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;Employee not found for user: &quot; + userId));</span>
+<span class="nc" id="L87">        return toDTO(emp);</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;EmployeeDTO&gt; getEmployeesByManager(Long managerId) {
+<span class="nc" id="L92">        return employeeDetailsRepository.findByManagerIdAndActiveTrue(managerId).stream()</span>
+<span class="nc" id="L93">                .map(this::toDTO).collect(Collectors.toList());</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;EmployeeDTO&gt; searchEmployees(String query) {
+<span class="fc" id="L98">        return employeeDetailsRepository.searchActiveEmployees(query).stream()</span>
+<span class="fc" id="L99">                .map(this::toDTO).collect(Collectors.toList());</span>
+    }
+
+    @Transactional
+    public EmployeeDTO createEmployee(RegisterRequest request, String requesterEmail) {
+<span class="fc bfc" id="L104" title="All 2 branches covered.">        if (userRepository.existsByEmail(request.getEmail())) {</span>
+<span class="fc" id="L105">            throw new BadRequestException(&quot;Email already registered: &quot; + request.getEmail());</span>
+        }
+
+<span class="fc" id="L108">        User user = User.builder()</span>
+<span class="fc" id="L109">                .email(request.getEmail())</span>
+<span class="fc" id="L110">                .password(passwordEncoder.encode(request.getPassword()))</span>
+<span class="fc" id="L111">                .role(request.getRole())</span>
+<span class="fc" id="L112">                .active(true)</span>
+<span class="fc" id="L113">                .build();</span>
+<span class="fc" id="L114">        user = userRepository.save(user);</span>
+
+<span class="pc bpc" id="L116" title="3 of 4 branches missed.">        String empCode = (request.getEmployeeCode() != null &amp;&amp; !request.getEmployeeCode().isBlank())</span>
+<span class="nc" id="L117">                ? request.getEmployeeCode()</span>
+<span class="fc" id="L118">                : generateNextEmployeeCode();</span>
+
+<span class="fc" id="L120">        EmployeeDetails.EmployeeDetailsBuilder empBuilder = EmployeeDetails.builder()</span>
+<span class="fc" id="L121">                .user(user)</span>
+<span class="fc" id="L122">                .firstName(request.getFirstName())</span>
+<span class="fc" id="L123">                .lastName(request.getLastName())</span>
+<span class="fc" id="L124">                .employeeCode(empCode)</span>
+<span class="fc" id="L125">                .phone(request.getPhone())</span>
+<span class="fc" id="L126">                .personalEmail(request.getPersonalEmail())</span>
+<span class="fc" id="L127">                .department(request.getDepartment())</span>
+<span class="fc" id="L128">                .position(request.getPosition())</span>
+<span class="fc" id="L129">                .employmentType(request.getEmploymentType())</span>
+<span class="fc" id="L130">                .sourceOfHire(request.getSourceOfHire())</span>
+<span class="pc bpc" id="L131" title="1 of 2 branches missed.">                .hireDate(request.getHireDate() != null ? request.getHireDate() : LocalDate.now())</span>
+<span class="fc" id="L132">                .dateOfExit(request.getDateOfExit())</span>
+<span class="fc" id="L133">                .dateOfBirth(request.getDateOfBirth())</span>
+<span class="fc" id="L134">                .gender(request.getGender())</span>
+<span class="fc" id="L135">                .maritalStatus(request.getMaritalStatus())</span>
+<span class="fc" id="L136">                .aadharNumber(request.getAadharNumber())</span>
+<span class="fc" id="L137">                .panNumber(request.getPanNumber())</span>
+<span class="fc" id="L138">                .uanNumber(request.getUanNumber())</span>
+<span class="fc" id="L139">                .address(request.getAddress())</span>
+<span class="fc" id="L140">                .presentAddress(request.getPresentAddress())</span>
+<span class="fc" id="L141">                .permanentAddress(request.getPermanentAddress())</span>
+<span class="fc" id="L142">                .seatingLocation(request.getSeatingLocation())</span>
+<span class="fc" id="L143">                .currentExperience(request.getCurrentExperience())</span>
+<span class="fc" id="L144">                .totalExperience(request.getTotalExperience())</span>
+<span class="fc" id="L145">                .skills(request.getSkills())</span>
+<span class="fc" id="L146">                .experience(request.getExperience())</span>
+<span class="fc" id="L147">                .photoUrl(request.getPhotoUrl())</span>
+<span class="fc" id="L148">                .addedBy(requesterEmail)</span>
+<span class="fc" id="L149">                .active(true);</span>
+
+<span class="pc bpc" id="L151" title="1 of 2 branches missed.">        if (request.getManagerId() != null) {</span>
+<span class="nc" id="L152">            EmployeeDetails manager = findEmployee(request.getManagerId());</span>
+<span class="nc" id="L153">            empBuilder.manager(manager);</span>
+        }
+
+<span class="fc" id="L156">        return toDTO(employeeDetailsRepository.save(empBuilder.build()));</span>
+    }
+
+    @Transactional
+    public EmployeeDTO updateEmployee(Long id, EmployeeDTO dto, String requesterEmail) {
+<span class="fc" id="L161">        EmployeeDetails emp = findEmployee(id);</span>
+<span class="fc" id="L162">        EmployeeDetails requester = employeeDetailsRepository.findByUserEmail(requesterEmail).orElse(null);</span>
+
+        // Managers may only update their direct reports
+<span class="pc bpc" id="L165" title="1 of 2 branches missed.">        if (requester != null) {</span>
+<span class="fc" id="L166">            String requesterRole = requester.getUser().getRole().name();</span>
+<span class="pc bpc" id="L167" title="1 of 4 branches missed.">            boolean isAdminOrHR = &quot;ADMIN&quot;.equals(requesterRole) || &quot;HR&quot;.equals(requesterRole);</span>
+<span class="pc bpc" id="L168" title="2 of 4 branches missed.">            boolean isManagerRole = &quot;MANAGER&quot;.equals(requesterRole) || &quot;ASSISTANT_MANAGER&quot;.equals(requesterRole);</span>
+<span class="pc bpc" id="L169" title="1 of 2 branches missed.">            boolean isDirectReport = isManagerRole</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">                    &amp;&amp; emp.getManager() != null</span>
+<span class="pc bnc" id="L171" title="All 2 branches missed.">                    &amp;&amp; emp.getManager().getId().equals(requester.getId());</span>
+<span class="fc" id="L172">            boolean isSelf = emp.getId().equals(requester.getId());</span>
+<span class="pc bpc" id="L173" title="2 of 6 branches missed.">            if (!isAdminOrHR &amp;&amp; !isDirectReport &amp;&amp; !isSelf) {</span>
+<span class="nc" id="L174">                throw new AccessDeniedException(&quot;You do not have permission to update this employee&quot;);</span>
+            }
+        }
+
+<span class="fc" id="L178">        User user = emp.getUser();</span>
+
+        // Update User-level fields (role changes restricted to ADMIN/HR)
+<span class="pc bpc" id="L181" title="1 of 2 branches missed.">        if (dto.getRole() != null) {</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">            String requesterRole = requester != null ? requester.getUser().getRole().name() : &quot;ADMIN&quot;;</span>
+<span class="nc bnc" id="L183" title="All 4 branches missed.">            if (&quot;ADMIN&quot;.equals(requesterRole) || &quot;HR&quot;.equals(requesterRole)) {</span>
+<span class="nc" id="L184">                user.setRole(Role.valueOf(dto.getRole()));</span>
+            }
+        }
+<span class="pc bpc" id="L187" title="1 of 4 branches missed.">        if (dto.getEmail() != null &amp;&amp; !dto.getEmail().isBlank()</span>
+<span class="pc bpc" id="L188" title="1 of 2 branches missed.">                &amp;&amp; !dto.getEmail().equalsIgnoreCase(user.getEmail())) {</span>
+<span class="nc bnc" id="L189" title="All 2 branches missed.">            if (userRepository.existsByEmail(dto.getEmail())) {</span>
+<span class="nc" id="L190">                throw new BadRequestException(&quot;Email already in use: &quot; + dto.getEmail());</span>
+            }
+<span class="nc" id="L192">            user.setEmail(dto.getEmail());</span>
+        }
+<span class="pc bpc" id="L194" title="3 of 4 branches missed.">        if (dto.getPassword() != null &amp;&amp; !dto.getPassword().isBlank()) {</span>
+<span class="nc" id="L195">            user.setPassword(passwordEncoder.encode(dto.getPassword()));</span>
+        }
+<span class="fc" id="L197">        userRepository.save(user);</span>
+
+        // Update EmployeeDetails fields
+<span class="fc" id="L200">        emp.setFirstName(dto.getFirstName());</span>
+<span class="fc" id="L201">        emp.setLastName(dto.getLastName());</span>
+<span class="fc" id="L202">        emp.setEmployeeCode(dto.getEmployeeCode());</span>
+<span class="fc" id="L203">        emp.setPhone(dto.getPhone());</span>
+<span class="fc" id="L204">        emp.setPersonalEmail(dto.getPersonalEmail());</span>
+<span class="fc" id="L205">        emp.setDepartment(dto.getDepartment());</span>
+<span class="fc" id="L206">        emp.setPosition(dto.getPosition());</span>
+<span class="fc" id="L207">        emp.setEmploymentType(dto.getEmploymentType());</span>
+<span class="fc" id="L208">        emp.setSourceOfHire(dto.getSourceOfHire());</span>
+<span class="pc bpc" id="L209" title="1 of 2 branches missed.">        if (dto.getHireDate() != null) emp.setHireDate(dto.getHireDate());</span>
+<span class="fc" id="L210">        emp.setDateOfExit(dto.getDateOfExit());</span>
+<span class="fc" id="L211">        emp.setDateOfBirth(dto.getDateOfBirth());</span>
+<span class="fc" id="L212">        emp.setGender(dto.getGender());</span>
+<span class="fc" id="L213">        emp.setMaritalStatus(dto.getMaritalStatus());</span>
+<span class="fc" id="L214">        emp.setAadharNumber(dto.getAadharNumber());</span>
+<span class="fc" id="L215">        emp.setPanNumber(dto.getPanNumber());</span>
+<span class="fc" id="L216">        emp.setUanNumber(dto.getUanNumber());</span>
+<span class="fc" id="L217">        emp.setAddress(dto.getAddress());</span>
+<span class="fc" id="L218">        emp.setPresentAddress(dto.getPresentAddress());</span>
+<span class="fc" id="L219">        emp.setPermanentAddress(dto.getPermanentAddress());</span>
+<span class="fc" id="L220">        emp.setSeatingLocation(dto.getSeatingLocation());</span>
+<span class="fc" id="L221">        emp.setCurrentExperience(dto.getCurrentExperience());</span>
+<span class="fc" id="L222">        emp.setTotalExperience(dto.getTotalExperience());</span>
+<span class="fc" id="L223">        emp.setSkills(dto.getSkills());</span>
+<span class="fc" id="L224">        emp.setExperience(dto.getExperience());</span>
+<span class="fc" id="L225">        emp.setPhotoUrl(dto.getPhotoUrl());</span>
+<span class="fc" id="L226">        emp.setModifiedBy(requesterEmail);</span>
+
+<span class="fc bfc" id="L228" title="All 2 branches covered.">        if (dto.getManagerId() != null) {</span>
+<span class="fc bfc" id="L229" title="All 2 branches covered.">            if (dto.getManagerId().equals(id)) {</span>
+<span class="fc" id="L230">                throw new BadRequestException(&quot;Employee cannot be their own manager&quot;);</span>
+            }
+            // Walk up the proposed manager's chain — if we reach 'id' it's a cycle
+<span class="fc" id="L233">            Long cursor = dto.getManagerId();</span>
+<span class="pc bpc" id="L234" title="1 of 2 branches missed.">            while (cursor != null) {</span>
+<span class="fc bfc" id="L235" title="All 2 branches covered.">                if (cursor.equals(id)) {</span>
+<span class="fc" id="L236">                    throw new BadRequestException(&quot;This assignment creates a circular reporting chain&quot;);</span>
+                }
+<span class="fc" id="L238">                EmployeeDetails m = employeeDetailsRepository.findById(cursor).orElse(null);</span>
+<span class="pc bpc" id="L239" title="2 of 4 branches missed.">                cursor = (m != null &amp;&amp; m.getManager() != null) ? m.getManager().getId() : null;</span>
+<span class="fc" id="L240">            }</span>
+<span class="nc" id="L241">            emp.setManager(findEmployee(dto.getManagerId()));</span>
+<span class="nc" id="L242">        } else {</span>
+<span class="fc" id="L243">            emp.setManager(null);</span>
+        }
+
+<span class="fc" id="L246">        return toDTO(employeeDetailsRepository.save(emp));</span>
+    }
+
+    @Transactional
+    public void clearManager(Long id) {
+<span class="nc" id="L251">        EmployeeDetails emp = findEmployee(id);</span>
+<span class="nc" id="L252">        emp.setManager(null);</span>
+<span class="nc" id="L253">        employeeDetailsRepository.save(emp);</span>
+<span class="nc" id="L254">    }</span>
+
+    @Transactional
+    public void toggleEmployeeStatus(Long id) {
+<span class="fc" id="L258">        EmployeeDetails emp = findEmployee(id);</span>
+<span class="fc" id="L259">        boolean wasActive = emp.isActive();</span>
+<span class="fc bfc" id="L260" title="All 2 branches covered.">        emp.setActive(!wasActive);</span>
+<span class="fc bfc" id="L261" title="All 2 branches covered.">        emp.getUser().setActive(!wasActive);</span>
+        // When deactivating: clear this employee as manager for all their active reports
+<span class="fc bfc" id="L263" title="All 2 branches covered.">        if (wasActive) {</span>
+<span class="fc" id="L264">            transferSubordinatesToAdmin(emp);</span>
+        }
+<span class="fc" id="L266">        employeeDetailsRepository.save(emp);</span>
+<span class="fc" id="L267">    }</span>
+
+    @Transactional
+    public void deleteEmployee(Long id) {
+<span class="fc" id="L271">        EmployeeDetails emp = findEmployee(id);</span>
+<span class="fc" id="L272">        emp.setActive(false);</span>
+<span class="fc" id="L273">        emp.getUser().setActive(false);</span>
+<span class="fc" id="L274">        transferSubordinatesToAdmin(emp);</span>
+<span class="fc" id="L275">        employeeDetailsRepository.save(emp);</span>
+<span class="fc" id="L276">    }</span>
+
+    private void transferSubordinatesToAdmin(EmployeeDetails deactivated) {
+<span class="fc" id="L279">        List&lt;EmployeeDetails&gt; subordinates = employeeDetailsRepository.findByManagerId(deactivated.getId());</span>
+<span class="fc bfc" id="L280" title="All 2 branches covered.">        if (subordinates.isEmpty()) return;</span>
+
+        // Find the first active ADMIN (System Administrator) who is not the deactivated employee
+<span class="fc" id="L283">        EmployeeDetails admin = employeeDetailsRepository.findActiveAdmins().stream()</span>
+<span class="pc bpc" id="L284" title="1 of 2 branches missed.">                .filter(a -&gt; !a.getId().equals(deactivated.getId()))</span>
+<span class="fc" id="L285">                .findFirst()</span>
+<span class="fc" id="L286">                .orElse(null);</span>
+
+<span class="fc bfc" id="L288" title="All 2 branches covered.">        for (EmployeeDetails sub : subordinates) {</span>
+<span class="fc" id="L289">            sub.setManager(admin); // null if no admin found (edge case)</span>
+<span class="fc" id="L290">            employeeDetailsRepository.save(sub);</span>
+<span class="fc" id="L291">        }</span>
+<span class="fc" id="L292">    }</span>
+
+    @Transactional(readOnly = true)
+    public List&lt;EmployeeDTO&gt; getOrgChart() {
+<span class="nc" id="L296">        return employeeDetailsRepository.findByManagerIsNullAndActiveTrue().stream()</span>
+<span class="nc" id="L297">                .map(this::toDTO).collect(Collectors.toList());</span>
+    }
+
+    // ── Employee code auto-generation ─────────────────────────────────────────
+
+    private synchronized String generateNextEmployeeCode() {
+<span class="fc" id="L303">        List&lt;String&gt; existing = employeeDetailsRepository.findAllEmployeeCodes();</span>
+<span class="fc" id="L304">        int max = 10000;</span>
+<span class="fc bfc" id="L305" title="All 2 branches covered.">        for (String code : existing) {</span>
+            try {
+<span class="fc" id="L307">                int val = Integer.parseInt(code.trim());</span>
+<span class="pc bpc" id="L308" title="1 of 2 branches missed.">                if (val &gt; max) max = val;</span>
+<span class="pc" id="L309">            } catch (NumberFormatException ignored) {}</span>
+<span class="fc" id="L310">        }</span>
+<span class="fc" id="L311">        return String.valueOf(max + 1);</span>
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    @Transactional
+    public void backfillEmployeeCodes() {
+<span class="nc" id="L317">        List&lt;EmployeeDetails&gt; missing = employeeDetailsRepository.findByEmployeeCodeMissing();</span>
+<span class="nc bnc" id="L318" title="All 2 branches missed.">        if (missing.isEmpty()) return;</span>
+
+<span class="nc" id="L320">        List&lt;String&gt; existing = employeeDetailsRepository.findAllEmployeeCodes();</span>
+<span class="nc" id="L321">        int max = 10000;</span>
+<span class="nc bnc" id="L322" title="All 2 branches missed.">        for (String code : existing) {</span>
+            try {
+<span class="nc" id="L324">                int val = Integer.parseInt(code.trim());</span>
+<span class="nc bnc" id="L325" title="All 2 branches missed.">                if (val &gt; max) max = val;</span>
+<span class="nc" id="L326">            } catch (NumberFormatException ignored) {}</span>
+<span class="nc" id="L327">        }</span>
+
+        // Sort by DB id so codes are assigned in creation order
+<span class="nc" id="L330">        missing.sort(java.util.Comparator.comparingLong(EmployeeDetails::getId));</span>
+<span class="nc bnc" id="L331" title="All 2 branches missed.">        for (EmployeeDetails emp : missing) {</span>
+<span class="nc" id="L332">            emp.setEmployeeCode(String.valueOf(++max));</span>
+<span class="nc" id="L333">            employeeDetailsRepository.save(emp);</span>
+<span class="nc" id="L334">        }</span>
+<span class="nc" id="L335">    }</span>
+
+    private EmployeeDetails findEmployee(Long id) {
+<span class="fc" id="L338">        return employeeDetailsRepository.findById(id)</span>
+<span class="fc" id="L339">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;Employee&quot;, id));</span>
+    }
+
+    public EmployeeDTO toDTO(EmployeeDetails emp) {
+<span class="fc" id="L343">        Integer age = null;</span>
+<span class="pc bpc" id="L344" title="1 of 2 branches missed.">        if (emp.getDateOfBirth() != null) {</span>
+<span class="nc" id="L345">            age = Period.between(emp.getDateOfBirth(), LocalDate.now()).getYears();</span>
+        }
+<span class="fc" id="L347">        return EmployeeDTO.builder()</span>
+<span class="fc" id="L348">                .id(emp.getId())</span>
+<span class="fc" id="L349">                .userId(emp.getUser().getId())</span>
+<span class="fc" id="L350">                .email(emp.getUser().getEmail())</span>
+<span class="fc" id="L351">                .firstName(emp.getFirstName())</span>
+<span class="fc" id="L352">                .lastName(emp.getLastName())</span>
+<span class="fc" id="L353">                .fullName(emp.getFullName())</span>
+<span class="fc" id="L354">                .employeeCode(emp.getEmployeeCode())</span>
+<span class="fc" id="L355">                .phone(emp.getPhone())</span>
+<span class="fc" id="L356">                .personalEmail(emp.getPersonalEmail())</span>
+<span class="fc" id="L357">                .department(emp.getDepartment())</span>
+<span class="fc" id="L358">                .position(emp.getPosition())</span>
+<span class="fc" id="L359">                .employmentType(emp.getEmploymentType())</span>
+<span class="fc" id="L360">                .sourceOfHire(emp.getSourceOfHire())</span>
+<span class="fc" id="L361">                .hireDate(emp.getHireDate())</span>
+<span class="fc" id="L362">                .dateOfExit(emp.getDateOfExit())</span>
+<span class="fc" id="L363">                .dateOfBirth(emp.getDateOfBirth())</span>
+<span class="fc" id="L364">                .age(age)</span>
+<span class="fc" id="L365">                .gender(emp.getGender())</span>
+<span class="fc" id="L366">                .maritalStatus(emp.getMaritalStatus())</span>
+<span class="fc" id="L367">                .aadharNumber(emp.getAadharNumber())</span>
+<span class="fc" id="L368">                .panNumber(emp.getPanNumber())</span>
+<span class="fc" id="L369">                .uanNumber(emp.getUanNumber())</span>
+<span class="fc" id="L370">                .address(emp.getAddress())</span>
+<span class="fc" id="L371">                .presentAddress(emp.getPresentAddress())</span>
+<span class="fc" id="L372">                .permanentAddress(emp.getPermanentAddress())</span>
+<span class="fc" id="L373">                .seatingLocation(emp.getSeatingLocation())</span>
+<span class="fc" id="L374">                .currentExperience(emp.getCurrentExperience())</span>
+<span class="fc" id="L375">                .totalExperience(emp.getTotalExperience())</span>
+<span class="fc" id="L376">                .skills(emp.getSkills())</span>
+<span class="fc" id="L377">                .experience(emp.getExperience())</span>
+<span class="fc" id="L378">                .profileImageUrl(emp.getProfileImageUrl())</span>
+<span class="fc" id="L379">                .photoUrl(emp.getPhotoUrl())</span>
+<span class="fc" id="L380">                .active(emp.isActive())</span>
+<span class="fc" id="L381">                .role(emp.getUser().getRole().name())</span>
+<span class="pc bpc" id="L382" title="3 of 4 branches missed.">                .managerId(emp.getManager() != null &amp;&amp; emp.getManager().isActive() ? emp.getManager().getId() : null)</span>
+<span class="pc bpc" id="L383" title="3 of 4 branches missed.">                .managerName(emp.getManager() != null &amp;&amp; emp.getManager().isActive() ? emp.getManager().getFullName() : null)</span>
+<span class="pc bpc" id="L384" title="1 of 2 branches missed.">                .subordinateCount(emp.getSubordinates() != null</span>
+<span class="pc" id="L385">                        ? (int) emp.getSubordinates().stream().filter(EmployeeDetails::isActive).count() : 0)</span>
+<span class="fc" id="L386">                .addedBy(emp.getAddedBy())</span>
+<span class="fc" id="L387">                .modifiedBy(emp.getModifiedBy())</span>
+<span class="fc" id="L388">                .createdAt(emp.getCreatedAt())</span>
+<span class="fc" id="L389">                .updatedAt(emp.getUpdatedAt())</span>
+<span class="fc" id="L390">                .build();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>
