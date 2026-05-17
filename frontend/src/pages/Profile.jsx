@@ -223,7 +223,7 @@ const ProfilePage = () => {
   const enrolledCourses  = useMemo(() => courses.filter(c => ['ENROLLED','IN_PROGRESS','COMPLETED'].includes(c.enrollmentStatus)).length, [courses]);
 
   const approvedLeaves = useMemo(() => leaves.filter(l => l.status === 'APPROVED').length, [leaves]);
-  const LEAVE_TOTAL = 24;
+  const LEAVE_TOTAL = 21;
   const leaveBalance = Math.max(0, LEAVE_TOTAL - approvedLeaves);
 
   /* years in company */
@@ -297,13 +297,24 @@ const ProfilePage = () => {
     },
   }), []);
 
+  const TARGET_HRS = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    let workingDays = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const day = new Date(year, month, d).getDay();
+      if (day !== 0 && day !== 6) workingDays++;
+    }
+    return workingDays * 8;
+  }, []);
+
   if (loading) return (
     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 360 }}>
       <CircularProgress sx={{ color: '#0891b2' }} />
     </Box>
   );
-
-  const TARGET_HRS = 168; // 21 working days × 8h
 
   /* ═══════════ RENDER ═══════════ */
   return (
@@ -663,7 +674,6 @@ const ProfilePage = () => {
                   <Divider sx={{ mb: 0.75 }} />
                   {[
                     { icon: '☀', l: 'Annual Leave', taken: approvedLeaves, of: LEAVE_TOTAL, c: '#0891b2' },
-                    { icon: '🏥', l: 'Sick Leave', taken: leaves.filter(l => l.status === 'APPROVED' && (l.leaveType || '').toLowerCase().includes('sick')).length, of: 6, c: '#ef4444' },
                   ].map(({ icon, l, taken, of, c }) => (
                     <Box key={l} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
                       <Typography sx={{ fontSize: 12 }}>{icon}</Typography>

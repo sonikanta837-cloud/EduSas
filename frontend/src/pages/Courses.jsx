@@ -129,14 +129,7 @@ const CoursesPage = () => {
   const [courseSearch, setCourseSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
 
-  const GRADIENTS = [
-    'linear-gradient(135deg,#1e3a5f 0%,#14b8a6 100%)',
-    'linear-gradient(135deg,#312e81 0%,#6366f1 100%)',
-    'linear-gradient(135deg,#7c2d12 0%,#f97316 100%)',
-    'linear-gradient(135deg,#14532d 0%,#22c55e 100%)',
-    'linear-gradient(135deg,#831843 0%,#ec4899 100%)',
-    'linear-gradient(135deg,#1e1b4b 0%,#8b5cf6 100%)',
-  ];
+  const CARD_GRADIENT = 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)';
 
   const CATEGORIES = ['Development', 'Design', 'Marketing', 'Business', 'Technology', 'Management'];
 
@@ -499,7 +492,7 @@ const CoursesPage = () => {
 
   if (loading) return (
     <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-      <CircularProgress sx={{ color: '#14b8a6' }} />
+      <CircularProgress sx={{ color: '#1e3a5f' }} />
     </Box>
   );
 
@@ -519,7 +512,7 @@ const CoursesPage = () => {
                 Back to Catalog
               </Button>
             </Box>
-            <Box sx={{ height: 90, px: 2.5, pb: 2, background: GRADIENTS[viewCourse.id % GRADIENTS.length], display: 'flex', alignItems: 'flex-end' }}>
+            <Box sx={{ height: 90, px: 2.5, pb: 2, background: CARD_GRADIENT, display: 'flex', alignItems: 'flex-end' }}>
               <Typography fontWeight={700} color="#fff" sx={{ lineHeight: 1.3, fontSize: '0.95rem' }}>
                 {viewCourse.title}
               </Typography>
@@ -535,10 +528,10 @@ const CoursesPage = () => {
                 <Box sx={{ mb: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                     <Typography variant="caption" color="text.secondary">Progress</Typography>
-                    <Typography variant="caption" fontWeight={600} sx={{ color: '#14b8a6' }}>{getProgress(viewCourse)}%</Typography>
+                    <Typography variant="caption" fontWeight={600} sx={{ color: '#1e3a5f' }}>{getProgress(viewCourse)}%</Typography>
                   </Box>
                   <LinearProgress variant="determinate" value={getProgress(viewCourse)}
-                    sx={{ height: 6, borderRadius: 3, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { bgcolor: '#14b8a6' } }} />
+                    sx={{ height: 6, borderRadius: 3, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { bgcolor: '#1e3a5f' } }} />
                 </Box>
               )}
               <Divider sx={{ my: 1.5 }} />
@@ -558,14 +551,14 @@ const CoursesPage = () => {
                 '&:hover': { bgcolor: '#f0fdfa' }
               }}>
                 {['IN_PROGRESS', 'COMPLETED', 'FAILED'].includes(viewCourse.enrollmentStatus) ? (
-                  <CheckCircleIcon sx={{ fontSize: 18, color: '#14b8a6', flexShrink: 0 }} />
+                  <CheckCircleIcon sx={{ fontSize: 18, color: '#1e3a5f', flexShrink: 0 }} />
                 ) : (
                   <Box sx={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid #cbd5e1', flexShrink: 0 }} />
                 )}
                 <Box>
                   <Typography variant="body2" fontWeight={detailTab === 'lessons' ? 600 : 400}>Watch Video</Typography>
                   {!isAdmin && viewCourse.enrollmentStatus === 'ENROLLED' && viewCourse.youtubeUrl && (
-                    <Typography variant="caption" sx={{ color: '#14b8a6' }}>Click to mark as watched</Typography>
+                    <Typography variant="caption" sx={{ color: '#1e3a5f' }}>Click to mark as watched</Typography>
                   )}
                 </Box>
               </Box>
@@ -583,7 +576,7 @@ const CoursesPage = () => {
                   '&:hover': { bgcolor: '#f0fdfa' }
                 }}>
                   {viewCourse.enrollmentStatus === 'COMPLETED' ? (
-                    <CheckCircleIcon sx={{ fontSize: 18, color: '#14b8a6', flexShrink: 0 }} />
+                    <CheckCircleIcon sx={{ fontSize: 18, color: '#1e3a5f', flexShrink: 0 }} />
                   ) : (
                     <Box sx={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid #cbd5e1', flexShrink: 0 }} />
                   )}
@@ -612,7 +605,7 @@ const CoursesPage = () => {
               {(isAdmin || isManager) && <Divider sx={{ my: 1.5 }} />}
               {isAdmin && (
                 <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                  <Tooltip title="Assign"><IconButton size="small" onClick={() => openAssign(viewCourse)} sx={{ color: '#14b8a6' }}><PersonAddIcon fontSize="small" /></IconButton></Tooltip>
+                  <Tooltip title="Assign"><IconButton size="small" onClick={() => openAssign(viewCourse)} sx={{ color: '#1e3a5f' }}><PersonAddIcon fontSize="small" /></IconButton></Tooltip>
                   <Tooltip title={viewCourse.hasExam ? 'Edit Exam' : 'Add Exam'}><IconButton size="small" onClick={() => openExamCreate(viewCourse)} sx={{ color: '#7c3aed' }}><QuizIcon fontSize="small" /></IconButton></Tooltip>
                   <Tooltip title="Edit"><IconButton size="small" onClick={() => openEditCourse(viewCourse)}><AssignmentIcon fontSize="small" /></IconButton></Tooltip>
                   <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => { handleDeleteCourse(viewCourse.id); setViewCourse(null); }}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
@@ -620,7 +613,7 @@ const CoursesPage = () => {
               )}
               {isManager && (
                 <Tooltip title="Assign to Employee">
-                  <IconButton size="small" onClick={() => openAssign(viewCourse)} sx={{ color: '#14b8a6' }}>
+                  <IconButton size="small" onClick={() => openAssign(viewCourse)} sx={{ color: '#1e3a5f' }}>
                     <PersonAddIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
@@ -632,7 +625,7 @@ const CoursesPage = () => {
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Box sx={{ bgcolor: '#fff', borderRadius: '12px 12px 0 0', borderBottom: '1px solid #e2e8f0' }}>
               <Tabs value={detailTab} onChange={(_, v) => setDetailTab(v)}
-                sx={{ '& .MuiTab-root': { textTransform: 'none', fontWeight: 600 }, '& .MuiTabs-indicator': { bgcolor: '#14b8a6' } }}>
+                sx={{ '& .MuiTab-root': { textTransform: 'none', fontWeight: 600 }, '& .MuiTabs-indicator': { bgcolor: '#1e3a5f' } }}>
                 <Tab label="Lessons" value="lessons" />
                 {viewCourse.hasExam && <Tab label="Exam" value="exam" />}
               </Tabs>
@@ -668,7 +661,7 @@ const CoursesPage = () => {
                   )}
                   {!isAdmin && viewCourse.enrollmentStatus === 'NOT_ENROLLED' && (
                     <Button variant="contained" onClick={() => handleEnroll(viewCourse.id)}
-                      sx={{ mt: 2, bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' }, textTransform: 'none' }}>
+                      sx={{ mt: 2, bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, textTransform: 'none' }}>
                       Enroll Now
                     </Button>
                   )}
@@ -697,7 +690,7 @@ const CoursesPage = () => {
                   </>
                 ) : viewCourse.enrollmentStatus === 'COMPLETED' ? (
                   <>
-                    <CheckCircleIcon sx={{ fontSize: 60, color: '#14b8a6', mb: 2 }} />
+                    <CheckCircleIcon sx={{ fontSize: 60, color: '#1e3a5f', mb: 2 }} />
                     <Typography variant="h6" fontWeight={700} color="success.dark">Exam Completed!</Typography>
                     <Typography color="text.secondary" mt={1}>Score: {viewCourse.examScore}%</Typography>
                     {viewCourse.certificateNumber && (
@@ -763,28 +756,12 @@ const CoursesPage = () => {
             </Box>
             {isAdmin && (
               <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateCourse}
-                sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' }, borderRadius: 2, textTransform: 'none' }}>
+                sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, borderRadius: 2, textTransform: 'none' }}>
                 Create Course
               </Button>
             )}
           </Box>
 
-          {/* Stats row */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 2, mb: 3 }}>
-            {[
-              { label: 'Total Courses', value: courses.length, color: '#6366f1', bg: '#eef2ff' },
-              { label: 'Enrolled', value: courses.filter(c => ['ENROLLED', 'IN_PROGRESS', 'COMPLETED'].includes(c.enrollmentStatus)).length, color: '#14b8a6', bg: '#f0fdfa' },
-              { label: 'In Progress', value: courses.filter(c => c.enrollmentStatus === 'IN_PROGRESS').length, color: '#f59e0b', bg: '#fffbeb' },
-              { label: 'Completed', value: courses.filter(c => c.enrollmentStatus === 'COMPLETED').length, color: '#22c55e', bg: '#f0fdf4' },
-            ].map(stat => (
-              <Card key={stat.label} sx={{ borderRadius: 2.5, bgcolor: stat.bg, boxShadow: 'none', border: `1px solid ${stat.color}33` }}>
-                <CardContent sx={{ py: '14px !important', px: '18px !important' }}>
-                  <Typography variant="h4" fontWeight={700} sx={{ color: stat.color }}>{stat.value}</Typography>
-                  <Typography variant="body2" color="text.secondary">{stat.label}</Typography>
-                </CardContent>
-              </Card>
-            ))}
-          </Box>
 
           {/* Search + Filter tabs */}
           <Box sx={{ mb: 3 }}>
@@ -797,7 +774,7 @@ const CoursesPage = () => {
               sx={{ mb: 2, width: { xs: '100%', sm: 360 }, bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
             />
             <Tabs value={statusFilter} onChange={(_, v) => setStatusFilter(v)}
-              sx={{ '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, minWidth: 'auto', px: 2 }, '& .MuiTabs-indicator': { bgcolor: '#14b8a6' } }}>
+              sx={{ '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, minWidth: 'auto', px: 2 }, '& .MuiTabs-indicator': { bgcolor: '#1e3a5f' } }}>
               <Tab label={`All (${courses.length})`} value="ALL" />
               <Tab label={`Enrolled (${courses.filter(c => ['ENROLLED','IN_PROGRESS','COMPLETED','FAILED'].includes(c.enrollmentStatus)).length})`} value="ENROLLED" />
               <Tab label={`In Progress (${courses.filter(c => c.enrollmentStatus === 'IN_PROGRESS').length})`} value="IN_PROGRESS" />
@@ -832,7 +809,7 @@ const CoursesPage = () => {
                     {certsLoading ? (
                       <TableRow>
                         <TableCell colSpan={isAdmin ? 7 : 6} align="center" sx={{ py: 5 }}>
-                          <CircularProgress size={28} sx={{ color: '#14b8a6' }} />
+                          <CircularProgress size={28} sx={{ color: '#1e3a5f' }} />
                         </TableCell>
                       </TableRow>
                     ) : certs.length === 0 ? (
@@ -880,7 +857,7 @@ const CoursesPage = () => {
                               variant="contained"
                               startIcon={<DownloadIcon sx={{ fontSize: 15 }} />}
                               onClick={() => downloadCertificate(cert.courseTitle, cert.employeeName, cert.certificateNumber)}
-                              sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' }, textTransform: 'none', fontSize: 12, borderRadius: 1.5, px: 1.5, py: 0.5 }}
+                              sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, textTransform: 'none', fontSize: 12, borderRadius: 1.5, px: 1.5, py: 0.5 }}
                             >
                               PDF
                             </Button>
@@ -918,7 +895,7 @@ const CoursesPage = () => {
                 }}>
                   {/* Gradient header */}
                   <Box sx={{
-                    height: 120, background: GRADIENTS[course.id % GRADIENTS.length],
+                    height: 120, background: CARD_GRADIENT,
                     position: 'relative', p: 2,
                     display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
                   }}>
@@ -979,12 +956,13 @@ const CoursesPage = () => {
                       <Box sx={{ mb: 1 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                           <Chip label={statusLabels[course.enrollmentStatus] || course.enrollmentStatus}
-                            size="small" color={statusColors[course.enrollmentStatus] || 'default'}
-                            sx={{ height: 20, fontSize: '0.7rem' }} />
+                            size="small"
+                            color={course.enrollmentStatus === 'ENROLLED' ? 'default' : (statusColors[course.enrollmentStatus] || 'default')}
+                            sx={{ height: 20, fontSize: '0.7rem', ...(course.enrollmentStatus === 'ENROLLED' && { bgcolor: '#1e3a5f', color: '#fff' }) }} />
                           <Typography variant="caption" color="text.secondary">{getProgress(course)}%</Typography>
                         </Box>
                         <LinearProgress variant="determinate" value={getProgress(course)}
-                          sx={{ height: 5, borderRadius: 3, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { bgcolor: '#14b8a6' } }} />
+                          sx={{ height: 5, borderRadius: 3, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { bgcolor: '#1e3a5f' } }} />
                       </Box>
                     )}
                     <Typography variant="caption" color="text.secondary">
@@ -1002,7 +980,7 @@ const CoursesPage = () => {
                     ) : (
                       <Button fullWidth variant="contained"
                         onClick={() => { setViewCourse(course); setDetailTab('lessons'); }}
-                        sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' } }}>
+                        sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, bgcolor: '#a3a5a7', '&:hover': { bgcolor: '#0f172a' } }}>
                         Review Course
                       </Button>
                     )}
@@ -1036,7 +1014,7 @@ const CoursesPage = () => {
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setCourseDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleSaveCourse}
-            sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' } }}>
+            sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' } }}>
             {editingCourse ? 'Save Changes' : 'Create'}
           </Button>
         </DialogActions>
@@ -1085,7 +1063,7 @@ const CoursesPage = () => {
           <Button onClick={() => setAssignCourse(null)}>Cancel</Button>
           <Button variant="contained" onClick={handleAssign}
             disabled={!assignAll && !assignTarget}
-            sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' } }}>
+            sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' } }}>
             Assign
           </Button>
         </DialogActions>
@@ -1132,9 +1110,9 @@ const CoursesPage = () => {
                       width: 28, height: 28, borderRadius: '50%', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: '0.7rem', fontWeight: 600,
-                      bgcolor: qi === examEditIndex ? '#14b8a6' : '#f1f5f9',
+                      bgcolor: qi === examEditIndex ? '#1e3a5f' : '#f1f5f9',
                       color: qi === examEditIndex ? '#fff' : '#64748b',
-                      border: qi === examEditIndex ? '2px solid #0d9488' : '2px solid transparent',
+                      border: qi === examEditIndex ? '2px solid #0f172a' : '2px solid transparent',
                       transition: 'all 0.15s',
                     }}>
                     {qi + 1}
@@ -1168,7 +1146,7 @@ const CoursesPage = () => {
                         {q.options.map((opt, oi) => (
                           <Box key={oi} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                             <Radio value={String(oi)} size="small"
-                              sx={{ color: '#14b8a6', '&.Mui-checked': { color: '#14b8a6' } }} />
+                              sx={{ color: '#1e3a5f', '&.Mui-checked': { color: '#1e3a5f' } }} />
                             <TextField size="small" placeholder={`Option ${oi + 1}`} value={opt} sx={{ flex: 1 }}
                               onChange={(e) => updateOption(qi, oi, e.target.value)} />
                           </Box>
@@ -1197,7 +1175,7 @@ const CoursesPage = () => {
             </Button>
           ) : null}
           <Button variant="contained" onClick={handleSaveExam}
-            sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' } }}>
+            sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' } }}>
             Save Exam
           </Button>
         </DialogActions>
@@ -1218,7 +1196,7 @@ const CoursesPage = () => {
         <DialogContent sx={{ pt: 0 }}>
           {examLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-              <CircularProgress sx={{ color: '#14b8a6' }} />
+              <CircularProgress sx={{ color: '#1e3a5f' }} />
             </Box>
           ) : examResult ? (
             /* ── Results View ── */
@@ -1328,7 +1306,7 @@ const CoursesPage = () => {
                 <LinearProgress
                   variant="determinate"
                   value={((currentQuestion + 1) / examQuestions.length) * 100}
-                  sx={{ height: 6, borderRadius: 3, '& .MuiLinearProgress-bar': { bgcolor: '#14b8a6' } }}
+                  sx={{ height: 6, borderRadius: 3, '& .MuiLinearProgress-bar': { bgcolor: '#1e3a5f' } }}
                 />
               </Box>
 
@@ -1343,11 +1321,11 @@ const CoursesPage = () => {
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: '0.7rem', fontWeight: 600,
                       bgcolor: qi === currentQuestion
-                        ? '#14b8a6'
+                        ? '#1e3a5f'
                         : examAnswers[qi] !== null ? '#d1fae5' : '#f1f5f9',
                       color: qi === currentQuestion ? '#fff'
                         : examAnswers[qi] !== null ? '#065f46' : '#64748b',
-                      border: qi === currentQuestion ? '2px solid #0d9488' : '2px solid transparent',
+                      border: qi === currentQuestion ? '2px solid #0f172a' : '2px solid transparent',
                       transition: 'all 0.15s',
                     }}
                   >
@@ -1372,7 +1350,7 @@ const CoursesPage = () => {
                   {(examQuestions[currentQuestion].options || []).map((opt, oi) => (
                     <FormControlLabel
                       key={oi} value={String(oi)}
-                      control={<Radio size="small" sx={{ color: '#14b8a6', '&.Mui-checked': { color: '#14b8a6' } }} />}
+                      control={<Radio size="small" sx={{ color: '#1e3a5f', '&.Mui-checked': { color: '#1e3a5f' } }} />}
                       label={opt}
                       sx={{
                         mb: 0.5, px: 1, borderRadius: 1,
@@ -1411,14 +1389,14 @@ const CoursesPage = () => {
                 <Button
                   variant="contained"
                   onClick={() => setCurrentQuestion(q => q + 1)}
-                  sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' } }}
+                  sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' } }}
                 >
                   Next →
                 </Button>
               ) : (
                 <Button variant="contained" onClick={handleSubmitExam}
                   disabled={examLoading || examAnswers.some(a => a === null)}
-                  sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' } }}>
+                  sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' } }}>
                   Submit Exam
                 </Button>
               )}
