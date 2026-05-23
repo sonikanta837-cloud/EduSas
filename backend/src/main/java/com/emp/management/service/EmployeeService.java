@@ -222,6 +222,7 @@ public class EmployeeService {
         emp.setTotalExperience(dto.getTotalExperience());
         emp.setSkills(dto.getSkills());
         emp.setExperience(dto.getExperience());
+        emp.setSalary(dto.getSalary());
         emp.setPhotoUrl(dto.getPhotoUrl());
         emp.setModifiedBy(requesterEmail);
 
@@ -375,6 +376,7 @@ public class EmployeeService {
                 .totalExperience(emp.getTotalExperience())
                 .skills(emp.getSkills())
                 .experience(emp.getExperience())
+                .salary(emp.getSalary())
                 .profileImageUrl(emp.getProfileImageUrl())
                 .photoUrl(emp.getPhotoUrl())
                 .active(emp.isActive())

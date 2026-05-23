@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -53,6 +54,7 @@ public class EmployeeDTO {
     private String totalExperience;
     private String skills;
     private String experience;
+    private BigDecimal salary;
 
     private String profileImageUrl;
     private String photoUrl;

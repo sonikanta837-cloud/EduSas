@@ -2,7 +2,9 @@ import React, { useRef, useState, useEffect } from 'react';
 import {
   Box, Typography, Button, Card, CardContent, Chip,
   Table, TableHead, TableRow, TableCell, TableBody,
-  CircularProgress, Alert, Divider, LinearProgress, Stack,
+  CircularProgress, Alert, Divider, Stack,
+  Dialog, DialogTitle, DialogContent, DialogActions,
+  TextField, Grid, IconButton,
 } from '@mui/material';
 import UploadFileIcon    from '@mui/icons-material/UploadFile';
 import DownloadIcon      from '@mui/icons-material/Download';
@@ -11,23 +13,32 @@ import ErrorIcon         from '@mui/icons-material/Error';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import PeopleIcon        from '@mui/icons-material/People';
 import EventIcon         from '@mui/icons-material/Event';
+import AddIcon           from '@mui/icons-material/Add';
+import CloseIcon         from '@mui/icons-material/Close';
 import { leaveUploadApi } from '../api/leaveUploadApi';
 import { toast } from 'react-toastify';
 
 const SAMPLE_HOLIDAYS = [
-  { name: "New Year's Day",  date: '01-January-2026'  },
-  { name: 'Holi',            date: '15-June-2026'     },
-  { name: 'Independence Day',date: '15-August-2026'   },
-  { name: 'Diwali',          date: '20-October-2026'  },
-  { name: 'Christmas',       date: '25-December-2026' },
+  { name: "New Year's Day",   date: '01-January-2026'  },
+  { name: 'Holi',             date: '15-June-2026'     },
+  { name: 'Independence Day', date: '15-August-2026'   },
+  { name: 'Diwali',           date: '20-October-2026'  },
+  { name: 'Christmas',        date: '25-December-2026' },
 ];
 
 const LeaveUploadPage = () => {
-  const inputRef                  = useRef(null);
-  const [dragging,  setDragging]  = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [result,    setResult]    = useState(null);
-  const [holidays,  setHolidays]  = useState([]);
+  const inputRef                      = useRef(null);
+  const [dragging,    setDragging]    = useState(false);
+  const [uploading,   setUploading]   = useState(false);
+  const [result,      setResult]      = useState(null);
+  const [holidays,    setHolidays]    = useState([]);
+
+  // Add Holiday dialog
+  const [addOpen,     setAddOpen]     = useState(false);
+  const [holName,     setHolName]     = useState('');
+  const [holDate,     setHolDate]     = useState('');
+  const [addSaving,   setAddSaving]   = useState(false);
+  const [addError,    setAddError]    = useState('');
 
   const loadHolidays = () => {
     leaveUploadApi.getHolidays()
@@ -37,6 +48,7 @@ const LeaveUploadPage = () => {
 
   useEffect(() => { loadHolidays(); }, []);
 
+  // ── Excel upload ────────────────────────────────────────────────────────────
   const handleFile = async (file) => {
     if (!file) return;
     const ext = file.name.split('.').pop().toLowerCase();
@@ -82,6 +94,30 @@ const LeaveUploadPage = () => {
     }
   };
 
+  // ── Manual add holiday ──────────────────────────────────────────────────────
+  const openAddHoliday = () => {
+    setHolName(''); setHolDate(''); setAddError('');
+    setAddOpen(true);
+  };
+
+  const handleAddHoliday = async () => {
+    if (!holName.trim()) { setAddError('Holiday name is required.'); return; }
+    if (!holDate)        { setAddError('Date is required.'); return; }
+    setAddSaving(true); setAddError('');
+    try {
+      const data = await leaveUploadApi.addHoliday(holName.trim(), holDate);
+      if (data.imported > 0) {
+        toast.success(`"${holName}" applied to all active employees`);
+        loadHolidays();
+        setAddOpen(false);
+      } else {
+        setAddError(data.errors?.[0] || 'Holiday could not be applied.');
+      }
+    } catch (e) {
+      setAddError(e?.response?.data?.message || 'Failed to add holiday.');
+    } finally { setAddSaving(false); }
+  };
+
   return (
     <Box>
       {/* Header */}
@@ -95,13 +131,15 @@ const LeaveUploadPage = () => {
             </Typography>
           </Box>
         </Box>
-        <Button
-          variant="outlined"
-          startIcon={<DownloadIcon />}
-          onClick={handleDownloadTemplate}
-        >
-          Download Template
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1.5 }}>
+          <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleDownloadTemplate}>
+            Download Template
+          </Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openAddHoliday}
+            sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' } }}>
+            Add Holiday
+          </Button>
+        </Box>
       </Box>
 
       {/* How it works */}
@@ -209,23 +247,13 @@ const LeaveUploadPage = () => {
                 color="success" variant="outlined"
               />
               {result.skipped > 0 && (
-                <Chip
-                  label={`${result.skipped} Skipped`}
-                  color="warning" variant="outlined"
-                />
+                <Chip label={`${result.skipped} Skipped`} color="warning" variant="outlined" />
               )}
-              <Chip
-                label={`${result.totalRows} Total Rows`}
-                variant="outlined"
-              />
+              <Chip label={`${result.totalRows} Total Rows`} variant="outlined" />
             </Stack>
 
             {result.errors.length > 0 && (
-              <Box sx={{
-                maxHeight: 220, overflowY: 'auto',
-                border: '1px solid #fde68a', borderRadius: 1,
-                bgcolor: '#fffbeb', p: 1.5,
-              }}>
+              <Box sx={{ maxHeight: 220, overflowY: 'auto', border: '1px solid #fde68a', borderRadius: 1, bgcolor: '#fffbeb', p: 1.5 }}>
                 {result.errors.map((err, i) => (
                   <Box key={i} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 0.75 }}>
                     <ErrorIcon sx={{ fontSize: 15, color: '#d97706', mt: 0.25, flexShrink: 0 }} />
@@ -238,7 +266,7 @@ const LeaveUploadPage = () => {
         </Card>
       )}
 
-      {/* ── Uploaded Holidays List ── */}
+      {/* Uploaded Holidays List */}
       {holidays.length > 0 && (
         <Card sx={{ mb: 3 }}>
           <CardContent>
@@ -265,19 +293,14 @@ const LeaveUploadPage = () => {
                       <Typography variant="body2" fontWeight={600}>{h.name}</Typography>
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        label={h.date}
-                        size="small"
-                        sx={{ bgcolor: '#f0fdfa', color: '#0f766e', fontFamily: 'monospace', fontSize: 12 }}
-                      />
+                      <Chip label={h.date} size="small"
+                        sx={{ bgcolor: '#f0fdfa', color: '#0f766e', fontFamily: 'monospace', fontSize: 12 }} />
                     </TableCell>
                     <TableCell align="center">
                       <Chip
                         icon={<PeopleIcon sx={{ fontSize: '14px !important' }} />}
                         label={`${h.employeeCount} employees`}
-                        size="small"
-                        color="primary"
-                        variant="outlined"
+                        size="small" color="primary" variant="outlined"
                       />
                     </TableCell>
                   </TableRow>
@@ -296,7 +319,6 @@ const LeaveUploadPage = () => {
             Your file needs just <strong>two columns</strong>. Row 1 is the header and is skipped automatically.
           </Typography>
 
-          {/* Format table */}
           <Table size="small" sx={{ mb: 3 }}>
             <TableHead>
               <TableRow sx={{ bgcolor: '#f8fafc' }}>
@@ -335,10 +357,7 @@ const LeaveUploadPage = () => {
 
           <Divider sx={{ mb: 2 }} />
 
-          {/* Sample preview */}
-          <Typography variant="subtitle2" fontWeight={700} gutterBottom>
-            Sample Data Preview
-          </Typography>
+          <Typography variant="subtitle2" fontWeight={700} gutterBottom>Sample Data Preview</Typography>
           <Box sx={{ border: '1px solid #e2e8f0', borderRadius: 1, overflow: 'hidden' }}>
             <Table size="small">
               <TableHead>
@@ -363,6 +382,47 @@ const LeaveUploadPage = () => {
           </Typography>
         </CardContent>
       </Card>
+
+      {/* ── Add Holiday Dialog ── */}
+      <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="xs" fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          Add Public Holiday
+          <IconButton size="small" onClick={() => setAddOpen(false)}><CloseIcon sx={{ fontSize: 18 }} /></IconButton>
+        </DialogTitle>
+        <Divider />
+        <DialogContent sx={{ pt: 2.5 }}>
+          {addError && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{addError}</Alert>}
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <TextField fullWidth label="Holiday Name *" value={holName}
+                onChange={e => setHolName(e.target.value)} size="small"
+                placeholder="e.g. Independence Day"
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField fullWidth type="date" label="Date *" value={holDate}
+                onChange={e => setHolDate(e.target.value)} size="small"
+                InputLabelProps={{ shrink: true }}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+            </Grid>
+          </Grid>
+          <Alert severity="info" sx={{ mt: 2, borderRadius: 2, fontSize: '0.82rem' }}>
+            This holiday will be applied to <strong>all active employees</strong> as an Approved leave.
+          </Alert>
+        </DialogContent>
+        <Divider />
+        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+          <Button variant="outlined" onClick={() => setAddOpen(false)}
+            sx={{ borderColor: '#e2e8f0', color: '#64748b' }}>Cancel</Button>
+          <Button variant="contained" onClick={handleAddHoliday} disabled={addSaving}
+            startIcon={addSaving ? <CircularProgress size={14} color="inherit" /> : <AddIcon />}
+            sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' } }}>
+            Add Holiday
+          </Button>
+        </DialogActions>
+      </Dialog>
+
     </Box>
   );
 };

@@ -1,174 +1,613 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import {
-  Box, Card, CardContent, Typography, Button, Table, TableBody,
-  TableCell, TableContainer, TableHead, TableRow, IconButton,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  CircularProgress, Chip
+  Box, Typography, Paper, Grid, Card, CardContent, Button, IconButton,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  TablePagination, Chip, TextField, MenuItem, InputAdornment,
+  Dialog, DialogTitle, DialogContent, DialogActions,
+  Tooltip, CircularProgress, Alert, Divider,
 } from '@mui/material';
-import UploadIcon from '@mui/icons-material/Upload';
-import DownloadIcon from '@mui/icons-material/Download';
-import DeleteIcon from '@mui/icons-material/Delete';
-import FolderIcon from '@mui/icons-material/Folder';
-import api from '../api/axios';
-import { toast } from 'react-toastify';
+import SearchIcon            from '@mui/icons-material/Search';
+import AddIcon               from '@mui/icons-material/Add';
+import EditIcon              from '@mui/icons-material/Edit';
+import DeleteIcon            from '@mui/icons-material/Delete';
+import PersonAddIcon         from '@mui/icons-material/PersonAdd';
+import AssignmentReturnIcon  from '@mui/icons-material/AssignmentReturn';
+import LaptopIcon            from '@mui/icons-material/Laptop';
+import MonitorIcon           from '@mui/icons-material/Monitor';
+import BadgeIcon             from '@mui/icons-material/Badge';
+import KeyboardIcon          from '@mui/icons-material/Keyboard';
+import MouseIcon             from '@mui/icons-material/Mouse';
+import HeadsetIcon           from '@mui/icons-material/Headset';
+import PhoneIphoneIcon       from '@mui/icons-material/PhoneIphone';
+import TabletIcon            from '@mui/icons-material/Tablet';
+import InventoryIcon         from '@mui/icons-material/Inventory';
+import CodeIcon              from '@mui/icons-material/Code';
+import BuildIcon             from '@mui/icons-material/Build';
+import BlockIcon             from '@mui/icons-material/Block';
+import CheckCircleIcon       from '@mui/icons-material/CheckCircle';
+import FileDownloadIcon      from '@mui/icons-material/FileDownload';
+import CloseIcon             from '@mui/icons-material/Close';
+import { assetApi }          from '../api/assetApi';
+import { employeeApi }       from '../api/employeeApi';
+import * as XLSX             from 'xlsx';
 
-const formatSize = (bytes) => {
-  if (!bytes) return '-';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+// ─── constants ────────────────────────────────────────────────────────────────
+const ASSET_TYPES      = ['LAPTOP','MONITOR','ID_CARD','SOFTWARE_LICENSE','MOUSE','KEYBOARD','HEADSET','PHONE','TABLET','OTHER'];
+const ASSET_STATUSES   = ['AVAILABLE','ASSIGNED','UNDER_MAINTENANCE','RETIRED'];
+const ASSET_CONDITIONS = ['NEW','GOOD','FAIR','POOR'];
+
+const TYPE_ICONS = {
+  LAPTOP:           <LaptopIcon sx={{ fontSize: 18 }} />,
+  MONITOR:          <MonitorIcon sx={{ fontSize: 18 }} />,
+  ID_CARD:          <BadgeIcon sx={{ fontSize: 18 }} />,
+  SOFTWARE_LICENSE: <CodeIcon sx={{ fontSize: 18 }} />,
+  MOUSE:            <MouseIcon sx={{ fontSize: 18 }} />,
+  KEYBOARD:         <KeyboardIcon sx={{ fontSize: 18 }} />,
+  HEADSET:          <HeadsetIcon sx={{ fontSize: 18 }} />,
+  PHONE:            <PhoneIphoneIcon sx={{ fontSize: 18 }} />,
+  TABLET:           <TabletIcon sx={{ fontSize: 18 }} />,
+  OTHER:            <InventoryIcon sx={{ fontSize: 18 }} />,
 };
 
-const ResourcesPage = () => {
-  const { user } = useSelector((s) => s.auth);
-  const [resources, setResources] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [uploadOpen, setUploadOpen] = useState(false);
-  const [file, setFile] = useState(null);
-  const [description, setDescription] = useState('');
-  const [uploading, setUploading] = useState(false);
+const STATUS_CFG = {
+  AVAILABLE:         { label: 'Available',    color: 'success' },
+  ASSIGNED:          { label: 'Assigned',     color: 'primary' },
+  UNDER_MAINTENANCE: { label: 'Maintenance',  color: 'warning' },
+  RETIRED:           { label: 'Retired',      color: 'error'   },
+};
 
-  const fetchResources = () => {
-    setLoading(true);
-    api.get('/resources')
-      .then(setResources)
-      .catch(() => toast.error('Failed to load resources'))
-      .finally(() => setLoading(false));
-  };
+const CONDITION_CFG = {
+  NEW:  { label: 'New',  bg: '#dcfce7', color: '#166534' },
+  GOOD: { label: 'Good', bg: '#dbeafe', color: '#1d4ed8' },
+  FAIR: { label: 'Fair', bg: '#fef9c3', color: '#854d0e' },
+  POOR: { label: 'Poor', bg: '#fee2e2', color: '#991b1b' },
+};
 
-  useEffect(() => { fetchResources(); }, []);
+const KPI_CARDS = [
+  { key: 'total',            label: 'Total Assets',      accent: '#6366f1', bg: '#ede9fe' },
+  { key: 'available',        label: 'Available',         accent: '#16a34a', bg: '#dcfce7' },
+  { key: 'assigned',         label: 'Assigned',          accent: '#0369a1', bg: '#e0f2fe' },
+  { key: 'underMaintenance', label: 'Under Maintenance', accent: '#d97706', bg: '#fef3c7' },
+  { key: 'retired',          label: 'Retired',           accent: '#dc2626', bg: '#fee2e2' },
+];
 
-  const handleUpload = async () => {
-    if (!file) { toast.error('Please select a file'); return; }
-    const formData = new FormData();
-    formData.append('file', file);
-    if (description) formData.append('description', description);
-    formData.append('uploadedBy', user.userId);
+const EMPTY_FORM   = { assetName: '', assetType: 'LAPTOP', brand: '', model: '', serialNumber: '', purchaseDate: '', purchasePrice: '', status: 'AVAILABLE', condition: 'GOOD', notes: '' };
+const EMPTY_ASSIGN = { employeeId: '', assignedDate: '', expectedReturnDate: '' };
 
-    setUploading(true);
+// ─── style helpers ─────────────────────────────────────────────────────────────
+const hdr  = { fontWeight: 700, fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', py: 1.5, px: 2, borderBottom: '2px solid #f1f5f9', whiteSpace: 'nowrap' };
+const cell = { py: 1.5, px: 2, fontSize: '0.85rem', color: '#334155', borderBottom: '1px solid #f8fafc' };
+
+// ─── KpiCard ──────────────────────────────────────────────────────────────────
+function KpiCard({ label, value, accent, bg }) {
+  return (
+    <Card sx={{ borderRadius: 3, border: '1px solid #f1f5f9', boxShadow: '0 1px 6px rgba(0,0,0,0.06)', height: '100%' }}>
+      <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ width: 48, height: 48, borderRadius: 2.5, bgcolor: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <InventoryIcon sx={{ fontSize: 24, color: accent }} />
+          </Box>
+          <Box>
+            <Typography sx={{ fontSize: '1.75rem', fontWeight: 800, color: accent, lineHeight: 1 }}>{value ?? '–'}</Typography>
+            <Typography sx={{ fontSize: '0.78rem', color: '#64748b', mt: 0.3, fontWeight: 500 }}>{label}</Typography>
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TypeLabel({ type }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, color: '#475569' }}>
+      {TYPE_ICONS[type] || <InventoryIcon sx={{ fontSize: 18 }} />}
+      <Typography sx={{ fontSize: '0.82rem' }}>{(type || '').replace(/_/g, ' ')}</Typography>
+    </Box>
+  );
+}
+
+function StatusBadge({ status }) {
+  const cfg = STATUS_CFG[status] || { label: status, color: 'default' };
+  return <Chip label={cfg.label} color={cfg.color} size="small" sx={{ fontWeight: 600, fontSize: '0.72rem' }} />;
+}
+
+function ConditionBadge({ condition }) {
+  const cfg = CONDITION_CFG[condition] || { label: condition, bg: '#f1f5f9', color: '#475569' };
+  return <Chip label={cfg.label} size="small" sx={{ fontWeight: 600, fontSize: '0.72rem', bgcolor: cfg.bg, color: cfg.color, border: 'none' }} />;
+}
+
+// ─── Asset Form Dialog (shared by Add + Edit) ──────────────────────────────────
+function AssetFormDialog({ open, onClose, title, form, onChange, onSubmit, saving, error, isEdit, assetStatus }) {
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+      <DialogTitle sx={{ fontWeight: 700, pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {title}
+        <IconButton size="small" onClick={onClose}><CloseIcon sx={{ fontSize: 18 }} /></IconButton>
+      </DialogTitle>
+      <Divider />
+      <DialogContent sx={{ pt: 2.5 }}>
+        {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6}>
+            <TextField fullWidth label="Asset Name *" value={form.assetName} onChange={onChange('assetName')} size="small"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField select fullWidth label="Asset Type *" value={form.assetType} onChange={onChange('assetType')} size="small"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
+              {ASSET_TYPES.map(t => <MenuItem key={t} value={t}>{t.replace(/_/g, ' ')}</MenuItem>)}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField fullWidth label="Brand" value={form.brand} onChange={onChange('brand')} size="small"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField fullWidth label="Model" value={form.model} onChange={onChange('model')} size="small"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField fullWidth label="Serial Number" value={form.serialNumber} onChange={onChange('serialNumber')} size="small"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField select fullWidth label="Condition" value={form.condition} onChange={onChange('condition')} size="small"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
+              {ASSET_CONDITIONS.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField fullWidth type="date" label="Purchase Date" value={form.purchaseDate} onChange={onChange('purchaseDate')} size="small"
+              InputLabelProps={{ shrink: true }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField fullWidth type="number" label="Purchase Price" value={form.purchasePrice} onChange={onChange('purchasePrice')} size="small"
+              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+          </Grid>
+          {isEdit && assetStatus !== 'ASSIGNED' && (
+            <Grid item xs={12} sm={6}>
+              <TextField select fullWidth label="Status" value={form.status} onChange={onChange('status')} size="small"
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
+                {ASSET_STATUSES.map(s => <MenuItem key={s} value={s}>{s.replace(/_/g, ' ')}</MenuItem>)}
+              </TextField>
+            </Grid>
+          )}
+          <Grid item xs={12}>
+            <TextField fullWidth multiline rows={2} label="Notes" value={form.notes} onChange={onChange('notes')} size="small"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+          </Grid>
+        </Grid>
+      </DialogContent>
+      <Divider />
+      <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+        <Button variant="outlined" onClick={onClose} sx={{ borderColor: '#e2e8f0', color: '#64748b' }}>Cancel</Button>
+        <Button variant="contained" onClick={onSubmit} disabled={saving}
+          startIcon={saving ? <CircularProgress size={14} color="inherit" /> : (isEdit ? <EditIcon /> : <AddIcon />)}
+          sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' } }}>
+          {isEdit ? 'Save Changes' : 'Add Asset'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ─── main page ─────────────────────────────────────────────────────────────────
+export default function ResourcesPage() {
+  const { user } = useSelector(s => s.auth);
+  const isAdmin  = user?.role === 'ADMIN';
+
+  const [assets,    setAssets]    = useState([]);
+  const [stats,     setStats]     = useState({});
+  const [employees, setEmployees] = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState('');
+
+  // filters
+  const [search,       setSearch]       = useState('');
+  const [filterType,   setFilterType]   = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterDept,   setFilterDept]   = useState('');
+
+  // pagination
+  const [page,   setPage]   = useState(0);
+  const [rowsPP, setRowsPP] = useState(10);
+
+  // dialogs
+  const [addOpen,    setAddOpen]    = useState(false);
+  const [editOpen,   setEditOpen]   = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [returnOpen, setReturnOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [selected,   setSelected]   = useState(null);
+
+  // forms
+  const [form,       setForm]       = useState(EMPTY_FORM);
+  const [assignForm, setAssignForm] = useState(EMPTY_ASSIGN);
+  const [saving,     setSaving]     = useState(false);
+  const [formError,  setFormError]  = useState('');
+
+  // ── load ──────────────────────────────────────────────────────────────────
+  const loadAll = useCallback(async () => {
+    setLoading(true); setError('');
     try {
-      await api.post('/resources/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      toast.success('File uploaded successfully!');
-      setUploadOpen(false);
-      setFile(null);
-      setDescription('');
-      fetchResources();
-    } catch {
-      toast.error('Failed to upload file');
-    } finally {
-      setUploading(false);
-    }
-  };
+      const [assetsRes, statsRes, empRes] = await Promise.all([
+        assetApi.getAll(),
+        assetApi.getStats(),
+        employeeApi.getAll(),
+      ]);
+      setAssets(Array.isArray(assetsRes) ? assetsRes : (assetsRes?.data || []));
+      setStats(statsRes || {});
+      const empList = Array.isArray(empRes) ? empRes : (empRes?.data || []);
+      setEmployees(empList.filter(e => e.status !== 'INACTIVE'));
+    } catch { setError('Failed to load asset data.'); }
+    finally  { setLoading(false); }
+  }, []);
 
-  const handleDownload = (id, name) => {
-    const token = localStorage.getItem('accessToken');
-    const a = document.createElement('a');
-    a.href = `/api/resources/download/${id}`;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
+  useEffect(() => { loadAll(); }, [loadAll]);
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this resource?')) return;
+  // ── derived ───────────────────────────────────────────────────────────────
+  const departments = useMemo(() => [...new Set(employees.map(e => e.department).filter(Boolean))].sort(), [employees]);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return assets.filter(a => {
+      if (filterType   && a.assetType !== filterType)                  return false;
+      if (filterStatus && a.status    !== filterStatus)                return false;
+      if (filterDept   && a.assignedEmployeeDepartment !== filterDept) return false;
+      if (q && ![(a.assetCode),(a.assetName),(a.brand),(a.model),(a.serialNumber),(a.assignedEmployeeName)]
+        .some(v => (v || '').toLowerCase().includes(q))) return false;
+      return true;
+    });
+  }, [assets, search, filterType, filterStatus, filterDept]);
+
+  const paginated = useMemo(() => filtered.slice(page * rowsPP, page * rowsPP + rowsPP), [filtered, page, rowsPP]);
+
+  // ── handlers ──────────────────────────────────────────────────────────────
+  const openAdd = () => { setForm(EMPTY_FORM); setFormError(''); setAddOpen(true); };
+
+  const handleAdd = async () => {
+    if (!form.assetName.trim()) { setFormError('Asset name is required.'); return; }
+    setSaving(true); setFormError('');
     try {
-      await api.delete(`/resources/${id}`);
-      toast.success('Resource deleted');
-      fetchResources();
-    } catch {
-      toast.error('Failed to delete resource');
-    }
+      await assetApi.create({ ...form, purchasePrice: form.purchasePrice ? parseFloat(form.purchasePrice) : null, purchaseDate: form.purchaseDate || null });
+      setAddOpen(false); loadAll();
+    } catch (e) { setFormError(e?.response?.data?.message || 'Failed to create asset.'); }
+    finally { setSaving(false); }
   };
+
+  const openEdit = (a) => {
+    setSelected(a);
+    setForm({ assetName: a.assetName||'', assetType: a.assetType||'LAPTOP', brand: a.brand||'', model: a.model||'', serialNumber: a.serialNumber||'', purchaseDate: a.purchaseDate||'', purchasePrice: a.purchasePrice!=null?String(a.purchasePrice):'', status: a.status||'AVAILABLE', condition: a.condition||'GOOD', notes: a.notes||'' });
+    setFormError(''); setEditOpen(true);
+  };
+
+  const handleEdit = async () => {
+    if (!form.assetName.trim()) { setFormError('Asset name is required.'); return; }
+    setSaving(true); setFormError('');
+    try {
+      await assetApi.update(selected.id, { ...form, purchasePrice: form.purchasePrice ? parseFloat(form.purchasePrice) : null, purchaseDate: form.purchaseDate||null });
+      setEditOpen(false); loadAll();
+    } catch (e) { setFormError(e?.response?.data?.message || 'Failed to update asset.'); }
+    finally { setSaving(false); }
+  };
+
+  const openAssign = (a) => { setSelected(a); setAssignForm(EMPTY_ASSIGN); setFormError(''); setAssignOpen(true); };
+
+  const handleAssign = async () => {
+    if (!assignForm.employeeId) { setFormError('Please select an employee.'); return; }
+    setSaving(true); setFormError('');
+    try {
+      await assetApi.assign(selected.id, assignForm.employeeId, assignForm.assignedDate||undefined, assignForm.expectedReturnDate||undefined);
+      setAssignOpen(false); loadAll();
+    } catch (e) { setFormError(e?.response?.data?.message || 'Failed to assign asset.'); }
+    finally { setSaving(false); }
+  };
+
+  const openReturn = (a) => { setSelected(a); setReturnOpen(true); };
+
+  const handleReturn = async () => {
+    setSaving(true);
+    try { await assetApi.returnAsset(selected.id); setReturnOpen(false); loadAll(); }
+    catch (e) { setError(e?.response?.data?.message || 'Failed to return asset.'); }
+    finally { setSaving(false); }
+  };
+
+  const openDelete = (a) => { setSelected(a); setDeleteOpen(true); };
+
+  const handleDelete = async () => {
+    setSaving(true);
+    try { await assetApi.delete(selected.id); setDeleteOpen(false); loadAll(); }
+    catch (e) { setError(e?.response?.data?.message || 'Failed to delete asset.'); }
+    finally { setSaving(false); }
+  };
+
+  const exportExcel = () => {
+    const rows = filtered.map(a => ({
+      'Asset Code': a.assetCode, 'Asset Name': a.assetName, 'Type': (a.assetType||'').replace(/_/g,' '),
+      'Brand': a.brand||'', 'Model': a.model||'', 'Serial No.': a.serialNumber||'',
+      'Purchase Date': a.purchaseDate||'', 'Purchase Price': a.purchasePrice??'',
+      'Status': (a.status||'').replace(/_/g,' '), 'Condition': a.condition||'',
+      'Assigned To': a.assignedEmployeeName||'', 'Department': a.assignedEmployeeDepartment||'',
+      'Emp Code': a.assignedEmployeeCode||'', 'Assigned Date': a.assignedDate||'',
+      'Expected Return': a.expectedReturnDate||'', 'Actual Return': a.actualReturnDate||'',
+      'Notes': a.notes||'',
+    }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Assets');
+    XLSX.writeFile(wb, `assets_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
+  const onForm   = field => e => setForm(f => ({ ...f, [field]: e.target.value }));
+  const onAssign = field => e => setAssignForm(f => ({ ...f, [field]: e.target.value }));
+
+  // ── render ────────────────────────────────────────────────────────────────
+  if (loading) return (
+    <Box sx={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', gap:2 }}>
+      <CircularProgress size={32} sx={{ color:'#14b8a6' }} />
+      <Typography color="text.secondary">Loading asset data…</Typography>
+    </Box>
+  );
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <FolderIcon color="primary" />
-          <Typography variant="h4" fontWeight={700}>Resources</Typography>
+    <Box sx={{ p:{ xs:2, md:3 }, bgcolor:'#f8fafc', minHeight:'100vh' }}>
+
+      {/* Header */}
+      <Box sx={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', mb:3, flexWrap:'wrap', gap:2 }}>
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight:800, color:'#1e293b', mb:0.3 }}>Resource Management</Typography>
+          <Typography sx={{ fontSize:'0.88rem', color:'#64748b' }}>Track and manage company assets assigned to employees</Typography>
         </Box>
-        {user?.role === 'ADMIN' && (
-          <Button variant="contained" startIcon={<UploadIcon />} onClick={() => setUploadOpen(true)}>
-            Upload File
+        <Box sx={{ display:'flex', gap:1.5, flexWrap:'wrap' }}>
+          <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={exportExcel}
+            sx={{ borderColor:'#e2e8f0', color:'#475569', '&:hover':{ borderColor:'#94a3b8', bgcolor:'#f8fafc' } }}>
+            Export Excel
           </Button>
-        )}
+          {isAdmin && (
+            <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}
+              sx={{ bgcolor:'#14b8a6', '&:hover':{ bgcolor:'#0d9488' } }}>
+              Add Asset
+            </Button>
+          )}
+        </Box>
       </Box>
 
-      <Card>
+      {error && <Alert severity="error" onClose={() => setError('')} sx={{ mb:2, borderRadius:2 }}>{error}</Alert>}
+
+      {/* KPI Cards */}
+      <Grid container spacing={2} sx={{ mb:3 }}>
+        {KPI_CARDS.map(k => (
+          <Grid item xs={12} sm={6} md={2.4} key={k.key}>
+            <KpiCard label={k.label} value={stats[k.key]} accent={k.accent} bg={k.bg} />
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* Filters */}
+      <Paper sx={{ p:2, mb:2.5, border:'1px solid #f1f5f9', boxShadow:'0 1px 4px rgba(0,0,0,0.04)', borderRadius:2.5 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={6} md={4}>
+            <TextField size="small" fullWidth placeholder="Search by name, code, brand, serial…"
+              value={search} onChange={e => { setSearch(e.target.value); setPage(0); }}
+              InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize:18, color:'#94a3b8' }} /></InputAdornment> }}
+              sx={{ '& .MuiOutlinedInput-root':{ borderRadius:2, bgcolor:'#f8fafc' } }} />
+          </Grid>
+          <Grid item xs={6} sm={3} md={2}>
+            <TextField select size="small" fullWidth label="Asset Type" value={filterType}
+              onChange={e => { setFilterType(e.target.value); setPage(0); }}
+              sx={{ '& .MuiOutlinedInput-root':{ borderRadius:2 } }}>
+              <MenuItem value="">All Types</MenuItem>
+              {ASSET_TYPES.map(t => <MenuItem key={t} value={t}>{t.replace(/_/g,' ')}</MenuItem>)}
+            </TextField>
+          </Grid>
+          <Grid item xs={6} sm={3} md={2}>
+            <TextField select size="small" fullWidth label="Status" value={filterStatus}
+              onChange={e => { setFilterStatus(e.target.value); setPage(0); }}
+              sx={{ '& .MuiOutlinedInput-root':{ borderRadius:2 } }}>
+              <MenuItem value="">All Statuses</MenuItem>
+              {ASSET_STATUSES.map(s => <MenuItem key={s} value={s}>{s.replace(/_/g,' ')}</MenuItem>)}
+            </TextField>
+          </Grid>
+          <Grid item xs={6} sm={3} md={2}>
+            <TextField select size="small" fullWidth label="Department" value={filterDept}
+              onChange={e => { setFilterDept(e.target.value); setPage(0); }}
+              sx={{ '& .MuiOutlinedInput-root':{ borderRadius:2 } }}>
+              <MenuItem value="">All Departments</MenuItem>
+              {departments.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+            </TextField>
+          </Grid>
+          <Grid item xs={6} sm={3} md={2}>
+            <Button variant="text" onClick={() => { setSearch(''); setFilterType(''); setFilterStatus(''); setFilterDept(''); setPage(0); }}
+              sx={{ color:'#64748b', '&:hover':{ color:'#14b8a6' }, fontSize:'0.82rem' }}>
+              Clear Filters
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Table */}
+      <Paper sx={{ border:'1px solid #f1f5f9', boxShadow:'0 1px 6px rgba(0,0,0,0.05)', borderRadius:2.5, overflow:'hidden' }}>
+        <Box sx={{ px:2.5, py:1.8, borderBottom:'1px solid #f1f5f9', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <Typography sx={{ fontWeight:700, color:'#1e293b', fontSize:'0.95rem' }}>Asset Inventory</Typography>
+          <Chip label={`${filtered.length} assets`} size="small" sx={{ bgcolor:'#f1f5f9', color:'#64748b', fontWeight:600, fontSize:'0.75rem' }} />
+        </Box>
+
         <TableContainer>
-          <Table>
+          <Table stickyHeader size="small">
             <TableHead>
-              <TableRow sx={{ bgcolor: '#f8f9fa' }}>
-                <TableCell>File Name</TableCell>
-                <TableCell>Description</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Size</TableCell>
-                <TableCell>Uploaded By</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell align="center">Actions</TableCell>
+              <TableRow>
+                {['Asset Code','Asset Name','Type','Brand / Model','Serial No.','Assigned To','Status','Condition','Actions'].map(h => (
+                  <TableCell key={h} sx={hdr}>{h}</TableCell>
+                ))}
               </TableRow>
             </TableHead>
             <TableBody>
-              {loading ? (
-                <TableRow><TableCell colSpan={7} align="center"><CircularProgress /></TableCell></TableRow>
-              ) : resources.length === 0 ? (
-                <TableRow><TableCell colSpan={7} align="center">No resources found</TableCell></TableRow>
-              ) : resources.map((r) => (
-                <TableRow key={r.id} hover>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={500}>{r.originalFileName}</Typography>
+              {paginated.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} sx={{ textAlign:'center', py:5, color:'#94a3b8', fontSize:'0.9rem' }}>No assets found</TableCell>
+                </TableRow>
+              ) : paginated.map(a => (
+                <TableRow key={a.id} hover sx={{ '&:hover':{ bgcolor:'#f8fafc' } }}>
+                  <TableCell sx={cell}>
+                    <Typography sx={{ fontWeight:700, fontSize:'0.82rem', color:'#6366f1', fontFamily:'monospace' }}>{a.assetCode}</Typography>
                   </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" color="text.secondary">{r.description || '-'}</Typography>
+                  <TableCell sx={cell}>
+                    <Typography sx={{ fontWeight:600, fontSize:'0.85rem', color:'#1e293b' }}>{a.assetName}</Typography>
+                    {a.notes && <Typography sx={{ fontSize:'0.72rem', color:'#94a3b8', mt:0.2 }} noWrap>{a.notes}</Typography>}
                   </TableCell>
-                  <TableCell>
-                    <Chip label={r.fileType?.split('/')[1] || 'file'} size="small" variant="outlined" />
+                  <TableCell sx={cell}><TypeLabel type={a.assetType} /></TableCell>
+                  <TableCell sx={cell}>
+                    <Typography sx={{ fontSize:'0.83rem', color:'#334155' }}>{[a.brand, a.model].filter(Boolean).join(' · ') || '—'}</Typography>
                   </TableCell>
-                  <TableCell>{formatSize(r.fileSize)}</TableCell>
-                  <TableCell>{r.uploadedBy?.email}</TableCell>
-                  <TableCell>{r.uploadedAt?.substring(0, 10)}</TableCell>
-                  <TableCell align="center">
-                    <IconButton size="small" onClick={() => handleDownload(r.id, r.originalFileName)}>
-                      <DownloadIcon fontSize="small" />
-                    </IconButton>
-                    {user?.role === 'ADMIN' && (
-                      <IconButton size="small" color="error" onClick={() => handleDelete(r.id)}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
+                  <TableCell sx={cell}>
+                    <Typography sx={{ fontSize:'0.8rem', fontFamily:'monospace', color:'#475569' }}>{a.serialNumber || '—'}</Typography>
+                  </TableCell>
+                  <TableCell sx={cell}>
+                    {a.assignedEmployeeName ? (
+                      <Box>
+                        <Typography sx={{ fontSize:'0.83rem', fontWeight:600, color:'#1e293b' }}>{a.assignedEmployeeName}</Typography>
+                        <Typography sx={{ fontSize:'0.72rem', color:'#64748b' }}>{a.assignedEmployeeDepartment} · {a.assignedEmployeeCode}</Typography>
+                        {a.assignedDate && <Typography sx={{ fontSize:'0.7rem', color:'#94a3b8' }}>Since {a.assignedDate}</Typography>}
+                      </Box>
+                    ) : <Typography sx={{ fontSize:'0.82rem', color:'#94a3b8' }}>—</Typography>}
+                  </TableCell>
+                  <TableCell sx={cell}><StatusBadge status={a.status} /></TableCell>
+                  <TableCell sx={cell}><ConditionBadge condition={a.condition} /></TableCell>
+                  <TableCell sx={{ ...cell, whiteSpace:'nowrap' }}>
+                    {isAdmin && a.status === 'AVAILABLE' && (
+                      <Tooltip title="Assign to Employee">
+                        <IconButton size="small" onClick={() => openAssign(a)} sx={{ color:'#0369a1', '&:hover':{ bgcolor:'#e0f2fe' } }}>
+                          <PersonAddIcon sx={{ fontSize:17 }} />
+                        </IconButton>
+                      </Tooltip>
                     )}
+                    {isAdmin && a.status === 'ASSIGNED' && (
+                      <Tooltip title="Return Asset">
+                        <IconButton size="small" onClick={() => openReturn(a)} sx={{ color:'#16a34a', '&:hover':{ bgcolor:'#dcfce7' } }}>
+                          <AssignmentReturnIcon sx={{ fontSize:17 }} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {isAdmin && (
+                      <Tooltip title="Edit Asset">
+                        <IconButton size="small" onClick={() => openEdit(a)} sx={{ color:'#6366f1', '&:hover':{ bgcolor:'#ede9fe' } }}>
+                          <EditIcon sx={{ fontSize:17 }} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {isAdmin && (
+                      <Tooltip title="Delete Asset">
+                        <IconButton size="small" onClick={() => openDelete(a)} sx={{ color:'#ef4444', '&:hover':{ bgcolor:'#fee2e2' } }}>
+                          <DeleteIcon sx={{ fontSize:17 }} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {!isAdmin && <Typography sx={{ fontSize:'0.78rem', color:'#94a3b8' }}>View only</Typography>}
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </TableContainer>
-      </Card>
 
-      <Dialog open={uploadOpen} onClose={() => setUploadOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle fontWeight={700}>Upload Resource</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            <Button variant="outlined" component="label" fullWidth sx={{ py: 3, border: '2px dashed' }}>
-              {file ? file.name : 'Click to select file'}
-              <input type="file" hidden onChange={(e) => setFile(e.target.files[0])} />
-            </Button>
-            <TextField label="Description (optional)" value={description}
-              onChange={(e) => setDescription(e.target.value)} multiline rows={2} fullWidth />
-          </Box>
+        <TablePagination component="div" count={filtered.length} page={page}
+          onPageChange={(_, p) => setPage(p)} rowsPerPage={rowsPP}
+          onRowsPerPageChange={e => { setRowsPP(parseInt(e.target.value, 10)); setPage(0); }}
+          rowsPerPageOptions={[10, 25, 50]}
+          sx={{ borderTop:'1px solid #f1f5f9', '& .MuiTablePagination-toolbar':{ fontSize:'0.82rem' } }} />
+      </Paper>
+
+      {/* ── Add Dialog ── */}
+      <AssetFormDialog open={addOpen} onClose={() => setAddOpen(false)} title="Add New Asset"
+        form={form} onChange={onForm} onSubmit={handleAdd} saving={saving} error={formError} />
+
+      {/* ── Edit Dialog ── */}
+      <AssetFormDialog open={editOpen} onClose={() => setEditOpen(false)} title={`Edit — ${selected?.assetCode || ''}`}
+        form={form} onChange={onForm} onSubmit={handleEdit} saving={saving} error={formError}
+        isEdit assetStatus={selected?.status} />
+
+      {/* ── Assign Dialog ── */}
+      <Dialog open={assignOpen} onClose={() => setAssignOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx:{ borderRadius:3 } }}>
+        <DialogTitle sx={{ fontWeight:700, pb:1, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          Assign Asset — {selected?.assetCode}
+          <IconButton size="small" onClick={() => setAssignOpen(false)}><CloseIcon sx={{ fontSize:18 }} /></IconButton>
+        </DialogTitle>
+        <Divider />
+        <DialogContent sx={{ pt:2.5 }}>
+          {formError && <Alert severity="error" sx={{ mb:2, borderRadius:2 }}>{formError}</Alert>}
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <TextField select fullWidth label="Assign To Employee *" value={assignForm.employeeId}
+                onChange={onAssign('employeeId')} size="small"
+                sx={{ '& .MuiOutlinedInput-root':{ borderRadius:2 } }}>
+                {employees.map(e => (
+                  <MenuItem key={e.id} value={e.id}>{e.fullName} — {e.department} ({e.employeeCode})</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={6}>
+              <TextField fullWidth type="date" label="Assigned Date" size="small"
+                value={assignForm.assignedDate} onChange={onAssign('assignedDate')}
+                InputLabelProps={{ shrink:true }} sx={{ '& .MuiOutlinedInput-root':{ borderRadius:2 } }} />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField fullWidth type="date" label="Expected Return Date" size="small"
+                value={assignForm.expectedReturnDate} onChange={onAssign('expectedReturnDate')}
+                InputLabelProps={{ shrink:true }} sx={{ '& .MuiOutlinedInput-root':{ borderRadius:2 } }} />
+            </Grid>
+          </Grid>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setUploadOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleUpload} disabled={uploading}>
-            {uploading ? <CircularProgress size={20} /> : 'Upload'}
+        <Divider />
+        <DialogActions sx={{ px:3, py:2, gap:1 }}>
+          <Button variant="outlined" onClick={() => setAssignOpen(false)} sx={{ borderColor:'#e2e8f0', color:'#64748b' }}>Cancel</Button>
+          <Button variant="contained" onClick={handleAssign} disabled={saving}
+            startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <PersonAddIcon />}
+            sx={{ bgcolor:'#0369a1', '&:hover':{ bgcolor:'#0284c7' } }}>
+            Assign Asset
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ── Return Confirm ── */}
+      <Dialog open={returnOpen} onClose={() => setReturnOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx:{ borderRadius:3 } }}>
+        <DialogTitle sx={{ fontWeight:700 }}>Return Asset</DialogTitle>
+        <Divider />
+        <DialogContent sx={{ pt:2 }}>
+          <Typography sx={{ color:'#475569' }}>
+            Mark <strong>{selected?.assetCode} — {selected?.assetName}</strong> as returned from <strong>{selected?.assignedEmployeeName}</strong>?
+          </Typography>
+          <Typography sx={{ fontSize:'0.82rem', color:'#94a3b8', mt:1 }}>Asset status will be set back to <strong>Available</strong>.</Typography>
+        </DialogContent>
+        <Divider />
+        <DialogActions sx={{ px:3, py:2, gap:1 }}>
+          <Button variant="outlined" onClick={() => setReturnOpen(false)} sx={{ borderColor:'#e2e8f0', color:'#64748b' }}>Cancel</Button>
+          <Button variant="contained" onClick={handleReturn} disabled={saving}
+            startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <AssignmentReturnIcon />}
+            sx={{ bgcolor:'#16a34a', '&:hover':{ bgcolor:'#15803d' } }}>
+            Confirm Return
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Delete Confirm ── */}
+      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx:{ borderRadius:3 } }}>
+        <DialogTitle sx={{ fontWeight:700, color:'#dc2626' }}>Delete Asset</DialogTitle>
+        <Divider />
+        <DialogContent sx={{ pt:2 }}>
+          <Typography sx={{ color:'#475569' }}>Permanently delete <strong>{selected?.assetCode} — {selected?.assetName}</strong>?</Typography>
+          <Typography sx={{ fontSize:'0.82rem', color:'#ef4444', mt:1 }}>This action cannot be undone.</Typography>
+        </DialogContent>
+        <Divider />
+        <DialogActions sx={{ px:3, py:2, gap:1 }}>
+          <Button variant="outlined" onClick={() => setDeleteOpen(false)} sx={{ borderColor:'#e2e8f0', color:'#64748b' }}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={handleDelete} disabled={saving}
+            startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <DeleteIcon />}>
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
     </Box>
   );
-};
-
-export default ResourcesPage;
+}

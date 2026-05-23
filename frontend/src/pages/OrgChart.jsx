@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box, Typography, CircularProgress, Tooltip, IconButton, Button,
   Divider, Tabs, Tab, Avatar, Chip, TextField,
@@ -29,6 +29,7 @@ import CallIcon            from '@mui/icons-material/Call';
 import ChatIcon            from '@mui/icons-material/Chat';
 import { employeeApi }      from '../api/employeeApi';
 import { announcementApi }  from '../api/announcementApi';
+import { leaveUploadApi }   from '../api/leaveUploadApi';
 import { toast }            from 'react-toastify';
 
 // ── Layout constants ──────────────────────────────────────────────────────────
@@ -958,9 +959,17 @@ const BirthdayFolksTab = ({ employees, onNavigate }) => {
 // ── Calendar Tab ──────────────────────────────────────────────────────────────
 const CalendarTab = ({ employees }) => {
   const now = new Date();
-  const [year,  setYear]  = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth());
+  const [year,     setYear]     = useState(now.getFullYear());
+  const [month,    setMonth]    = useState(now.getMonth());
+  const [holidays, setHolidays] = useState([]);
 
+  useEffect(() => {
+    leaveUploadApi.getHolidays()
+      .then(setHolidays)
+      .catch(() => {});
+  }, []);
+
+  // birthdays for current month
   const bdaysByDay = useMemo(() => {
     const m = new Map();
     employees.filter((e) => e.dateOfBirth).forEach((e) => {
@@ -973,6 +982,19 @@ const CalendarTab = ({ employees }) => {
     });
     return m;
   }, [employees, month, year]);
+
+  // holidays for current month+year — holiday.date is "yyyy-MM-dd"
+  const holidaysByDay = useMemo(() => {
+    const m = new Map();
+    holidays.forEach((h) => {
+      const [y, mo, d] = h.date.split('-').map(Number);
+      if (y === year && mo === month + 1) {
+        if (!m.has(d)) m.set(d, []);
+        m.get(d).push(h.name);
+      }
+    });
+    return m;
+  }, [holidays, month, year]);
 
   const firstDay    = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -1001,6 +1023,17 @@ const CalendarTab = ({ employees }) => {
           sx={{ ml: 1, textTransform: 'none', fontSize: 12 }}>
           Today
         </Button>
+        {/* Legend */}
+        <Box sx={{ ml: 'auto', display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: '#dcfce7' }} />
+            <Typography fontSize={11} color="text.secondary">Public Holiday</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: '#fef9c3' }} />
+            <Typography fontSize={11} color="text.secondary">Birthday</Typography>
+          </Box>
+        </Box>
       </Box>
 
       {/* Day-of-week headers */}
@@ -1014,18 +1047,29 @@ const CalendarTab = ({ employees }) => {
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0.5 }}>
         {cells.map((day, i) => {
           if (!day) return <Box key={`e${i}`} sx={{ minHeight: 76 }} />;
-          const isToday = day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
-          const bdays   = bdaysByDay.get(day) || [];
+          const isToday  = day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
+          const bdays    = bdaysByDay.get(day)   || [];
+          const hols     = holidaysByDay.get(day) || [];
+          const isHoliday = hols.length > 0;
           return (
             <Box key={day} sx={{
               minHeight: 76, p: '6px 8px', borderRadius: 1.5,
-              bgcolor: isToday ? '#eff6ff' : 'white',
-              border: isToday ? '1.5px solid #1976d2' : '1px solid #f1f5f9',
+              bgcolor: isToday ? '#eff6ff' : isHoliday ? '#f0fdf4' : 'white',
+              border: isToday ? '1.5px solid #1976d2' : isHoliday ? '1px solid #bbf7d0' : '1px solid #f1f5f9',
             }}>
               <Typography fontSize={12} fontWeight={isToday ? 800 : 500}
-                sx={{ color: isToday ? '#1976d2' : 'inherit', mb: 0.5 }}>
+                sx={{ color: isToday ? '#1976d2' : isHoliday ? '#15803d' : 'inherit', mb: 0.5 }}>
                 {day}
               </Typography>
+              {/* Public holidays */}
+              {hols.map((name, idx) => (
+                <Tooltip key={idx} title={`🎉 ${name}`} arrow>
+                  <Box sx={{ fontSize: 9.5, fontWeight: 600, bgcolor: '#dcfce7', color: '#15803d', borderRadius: 0.5, px: 0.5, py: 0.1, mb: 0.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'default' }}>
+                    🎉 {name}
+                  </Box>
+                </Tooltip>
+              ))}
+              {/* Birthdays */}
               {bdays.slice(0, 2).map((e) => (
                 <Tooltip key={e.id} title={`🎂 ${e.fullName}`} arrow>
                   <Box sx={{ fontSize: 9.5, fontWeight: 600, bgcolor: '#fef9c3', color: '#92400e', borderRadius: 0.5, px: 0.5, py: 0.1, mb: 0.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'default' }}>
@@ -1048,7 +1092,9 @@ const CalendarTab = ({ employees }) => {
 const OrganisationPage = () => {
   const { user }   = useSelector((s) => s.auth);
   const navigate   = useNavigate();
-  const [tab, setTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab    = parseInt(searchParams.get('tab') || '0', 10);
+  const setTab = (v) => setSearchParams({ tab: v }, { replace: false });
 
   // All employees — used by every tab except Employee Tree
   const [allEmployees, setAllEmployees] = useState([]);

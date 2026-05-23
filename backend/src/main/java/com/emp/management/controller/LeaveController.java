@@ -2,14 +2,17 @@ package com.emp.management.controller;
 
 import com.emp.management.dto.LeaveDTO;
 import com.emp.management.entity.LeaveStatus;
+import com.emp.management.repository.LeaveRepository;
 import com.emp.management.service.LeaveService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/leaves")
@@ -17,6 +20,7 @@ import java.util.Map;
 public class LeaveController {
 
     private final LeaveService leaveService;
+    private final LeaveRepository leaveRepository;
 
     @PostMapping("/apply/{employeeId}")
     public ResponseEntity<LeaveDTO> applyLeave(@PathVariable Long employeeId,
@@ -39,6 +43,20 @@ public class LeaveController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER')")
     public ResponseEntity<List<LeaveDTO>> getAllForManager(@PathVariable Long managerId) {
         return ResponseEntity.ok(leaveService.getLeavesForManager(managerId));
+    }
+
+    @GetMapping("/public-holidays")
+    public ResponseEntity<List<Map<String, String>>> getPublicHolidays() {
+        List<Map<String, String>> result = leaveRepository.findDistinctPublicHolidays()
+                .stream()
+                .map(row -> {
+                    Map<String, String> m = new LinkedHashMap<>();
+                    m.put("name", row[0] != null ? row[0].toString() : "");
+                    m.put("date", row[1] != null ? row[1].toString() : "");
+                    return m;
+                })
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping

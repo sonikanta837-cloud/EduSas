@@ -36,7 +36,7 @@ import {
   CategoryScale, LinearScale, BarElement,
   Title, Tooltip as ChartTooltip, Legend, ArcElement,
 } from 'chart.js';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { employeeApi } from '../api/employeeApi';
 import { courseApi } from '../api/courseApi';
 import { performanceApi } from '../api/performanceApi';
@@ -142,7 +142,9 @@ const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
-  const [activeTab, setActiveTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab    = parseInt(searchParams.get('tab') || '0', 10);
+  const setActiveTab = (v) => setSearchParams({ tab: v }, { replace: false });
   const [addingEdu, setAddingEdu] = useState(false);
   const [newEdu, setNewEdu] = useState({ institute: '', degree: '', year: '' });
 

@@ -5,6 +5,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -68,6 +69,7 @@ public class EmployeeDetails {
     private String seatingLocation;
     private String currentExperience;
     private String totalExperience;
+    private BigDecimal salary;
 
     @Column(columnDefinition = "TEXT")
     private String skills;

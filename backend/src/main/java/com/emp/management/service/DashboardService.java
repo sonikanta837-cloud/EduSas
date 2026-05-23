@@ -2,7 +2,9 @@ package com.emp.management.service;
 
 import com.emp.management.dto.DashboardDTO;
 import com.emp.management.entity.LeaveStatus;
+import com.emp.management.entity.Role;
 import com.emp.management.repository.*;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -29,7 +31,7 @@ public class DashboardService {
                 .activeCourses(courseRepository.countByActive(true))
                 .avgCourseCompletion(completionPct != null ? Math.round(completionPct * 100.0) / 100.0 : 0)
                 .totalWorkHoursToday(totalHours != null ? totalHours : 0)
-                .totalManagers(employeeDetailsRepository.countByManagerIsNotNull())
+                .totalManagers(employeeDetailsRepository.countByUserRoleInAndActiveTrue(List.of(Role.MANAGER, Role.ASSISTANT_MANAGER)))
                 .build();
     }
 }

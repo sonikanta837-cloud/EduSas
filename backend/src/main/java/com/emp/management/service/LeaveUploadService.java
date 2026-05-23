@@ -124,6 +124,47 @@ public class LeaveUploadService {
                 .build();
     }
 
+    // ── Add Single Holiday ────────────────────────────────────────────────────
+
+    public LeaveUploadResult addSingleHoliday(String holidayName, LocalDate date) {
+        List<String> errors = new ArrayList<>();
+        var allEmployees = employeeDetailsRepository.findByActive(true);
+        if (allEmployees.isEmpty()) {
+            errors.add("No active employees found in the system");
+            return LeaveUploadResult.builder().totalRows(0).imported(0).skipped(0).errors(errors).build();
+        }
+
+        int created = 0;
+        for (var emp : allEmployees) {
+            boolean overlaps = leaveRepository.existsOverlappingLeave(
+                    emp.getId(), date, date,
+                    List.of(LeaveStatus.APPROVED, LeaveStatus.PENDING));
+            if (overlaps) continue;
+
+            leaveRepository.save(Leave.builder()
+                    .employee(emp)
+                    .leaveType("Public Holiday")
+                    .startDate(date)
+                    .endDate(date)
+                    .totalDays(1)
+                    .reason(holidayName.trim())
+                    .status(LeaveStatus.APPROVED)
+                    .build());
+            created++;
+        }
+
+        if (created == 0) {
+            errors.add("All employees already have a leave on " + date + " — no records created");
+        }
+
+        return LeaveUploadResult.builder()
+                .totalRows(1)
+                .imported(created > 0 ? 1 : 0)
+                .skipped(created == 0 ? 1 : 0)
+                .errors(errors)
+                .build();
+    }
+
     // ── Template ──────────────────────────────────────────────────────────────
 
     public byte[] generateTemplate() throws IOException {

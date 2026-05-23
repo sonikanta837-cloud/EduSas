@@ -173,30 +173,45 @@ const TimesheetsPage = () => {
     if (myEmployee) loadEntries(myEmployee);
   }, [currentMonth]); // eslint-disable-line
 
-  // ── Load approved leaves → build holidayDates map ─────────────────────────
+  // ── Load leaves + public holidays, build holidayDates map ───────────────────
   useEffect(() => {
     if (!myEmployee) return;
-    leaveApi.getMyLeaves(myEmployee.id)
-      .then((leaves) => {
-        const monthStart = currentMonth.startOf('month');
-        const monthEnd   = currentMonth.endOf('month');
-        const map = {};
-        leaves
-          .filter((l) => l.status === 'APPROVED' &&
-            !dayjs(l.endDate).isBefore(monthStart) &&
-            !dayjs(l.startDate).isAfter(monthEnd))
-          .forEach((l) => {
-            let cur = dayjs(l.startDate);
-            const end = dayjs(l.endDate);
-            while (!cur.isAfter(end)) {
-              const ds = cur.format('YYYY-MM-DD');
-              if (!map[ds]) map[ds] = l.reason || l.leaveType || 'Leave';
-              cur = cur.add(1, 'day');
-            }
-          });
-        setHolidayDates(map);
-      })
-      .catch(() => {}); // silently ignore — timesheet still works without leaves
+    let cancelled = false;
+    const monthStart = currentMonth.startOf('month');
+    const monthEnd   = currentMonth.endOf('month');
+
+    Promise.allSettled([
+      leaveApi.getMyLeaves(myEmployee.id),
+      leaveApi.getPublicHolidays(),
+    ]).then(([lvRes, phRes]) => {
+      if (cancelled) return;
+      const leaves   = lvRes.status === 'fulfilled' && Array.isArray(lvRes.value) ? lvRes.value : [];
+      const holidays = phRes.status === 'fulfilled' && Array.isArray(phRes.value) ? phRes.value : [];
+
+      const map = {};
+      leaves
+        .filter((l) => l.status === 'APPROVED' &&
+          !dayjs(l.endDate).isBefore(monthStart) &&
+          !dayjs(l.startDate).isAfter(monthEnd))
+        .forEach((l) => {
+          let cur = dayjs(l.startDate);
+          const end = dayjs(l.endDate);
+          while (!cur.isAfter(end)) {
+            const ds = cur.format('YYYY-MM-DD');
+            if (!map[ds]) map[ds] = l.reason || l.leaveType || 'Leave';
+            cur = cur.add(1, 'day');
+          }
+        });
+      holidays.forEach((h) => {
+        if (!h.date) return;
+        const ds = dayjs(h.date).format('YYYY-MM-DD');
+        map[ds] = h.name || 'Public Holiday';
+      });
+
+      setHolidayDates(map);
+    });
+
+    return () => { cancelled = true; };
   }, [myEmployee, currentMonth]);
 
   // ── Cell save ─────────────────────────────────────────────────────────────
@@ -332,6 +347,7 @@ const TimesheetsPage = () => {
         </Button>
       </Box>
 
+
       {/* measureRef: always in DOM so useLayoutEffect can measure on first render */}
       <div ref={measureRef} style={{ width: '100%' }} />
 
@@ -375,14 +391,16 @@ const TimesheetsPage = () => {
                 const isToday   = dateStr === todayStr;
                 const isHoliday = !isWeekend && !!holidayDates[dateStr];
                 const hdName    = holidayDates[dateStr];
+                const bgColor   = isToday ? '#1d4ed8' : isHoliday ? '#b45309' : isWeekend ? '#334155' : headerBg;
                 const headerCell = (
-                  <TableCell key={d.date()} sx={{
-                    width: colDayWidth, minWidth: colDayWidth, maxWidth: colDayWidth,
-                    textAlign: 'center', p: 0, py: 0.5,
-                    bgcolor: isToday ? '#1d4ed8' : isHoliday ? '#b45309' : isWeekend ? '#334155' : headerBg,
-                    color: (isWeekend && !isToday) ? '#94a3b8' : 'white',
-                    fontWeight: isToday ? 700 : 400,
-                  }}>
+                  <TableCell key={d.date()}
+                    style={{ backgroundColor: bgColor }}
+                    sx={{
+                      width: colDayWidth, minWidth: colDayWidth, maxWidth: colDayWidth,
+                      textAlign: 'center', p: 0, py: 0.5,
+                      color: (isWeekend && !isToday) ? '#94a3b8' : 'white',
+                      fontWeight: isToday ? 700 : 400,
+                    }}>
                     {colDayWidth >= 32 && (
                       <Typography sx={{ fontSize: 8, lineHeight: 1, color: 'inherit' }}>
                         {isHoliday ? '🏖' : DAY_ABBR[d.day()]}
@@ -398,6 +416,8 @@ const TimesheetsPage = () => {
                   : headerCell;
               })}
             </TableRow>
+
+
           </TableHead>
 
           <TableBody>

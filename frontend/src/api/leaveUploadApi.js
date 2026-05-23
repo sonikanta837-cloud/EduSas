@@ -8,8 +8,7 @@ export const leaveUploadApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
-  downloadTemplate: () =>
-    api.get('/leave-upload/template', { responseType: 'blob' }),
-  getHolidays: () =>
-    api.get('/leave-upload/holidays'),
+  addHoliday:       (name, date)  => api.post('/leave-upload/holiday', { name, date }),
+  downloadTemplate: ()            => api.get('/leave-upload/template', { responseType: 'blob' }),
+  getHolidays:      ()            => api.get('/leave-upload/holidays'),
 };

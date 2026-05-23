@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { setUser } from '../store/authSlice';
 import {
@@ -147,7 +147,9 @@ const EmployeeDetailPage = () => {
   const [accessDenied, setAccessDenied] = useState(false);
   const [editing,      setEditing]      = useState(false);
   const [form,         setForm]         = useState({});
-  const [tab,          setTab]          = useState('profile');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab    = searchParams.get('tab') || 'profile';
+  const setTab = (v) => setSearchParams({ tab: v }, { replace: false });
   const [deptOptions,  setDeptOptions]  = useState(['Human Resource','Operation','Management','Marketing','IT']);
   const [posOptions,   setPosOptions]   = useState(['Accounts Trainee','Accounts Executive','Senior Accountant','Sr. Payroll Administrator','Assistant Manager','Manager','Business Development and Operation','HR','System Administrator']);
   const [locOptions,   setLocOptions]   = useState(['Mandsaur','Ahmedabad','Jamnagar']);

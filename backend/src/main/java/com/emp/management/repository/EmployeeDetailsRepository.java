@@ -1,6 +1,7 @@
 package com.emp.management.repository;
 
 import com.emp.management.entity.EmployeeDetails;
+import com.emp.management.entity.Role;
 import com.emp.management.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -34,6 +35,7 @@ public interface EmployeeDetailsRepository extends JpaRepository<EmployeeDetails
 
     long countByActive(boolean active);
     long countByManagerIsNotNull();
+    long countByUserRoleInAndActiveTrue(List<Role> roles);
 
     @Query("SELECT e FROM EmployeeDetails e WHERE e.employeeCode IS NULL OR e.employeeCode = ''")
     List<EmployeeDetails> findByEmployeeCodeMissing();

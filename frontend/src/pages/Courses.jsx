@@ -198,6 +198,11 @@ const CoursesPage = () => {
   }, [user, isAdmin, isManager]);
 
   useEffect(() => {
+    const req = isAdmin ? courseApi.getAllCertificates() : courseApi.getMyCertificates();
+    req.then(r => setCerts(Array.isArray(r) ? r : [])).catch(() => setCerts([]));
+  }, [isAdmin]);
+
+  useEffect(() => {
     if (statusFilter !== 'CERTIFICATE') return;
     setCertsLoading(true);
     const req = isAdmin ? courseApi.getAllCertificates() : courseApi.getMyCertificates();
@@ -780,7 +785,7 @@ const CoursesPage = () => {
               <Tab label={`In Progress (${courses.filter(c => c.enrollmentStatus === 'IN_PROGRESS').length})`} value="IN_PROGRESS" />
               <Tab label={`Completed (${courses.filter(c => c.enrollmentStatus === 'COMPLETED').length})`} value="COMPLETED" />
               <Tab
-                label={`Certificates (${courses.filter(c => !!c.certificateNumber).length})`}
+                label={`Certificates (${certs.length})`}
                 value="CERTIFICATE"
                 icon={<CardMembershipIcon sx={{ fontSize: 15 }} />}
                 iconPosition="start"

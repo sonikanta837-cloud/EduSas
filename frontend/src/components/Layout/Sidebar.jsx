@@ -14,6 +14,7 @@ import StarIcon         from '@mui/icons-material/Star';
 import BarChartIcon     from '@mui/icons-material/BarChart';
 import AccountTreeIcon  from '@mui/icons-material/AccountTree';
 import FolderIcon       from '@mui/icons-material/Folder';
+import InventoryIcon    from '@mui/icons-material/Inventory';
 import PersonIcon       from '@mui/icons-material/Person';
 import FileUploadIcon   from '@mui/icons-material/FileUpload';
 import { toggleSidebar } from '../../store/uiSlice';
@@ -29,10 +30,10 @@ const allNavItems = [
   { label: 'Timesheets',   path: '/timesheets',   icon: <AccessTimeIcon />,   roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
   { label: 'Attendance',   path: '/attendance',   icon: <HowToRegIcon />,     roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
   { label: 'Leaves',       path: '/leaves',       icon: <EventNoteIcon />,    roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Leave Upload', path: '/leave-upload', icon: <FileUploadIcon />,   roles: ['ADMIN', 'HR'] },
+  { label: 'Holiday Management', path: '/leave-upload', icon: <FileUploadIcon />,   roles: ['ADMIN', 'HR'] },
   { label: 'Performance',  path: '/performance',  icon: <StarIcon />,         roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Reports',      path: '/reports',      icon: <BarChartIcon />,     roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER'] },
-  { label: 'Resources',    path: '/resources',    icon: <FolderIcon />,       roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Reports',      path: '/reports',      icon: <BarChartIcon />,     roles: ['ADMIN'] },
+  { label: 'Resources',    path: '/resources',    icon: <InventoryIcon />,    roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
   { label: 'My Profile',   path: '/profile',      icon: <PersonIcon />,       roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
 ];
 
@@ -86,7 +87,12 @@ const Sidebar = () => {
         overflowY: 'auto',
         overflowX: 'hidden',
         transition: 'width 0.25s ease',
-        '&::-webkit-scrollbar': { display: 'none' },
+        scrollbarWidth: 'thin',
+        scrollbarColor: 'rgba(255,255,255,0.15) transparent',
+        '&::-webkit-scrollbar': { width: 4 },
+        '&::-webkit-scrollbar-track': { background: 'transparent' },
+        '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.15)', borderRadius: 4 },
+        '&::-webkit-scrollbar-thumb:hover': { background: 'rgba(255,255,255,0.3)' },
       }}
     >
       {/* Logo row */}
@@ -147,7 +153,7 @@ const Sidebar = () => {
                 flexDirection: sidebarOpen ? 'row' : 'column',
                 alignItems: 'center',
                 justifyContent: sidebarOpen ? 'flex-start' : 'center',
-                py: sidebarOpen ? 0.9 : 1,
+                py: sidebarOpen ? 0.9 : 0.75,
                 px: sidebarOpen ? 1.5 : 0.5,
                 borderRadius: '10px',
                 cursor: 'pointer',
@@ -175,12 +181,8 @@ const Sidebar = () => {
                 {item.icon}
               </Box>
 
-              {sidebarOpen ? (
+              {sidebarOpen && (
                 <Typography sx={{ fontSize: '0.875rem', fontWeight: active ? 600 : 400, whiteSpace: 'nowrap', color: 'inherit' }}>
-                  {item.label}
-                </Typography>
-              ) : (
-                <Typography sx={{ fontSize: 9.5, fontWeight: active ? 700 : 400, lineHeight: 1.2, textAlign: 'center', mt: 0.5, wordBreak: 'break-word', maxWidth: 62, color: 'inherit' }}>
                   {item.label}
                 </Typography>
               )}

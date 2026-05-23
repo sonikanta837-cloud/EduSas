@@ -16,16 +16,31 @@ import { SIDEBAR_W_OPEN, SIDEBAR_W_CLOSED } from './Sidebar';
 const pageTitles = {
   '/dashboard':   'Dashboard',
   '/employees':   'Employee Dashboard',
-  '/org-chart':   'Org Chart',
+  '/org-chart':   'Organisation',
   '/courses':     'Courses',
   '/timesheets':  'Timesheets',
   '/attendance':  'Attendance',
-  '/leaves':        'Leave Management',
-  '/leave-upload':  'Leave Upload',
-  '/performance':   'Performance',
-  '/reports':     'Reports',
-  '/resources':   'Resources',
+  '/leaves':      'Leave Management',
+  '/leave-upload':'Holiday Management',
+  '/performance': 'Performance',
+  '/reports':     'Leave Reports',
+  '/resources':   'Resource Management',
   '/profile':     'My Profile',
+};
+
+// Default fallback routes per section when there is no history to go back to
+const fallbackRoutes = {
+  '/employees':   '/employees',
+  '/org-chart':   '/dashboard',
+  '/courses':     '/courses',
+  '/timesheets':  '/timesheets',
+  '/attendance':  '/attendance',
+  '/leaves':      '/leaves',
+  '/leave-upload':'/leave-upload',
+  '/performance': '/performance',
+  '/reports':     '/reports',
+  '/resources':   '/resources',
+  '/profile':     '/dashboard',
 };
 
 const Header = () => {
@@ -79,7 +94,15 @@ const Header = () => {
           <Tooltip title="Go back">
             <IconButton
               size="small"
-              onClick={() => navigate(-1)}
+              onClick={() => {
+                if (window.history.state?.idx > 0) {
+                  navigate(-1);
+                } else {
+                  const fallback = Object.entries(fallbackRoutes)
+                    .find(([k]) => location.pathname.startsWith(k))?.[1] || '/dashboard';
+                  navigate(fallback);
+                }
+              }}
               sx={{ color: '#64748b', mr: 0.5, flexShrink: 0, '&:hover': { bgcolor: '#f1f5f9' } }}
             >
               <ArrowBackIcon sx={{ fontSize: '1.2rem' }} />

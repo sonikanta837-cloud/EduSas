@@ -20,17 +20,33 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/leave-upload")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
 public class LeaveUploadController {
 
     private final LeaveUploadService leaveUploadService;
     private final LeaveRepository    leaveRepository;
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<LeaveUploadResult> upload(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) return ResponseEntity.badRequest().build();
         try {
             return ResponseEntity.ok(leaveUploadService.processUpload(file));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @PostMapping("/holiday")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<LeaveUploadResult> addHoliday(@RequestBody Map<String, String> body) {
+        String name    = body.get("name");
+        String dateStr = body.get("date");
+        if (name == null || name.isBlank() || dateStr == null || dateStr.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            LocalDate date = LocalDate.parse(dateStr);
+            return ResponseEntity.ok(leaveUploadService.addSingleHoliday(name.trim(), date));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
         }
@@ -52,6 +68,7 @@ public class LeaveUploadController {
     }
 
     @GetMapping("/template")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<byte[]> downloadTemplate() {
         try {
             byte[] bytes = leaveUploadService.generateTemplate();

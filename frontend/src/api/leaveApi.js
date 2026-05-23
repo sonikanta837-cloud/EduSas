@@ -11,4 +11,5 @@ export const leaveApi = {
     api.patch(`/leaves/${leaveId}/action`, { status, comment }, { params: { managerId } }),
   update: (id, employeeId, data) => api.put(`/leaves/${id}`, data, { params: { employeeId } }),
   delete: (id) => api.delete(`/leaves/${id}`),
+  getPublicHolidays: () => api.get('/leaves/public-holidays'),
 };

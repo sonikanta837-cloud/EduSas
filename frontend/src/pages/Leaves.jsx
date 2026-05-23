@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useSelector } from 'react-redux';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box, Card, Typography, Button, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Chip, Dialog,
@@ -18,9 +19,17 @@ import { toast } from 'react-toastify';
 
 const statusColors = { PENDING: 'warning', APPROVED: 'success', REJECTED: 'error' };
 
-const LEAVE_QUOTA = [
-  { type: 'ANNUAL', label: 'Annual Leave', total: 21, color: '#14b8a6', bg: '#f0fdfa' },
-];
+// Fixed quota (days) per leave type — keyed by the exact leaveType string stored in DB
+const LEAVE_QUOTA_MAP = {
+  'ANNUAL':         { label: 'Annual Leave',        total: 21, color: '#14b8a6', bg: '#f0fdfa' },
+  'Annual Leave':   { label: 'Annual Leave',        total: 21, color: '#14b8a6', bg: '#f0fdfa' },
+  'CASUAL':         { label: 'Casual Leave',        total: 12, color: '#6366f1', bg: '#ede9fe' },
+  'Casual Leave':   { label: 'Casual Leave',        total: 12, color: '#6366f1', bg: '#ede9fe' },
+  'SICK':           { label: 'Sick Leave',          total: 12, color: '#f59e0b', bg: '#fef3c7' },
+  'Sick Leave':     { label: 'Sick Leave',          total: 12, color: '#f59e0b', bg: '#fef3c7' },
+  'LOP':            { label: 'LOP',                 total: null, color: '#ef4444', bg: '#fee2e2' },
+  'LWP':            { label: 'LWP',                 total: null, color: '#ef4444', bg: '#fee2e2' },
+};
 
 const LeavesPage = () => {
   const { user } = useSelector((s) => s.auth);
@@ -29,7 +38,9 @@ const LeavesPage = () => {
   const [myLeaves, setMyLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
   const [applyOpen, setApplyOpen] = useState(false);
-  const [tab, setTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab    = parseInt(searchParams.get('tab') || '0', 10);
+  const setTab = (v) => setSearchParams({ tab: v }, { replace: false });
   const [form, setForm] = useState({ leaveType: 'ANNUAL', startDate: '', endDate: '', reason: '' });
   const [editOpen, setEditOpen] = useState(false);
   const [editingLeave, setEditingLeave] = useState(null);
@@ -38,21 +49,28 @@ const LeavesPage = () => {
   const isManagerOrAdmin = ['ADMIN', 'MANAGER', 'ASSISTANT_MANAGER'].includes(user?.role);
 
   const currentYear = new Date().getFullYear();
+
   const leaveBalance = useMemo(() => {
-    const usedMap = {};
+    let annualUsed = 0;
     myLeaves.forEach((l) => {
-      if (l.status === 'APPROVED') {
-        const year = l.startDate ? new Date(l.startDate).getFullYear() : null;
-        if (year === currentYear) {
-          usedMap[l.leaveType] = (usedMap[l.leaveType] || 0) + (l.totalDays || 0);
+      if (l.status === 'APPROVED' && l.leaveType && l.leaveType !== 'Public Holiday') {
+        const yr = l.startDate ? new Date(l.startDate).getFullYear() : null;
+        if (yr === currentYear) {
+          annualUsed += (l.totalDays || 1);
         }
       }
     });
-    return LEAVE_QUOTA.map((q) => ({
-      ...q,
-      used: usedMap[q.type] || 0,
-      remaining: Math.max(0, q.total - (usedMap[q.type] || 0)),
-    }));
+    const total     = 21;
+    const remaining = Math.max(0, total - annualUsed);
+    return [{
+      type:      'ANNUAL',
+      label:     'Annual Leave',
+      total,
+      used:      annualUsed,
+      remaining,
+      color:     '#14b8a6',
+      bg:        '#f0fdfa',
+    }];
   }, [myLeaves, currentYear]);
 
   const fetchLeaves = async (emp) => {
@@ -157,20 +175,31 @@ const LeavesPage = () => {
               {b.label}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, mb: 1 }}>
-              <Typography fontSize={28} fontWeight={800} color={b.color} lineHeight={1}>{b.remaining}</Typography>
-              <Typography fontSize={12} color="text.secondary">/ {b.total}</Typography>
+              <Typography fontSize={28} fontWeight={800} color={b.color} lineHeight={1}>
+                {b.remaining != null ? b.remaining : b.used}
+              </Typography>
+              {b.total != null && (
+                <Typography fontSize={12} color="text.secondary">/ {b.total}</Typography>
+              )}
             </Box>
-            <LinearProgress
-              variant="determinate"
-              value={b.total > 0 ? Math.min(100, (b.used / b.total) * 100) : 0}
-              sx={{
-                height: 5, borderRadius: 4, bgcolor: `${b.color}22`,
-                '& .MuiLinearProgress-bar': { bgcolor: b.color, borderRadius: 4 },
-              }}
-            />
+            {b.total != null ? (
+              <LinearProgress
+                variant="determinate"
+                value={b.total > 0 ? Math.min(100, (b.used / b.total) * 100) : 0}
+                sx={{
+                  height: 5, borderRadius: 4, bgcolor: `${b.color}22`,
+                  '& .MuiLinearProgress-bar': { bgcolor: b.color, borderRadius: 4 },
+                }}
+              />
+            ) : (
+              <Box sx={{ height: 5, borderRadius: 4, bgcolor: `${b.color}22` }} />
+            )}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.75 }}>
               <Typography fontSize={11} color="text.secondary">Used: <strong>{b.used}</strong></Typography>
-              <Typography fontSize={11} color="text.secondary">Left: <strong>{b.remaining}</strong></Typography>
+              {b.remaining != null
+                ? <Typography fontSize={11} color="text.secondary">Left: <strong>{b.remaining}</strong></Typography>
+                : <Typography fontSize={11} color="text.secondary">days</Typography>
+              }
             </Box>
           </Box>
         ))}

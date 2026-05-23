@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box, Button, Card, CardContent, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Typography, TextField,
@@ -1333,7 +1333,9 @@ const EmployeesPage = () => {
   const [exRpp,   setExRpp]   = useState(10);
 
   // ── Active tab ────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab    = parseInt(searchParams.get('tab') || '0', 10);
+  const setActiveTab = (v) => setSearchParams({ tab: v }, { replace: false });
 
   // ── Managed lists ─────────────────────────────────────────────────────────
   const [departments, setDepartments] = useState(INITIAL_DEPARTMENTS);
