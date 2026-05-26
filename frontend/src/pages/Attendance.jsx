@@ -14,6 +14,7 @@ import TimerIcon from '@mui/icons-material/Timer';
 import dayjs from 'dayjs';
 import { timesheetApi } from '../api/timesheetApi';
 import { employeeApi } from '../api/employeeApi';
+import { leaveUploadApi } from '../api/leaveUploadApi';
 import { toast } from 'react-toastify';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -94,23 +95,22 @@ const SessionRow = ({ session, index, isOpen }) => (
 
 // ── Day card ──────────────────────────────────────────────────────────────────
 
-const DayCard = ({ date, sessions, isToday, liveSec, storedHours }) => {
+const DayCard = ({ date, sessions, isToday, liveSec, storedHours, holidayName }) => {
   const [expanded, setExpanded] = useState(isToday);
 
   const dow = date.format('ddd').toUpperCase();
   const dom = date.format('DD MMM');
   const isWeekend = date.day() === 0 || date.day() === 6;
   const isFuture = date.isAfter(dayjs(), 'day');
+  const isHoliday = Boolean(holidayName);
 
   const hasData = sessions.length > 0;
   const openSession = sessions.find(s => !s.logoutTime);
   const totalSec = isToday ? calcTotalSeconds(sessions, liveSec) : null;
 
-  // Session-computed hours (used as fallback when no stored override)
   const sessionHours = hasData
     ? sessions.filter(s => s.sessionHours != null).reduce((a, s) => a + s.sessionHours, 0)
     : null;
-  // storedHours from Timesheet entity is authoritative — reflects any manual edits by admin/manager
   const totalHours = storedHours != null ? storedHours : sessionHours;
 
   const isPresent = hasData || storedHours != null;
@@ -118,8 +118,17 @@ const DayCard = ({ date, sessions, isToday, liveSec, storedHours }) => {
   const lastLogout = hasData ? fmtTime(sessions[sessions.length - 1].logoutTime) : null;
 
   let statusChip = null;
-  if (isWeekend) {
-    statusChip = <Chip label="Weekend" size="small" sx={{ bgcolor: '#fef3c7', color: '#b45309', height: 20, fontSize: '0.65rem' }} />;
+  if (isHoliday) {
+    statusChip = (
+      <Chip
+        label={holidayName.length > 20 ? holidayName.slice(0, 20) + '…' : holidayName}
+        size="small"
+        title={holidayName}
+        sx={{ bgcolor: '#f3e8ff', color: '#7e22ce', height: 20, fontSize: '0.65rem', fontWeight: 600 }}
+      />
+    );
+  } else if (isWeekend) {
+    statusChip = <Chip label="Weekly Off" size="small" sx={{ bgcolor: '#fef3c7', color: '#b45309', height: 20, fontSize: '0.65rem' }} />;
   } else if (isFuture) {
     statusChip = null;
   } else if (!isPresent) {
@@ -134,11 +143,20 @@ const DayCard = ({ date, sessions, isToday, liveSec, storedHours }) => {
     );
   }
 
+  const cardBorder = isToday ? '2px solid #14b8a6'
+    : isHoliday ? '1px solid #d8b4fe'
+    : isWeekend ? '1px solid #fde68a'
+    : '1px solid #e2e8f0';
+  const cardBg = isToday ? 'rgba(20,184,166,0.02)'
+    : isHoliday ? '#faf5ff'
+    : isWeekend ? '#fffbeb'
+    : 'white';
+
   return (
     <Box sx={{
-      border: isToday ? '2px solid #14b8a6' : '1px solid #e2e8f0',
+      border: cardBorder,
       borderRadius: 2, overflow: 'hidden', mb: 1.5,
-      bgcolor: isToday ? 'rgba(20,184,166,0.02)' : 'white',
+      bgcolor: cardBg,
     }}>
       {/* Summary row */}
       <Box sx={{
@@ -248,9 +266,10 @@ const AttendancePage = () => {
   const { user } = useSelector((s) => s.auth);
   const [myEmployee, setMyEmployee] = useState(null);
   const [weekStart, setWeekStart] = useState(dayjs().startOf('week'));
-  const [sessions, setSessions] = useState([]);   // all sessions for the week
+  const [sessions, setSessions] = useState([]);
   const [todaySessions, setTodaySessions] = useState([]);
-  const [workingHoursMap, setWorkingHoursMap] = useState({}); // date → stored workingHours
+  const [workingHoursMap, setWorkingHoursMap] = useState({});
+  const [holidaysMap, setHolidaysMap] = useState({});   // "YYYY-MM-DD" → holiday name
   const [loading, setLoading] = useState(true);
 
   // Live counter
@@ -321,6 +340,11 @@ const AttendancePage = () => {
 
   useEffect(() => {
     employeeApi.getByUserId(user.userId).then(setMyEmployee).catch(() => {});
+    leaveUploadApi.getHolidays().then((list) => {
+      const map = {};
+      (Array.isArray(list) ? list : []).forEach(h => { map[h.date] = h.name; });
+      setHolidaysMap(map);
+    }).catch(() => {});
   }, [user.userId]);
 
   useEffect(() => {
@@ -340,10 +364,33 @@ const AttendancePage = () => {
   }, [myEmployee]);
 
   const todayTotalSec = calcTotalSeconds(todaySessions, isCheckedIn ? liveSec : null);
+  const todayStr = dayjs().format('YYYY-MM-DD');
+  const todayHoliday = holidaysMap[todayStr] || null;
+  const todayIsWeekend = dayjs().day() === 0 || dayjs().day() === 6;
 
   return (
     <Box>
       <Typography variant="h5" fontWeight={700} mb={2}>Attendance</Typography>
+
+      {/* ── Holiday / Weekly Off banner for today ── */}
+      {(todayHoliday || todayIsWeekend) && (
+        <Box sx={{
+          display: 'flex', alignItems: 'center', gap: 1.5, px: 2.5, py: 1.5, mb: 2,
+          bgcolor: todayHoliday ? '#faf5ff' : '#fffbeb',
+          border: `1px solid ${todayHoliday ? '#d8b4fe' : '#fde68a'}`,
+          borderRadius: 2,
+        }}>
+          <Typography sx={{ fontSize: '1.25rem' }}>{todayHoliday ? '🎉' : '🏖️'}</Typography>
+          <Box>
+            <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: todayHoliday ? '#7e22ce' : '#b45309' }}>
+              {todayHoliday ? `Today is a public holiday — ${todayHoliday}` : 'Today is a weekly off'}
+            </Typography>
+            <Typography sx={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+              No attendance required. This will not affect your leave balance.
+            </Typography>
+          </Box>
+        </Box>
+      )}
 
       {/* ── Today Summary Card ── */}
       <Paper sx={{ p: 2.5, mb: 3, border: '1px solid #e2e8f0', borderRadius: 2 }}>
@@ -484,6 +531,7 @@ const AttendancePage = () => {
                   isToday={isToday}
                   liveSec={isToday ? (isCheckedIn ? liveSec : 0) : 0}
                   storedHours={workingHoursMap[dateStr] ?? null}
+                  holidayName={holidaysMap[dateStr] || null}
                 />
               );
             })
@@ -497,7 +545,8 @@ const AttendancePage = () => {
             { color: '#16a34a', label: 'Login' },
             { color: '#dc2626', label: 'Logout' },
             { color: '#14b8a6', label: 'Today' },
-            { color: '#f59e0b', label: 'Weekend' },
+            { color: '#a78bfa', label: 'Holiday' },
+            { color: '#f59e0b', label: 'Weekly Off' },
             { color: '#94a3b8', label: 'Active session' },
           ].map(({ color, label }) => (
             <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>

@@ -43,6 +43,7 @@ public class Asset {
     private AssetStatus status = AssetStatus.AVAILABLE;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "asset_condition")
     @Builder.Default
     private AssetCondition condition = AssetCondition.GOOD;
 

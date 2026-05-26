@@ -609,7 +609,7 @@ const ReportsPage = () => {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={12} sm={2}>
+                {/* <Grid item xs={12} sm={2}>
                   <FormControl fullWidth size="small">
                     <InputLabel>Salary Status</InputLabel>
                     <Select value={sumStatus} label="Salary Status"
@@ -619,7 +619,7 @@ const ReportsPage = () => {
                       <MenuItem value="Inactive">Inactive</MenuItem>
                     </Select>
                   </FormControl>
-                </Grid>
+                </Grid> */}
                 <Grid item xs={12} sm={2}>
                   <TextField fullWidth size="small" placeholder="Search Employee"
                     value={sumSearch}

@@ -17,6 +17,7 @@ import FolderIcon       from '@mui/icons-material/Folder';
 import InventoryIcon    from '@mui/icons-material/Inventory';
 import PersonIcon       from '@mui/icons-material/Person';
 import FileUploadIcon   from '@mui/icons-material/FileUpload';
+import InfoIcon         from '@mui/icons-material/Info';
 import { toggleSidebar } from '../../store/uiSlice';
 
 export const SIDEBAR_W_OPEN   = 240;
@@ -35,6 +36,7 @@ const allNavItems = [
   { label: 'Reports',      path: '/reports',      icon: <BarChartIcon />,     roles: ['ADMIN'] },
   { label: 'Resources',    path: '/resources',    icon: <InventoryIcon />,    roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
   { label: 'My Profile',   path: '/profile',      icon: <PersonIcon />,       roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'About Us',     path: '/about',        icon: <InfoIcon />,         roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
 ];
 
 const Sidebar = () => {

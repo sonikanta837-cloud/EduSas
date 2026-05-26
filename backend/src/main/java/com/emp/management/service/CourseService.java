@@ -273,7 +273,8 @@ public class CourseService {
         List<com.emp.management.entity.Enrollment> all =
                 c.getEnrollments() != null ? c.getEnrollments() : List.of();
         List<com.emp.management.entity.Enrollment> teamEnrollments = all.stream()
-                .filter(e -> e.getEmployee() != null && teamIds.contains(e.getEmployee().getId()))
+                .filter(e -> e.getEmployee() != null && e.getEmployee().isActive()
+                        && teamIds.contains(e.getEmployee().getId()))
                 .collect(Collectors.toList());
 
         int completedCount  = (int) teamEnrollments.stream().filter(e -> e.getStatus() == EnrollmentStatus.COMPLETED).count();
@@ -324,14 +325,16 @@ public class CourseService {
         }
 
         List<com.emp.management.entity.Enrollment> enrollments =
-                c.getEnrollments() != null ? c.getEnrollments() : List.of();
+                (c.getEnrollments() != null ? c.getEnrollments() : List.<com.emp.management.entity.Enrollment>of())
+                .stream()
+                .filter(e -> e.getEmployee() != null && e.getEmployee().isActive())
+                .collect(Collectors.toList());
 
         int completedCount = (int) enrollments.stream()
                 .filter(e -> e.getStatus() == EnrollmentStatus.COMPLETED).count();
         int inProgressCount = (int) enrollments.stream()
                 .filter(e -> e.getStatus() == EnrollmentStatus.IN_PROGRESS).count();
         List<String> enrolledNames = enrollments.stream()
-                .filter(e -> e.getEmployee() != null)
                 .map(e -> e.getEmployee().getFirstName() + " " + e.getEmployee().getLastName())
                 .collect(Collectors.toList());
 

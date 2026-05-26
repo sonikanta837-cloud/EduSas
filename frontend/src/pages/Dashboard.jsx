@@ -867,12 +867,12 @@ const DashboardPage = () => {
   const isHR       = role === 'HR';
   const isAdmin    = !isEmployee && !isManager && !isHR;
 
-  const [stats,   setStats]   = useState(null);
-  const [leaves,  setLeaves]  = useState([]);
-  const [emps,    setEmps]    = useState([]);
-  const [empData, setEmpData] = useState(null);
-  const [mgrData, setMgrData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [stats,    setStats]    = useState(null);
+  const [leaves,   setLeaves]   = useState([]);
+  const [emps,     setEmps]     = useState([]);
+  const [empData,  setEmpData]  = useState(null);
+  const [mgrData,  setMgrData]  = useState(null);
+  const [loading,  setLoading]  = useState(true);
 
   useEffect(() => {
     const load = async () => {
@@ -955,7 +955,12 @@ const DashboardPage = () => {
         <Typography sx={{ fontSize: 26, fontWeight: 800, color: T.ink, lineHeight: 1.2 }}>{greeting}, {firstName} 👋</Typography>
         <Typography sx={{ fontSize: 13.5, color: T.muted, mt: .4 }}>{subtitle}</Typography>
       </Box>
-      {isEmployee ? <EmployeeDashboard empData={empData} navigate={navigate} /> : isManager ? <ManagerDashboard mgrData={mgrData} navigate={navigate} /> : <HRDashboard stats={stats} leaves={leaves} employees={emps} navigate={navigate} />}
+      {isEmployee
+        ? <EmployeeDashboard empData={empData} navigate={navigate} />
+        : isManager
+          ? <ManagerDashboard mgrData={mgrData} navigate={navigate} />
+          : <HRDashboard stats={stats} leaves={leaves} employees={emps} navigate={navigate} />
+      }
     </Box>
   );
 };

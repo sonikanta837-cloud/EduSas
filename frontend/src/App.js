@@ -18,6 +18,7 @@ import ReportsPage from './pages/Reports';
 import OrgChartPage from './pages/OrgChart';
 import ResourcesPage from './pages/Resources';
 import LeaveUploadPage from './pages/LeaveUpload';
+import AboutPage from './pages/About';
 
 const theme = createTheme({
   palette: {
@@ -78,6 +79,7 @@ function App() {
             <Route path="/resources" element={<ResourcesPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/leave-upload" element={<LeaveUploadPage />} />
+            <Route path="/about" element={<AboutPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

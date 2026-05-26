@@ -260,9 +260,8 @@ public class EmployeeService {
         boolean wasActive = emp.isActive();
         emp.setActive(!wasActive);
         emp.getUser().setActive(!wasActive);
-        // When deactivating: clear this employee as manager for all their active reports
         if (wasActive) {
-            transferSubordinatesToAdmin(emp);
+            reassignSubordinates(emp);
         }
         employeeDetailsRepository.save(emp);
     }
@@ -272,22 +271,31 @@ public class EmployeeService {
         EmployeeDetails emp = findEmployee(id);
         emp.setActive(false);
         emp.getUser().setActive(false);
-        transferSubordinatesToAdmin(emp);
+        reassignSubordinates(emp);
         employeeDetailsRepository.save(emp);
     }
 
-    private void transferSubordinatesToAdmin(EmployeeDetails deactivated) {
+    private void reassignSubordinates(EmployeeDetails deactivated) {
         List<EmployeeDetails> subordinates = employeeDetailsRepository.findByManagerId(deactivated.getId());
         if (subordinates.isEmpty()) return;
 
-        // Find the first active ADMIN (System Administrator) who is not the deactivated employee
-        EmployeeDetails admin = employeeDetailsRepository.findActiveAdmins().stream()
-                .filter(a -> !a.getId().equals(deactivated.getId()))
-                .findFirst()
-                .orElse(null);
+        // Prefer the deactivated manager's own reporting manager (if active)
+        EmployeeDetails reportingManager = deactivated.getManager();
+        if (reportingManager != null && !reportingManager.isActive()) {
+            reportingManager = null;
+        }
+
+        // Fall back to first active ADMIN when there is no active reporting manager
+        EmployeeDetails newManager = reportingManager;
+        if (newManager == null) {
+            newManager = employeeDetailsRepository.findActiveAdmins().stream()
+                    .filter(a -> !a.getId().equals(deactivated.getId()))
+                    .findFirst()
+                    .orElse(null);
+        }
 
         for (EmployeeDetails sub : subordinates) {
-            sub.setManager(admin); // null if no admin found (edge case)
+            sub.setManager(newManager);
             employeeDetailsRepository.save(sub);
         }
     }
