@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for src/api/leaveUploadApi.js</title>
+    <title>Code coverage report for src/api/assetApi.js</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../prettify.css" />
     <link rel="stylesheet" href="../../base.css" />
@@ -19,13 +19,13 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/api</a> leaveUploadApi.js</h1>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/api</a> assetApi.js</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">28.57% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>2/7</span>
+                <span class='fraction'>0/10</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">25% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/4</span>
+                <span class='fraction'>0/9</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">28.57% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>2/7</span>
+                <span class='fraction'>0/10</span>
             </div>
         
             
@@ -79,31 +79,31 @@
 <a name='L14'></a><a href='#L14'>14</a>
 <a name='L15'></a><a href='#L15'>15</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">12x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import api from './axios';
 &nbsp;
-export const leaveUploadApi = {
-  upload: <span class="fstat-no" title="function not covered" >(f</span>ile) =&gt; {
-    const form = <span class="cstat-no" title="statement not covered" >new FormData();</span>
-<span class="cstat-no" title="statement not covered" >    form.append('file', file);</span>
-<span class="cstat-no" title="statement not covered" >    return api.post('/leave-upload', form, {</span>
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-  },
-  addHoliday:       <span class="fstat-no" title="function not covered" >(n</span>ame, date)  =&gt; <span class="cstat-no" title="statement not covered" >api.post('/leave-upload/holiday', { name, date }),</span>
-  downloadTemplate: <span class="fstat-no" title="function not covered" >()</span>            =&gt; <span class="cstat-no" title="statement not covered" >api.get('/leave-upload/template', { responseType: 'blob' }),</span>
-  getHolidays:      ()            =&gt; api.get('/leave-upload/holidays'),
+export const assetApi = <span class="cstat-no" title="statement not covered" >{</span>
+  getAll:        <span class="fstat-no" title="function not covered" >()</span>                                    =&gt; <span class="cstat-no" title="statement not covered" >api.get('/assets'),</span>
+  getById:       <span class="fstat-no" title="function not covered" >(i</span>d)                                  =&gt; <span class="cstat-no" title="statement not covered" >api.get(`/assets/${id}`),</span>
+  getStats:      <span class="fstat-no" title="function not covered" >()</span>                                    =&gt; <span class="cstat-no" title="statement not covered" >api.get('/assets/stats'),</span>
+  create:        <span class="fstat-no" title="function not covered" >(d</span>ata)                                =&gt; <span class="cstat-no" title="statement not covered" >api.post('/assets', data),</span>
+  update:        <span class="fstat-no" title="function not covered" >(i</span>d, data)                            =&gt; <span class="cstat-no" title="statement not covered" >api.put(`/assets/${id}`, data),</span>
+  delete:        <span class="fstat-no" title="function not covered" >(i</span>d)                                  =&gt; <span class="cstat-no" title="statement not covered" >api.delete(`/assets/${id}`),</span>
+  assign:        <span class="fstat-no" title="function not covered" >(i</span>d, employeeId, assignedDate, expectedReturnDate) =&gt;
+<span class="cstat-no" title="statement not covered" >    api.patch(`/assets/${id}/assign`, null, { params: { employeeId, assignedDate, expectedReturnDate } }),</span>
+  returnAsset:   <span class="fstat-no" title="function not covered" >(i</span>d)                                  =&gt; <span class="cstat-no" title="statement not covered" >api.patch(`/assets/${id}/return`),</span>
+  updateStatus:  <span class="fstat-no" title="function not covered" >(i</span>d, status)                          =&gt; <span class="cstat-no" title="statement not covered" >api.patch(`/assets/${id}/status`, null, { params: { status } }),</span>
 };
 &nbsp;</pre></td></tr></table></pre>
 

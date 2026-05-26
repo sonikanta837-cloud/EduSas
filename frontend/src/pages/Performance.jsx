@@ -1,91 +1,299 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import {
-  Box, Card, CardContent, Typography, Button, Grid, Chip,
+  Box, Typography, Button, Grid,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
   CircularProgress, Rating, Avatar, Autocomplete,
-  FormControl, InputLabel, Select, MenuItem,
+  FormControl, InputLabel, Select, MenuItem, Tabs, Tab,
+  InputAdornment, OutlinedInput, IconButton, Divider, Menu,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
+import AddIcon            from '@mui/icons-material/Add';
+import SearchIcon         from '@mui/icons-material/Search';
+import RefreshIcon        from '@mui/icons-material/Refresh';
+import ViewModuleIcon     from '@mui/icons-material/ViewModule';
+import ViewListIcon       from '@mui/icons-material/ViewList';
+import MoreVertIcon       from '@mui/icons-material/MoreVert';
+import CalendarTodayIcon  from '@mui/icons-material/CalendarToday';
+import EmojiEventsIcon    from '@mui/icons-material/EmojiEvents';
+import AccessTimeIcon     from '@mui/icons-material/AccessTime';
+import AssignmentIcon     from '@mui/icons-material/Assignment';
+import StarRoundedIcon    from '@mui/icons-material/StarRounded';
+import ChevronLeftIcon    from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon   from '@mui/icons-material/ChevronRight';
+import OpenInNewIcon      from '@mui/icons-material/OpenInNew';
+import DeleteOutlineIcon  from '@mui/icons-material/DeleteOutline';
 import { performanceApi } from '../api/performanceApi';
-import { employeeApi } from '../api/employeeApi';
-import { toast } from 'react-toastify';
+import { employeeApi }    from '../api/employeeApi';
+import { toast }          from 'react-toastify';
 
+/* ─── constants ─── */
 const BLANK_FORM = {
-  employeeId: null,
-  rating: 3,
-  comments: '',
-  strengths: '',
-  areasOfImprovement: '',
-  reviewDate: new Date().toISOString().split('T')[0],
-  reviewPeriod: '',
+  employeeId: null, rating: 3, comments: '', strengths: '',
+  areasOfImprovement: '', reviewDate: new Date().toISOString().split('T')[0], reviewPeriod: '',
 };
 
-// Generate Q1–Q4 for previous year and current year
 const buildQuarterOptions = () => {
-  const yr = new Date().getFullYear();
+  const now = new Date();
+  const yr  = now.getFullYear();
+  const cq  = Math.ceil((now.getMonth() + 1) / 3);
   const opts = [];
-  for (let y = yr - 1; y <= yr; y++) {
-    for (let q = 1; q <= 4; q++) opts.push(`Q${q} ${y}`);
+  let q = cq, y = yr;
+  for (let i = 0; i < 5; i++) {
+    opts.push(`Q${q} ${y}`);
+    if (++q > 4) { q = 1; y++; }
   }
   return opts;
 };
 const QUARTER_OPTIONS = buildQuarterOptions();
+const ROWS_PER_PAGE   = 6;
 
+/* ─── helpers ─── */
+const AVATAR_PALETTE = [
+  { bg: '#ede9fe', color: '#7c3aed' },
+  { bg: '#fce7f3', color: '#be185d' },
+  { bg: '#d1fae5', color: '#065f46' },
+  { bg: '#fef3c7', color: '#92400e' },
+  { bg: '#dbeafe', color: '#1e40af' },
+  { bg: '#ffedd5', color: '#9a3412' },
+  { bg: '#e0f2fe', color: '#0369a1' },
+  { bg: '#f3e8ff', color: '#6b21a8' },
+];
+
+const avatarColor = (name = '') => {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length];
+};
+
+const initials = (name = '') =>
+  name.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+const fmtDate = (d) => {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const ratingInfo = (r) => {
+  if (r >= 4.5) return { label: 'Excellent',  color: '#059669', bg: '#ecfdf5', border: '#6ee7b7', bar: '#10b981' };
+  if (r >= 4)   return { label: 'Very Good',  color: '#16a34a', bg: '#f0fdf4', border: '#86efac', bar: '#22c55e' };
+  if (r >= 3.5) return { label: 'Good',       color: '#16a34a', bg: '#f0fdf4', border: '#86efac', bar: '#22c55e' };
+  if (r >= 2.5) return { label: 'Average',    color: '#d97706', bg: '#fffbeb', border: '#fde68a', bar: '#f59e0b' };
+  if (r >= 1.5) return { label: 'Below Avg',  color: '#ea580c', bg: '#fff7ed', border: '#fed7aa', bar: '#f97316' };
+  return               { label: 'Poor',       color: '#dc2626', bg: '#fef2f2', border: '#fca5a5', bar: '#ef4444' };
+};
+
+/* ─── sub-components ─── */
+const StatCard = ({ icon, label, value, sub, accent, extra }) => (
+  <Box sx={{
+    bgcolor: '#fff', border: '1px solid #f1f5f9', borderRadius: '14px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)', p: 2.5,
+    display: 'flex', alignItems: 'center', gap: 2, height: '100%',
+  }}>
+    <Box sx={{
+      width: 52, height: 52, borderRadius: '14px',
+      bgcolor: `${accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    }}>
+      {React.cloneElement(icon, { sx: { fontSize: 26, color: accent } })}
+    </Box>
+    <Box sx={{ flex: 1 }}>
+      <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.5px', mb: .3 }}>
+        {label}
+      </Typography>
+      <Typography sx={{ fontSize: 26, fontWeight: 800, color: '#0f172a', lineHeight: 1, mb: .3 }}>{value}</Typography>
+      {extra || <Typography sx={{ fontSize: 12.5, color: '#64748b' }}>{sub}</Typography>}
+    </Box>
+  </Box>
+);
+
+const ReviewCard = ({ r, isAdmin, isManager, myEmployeeId, onViewDetails, onDelete }) => {
+  const [anchorEl, setAnchorEl] = useState(null);
+  const menuOpen  = Boolean(anchorEl);
+  const info      = ratingInfo(r.rating ?? 0);
+  const avColor   = avatarColor(r.employeeName || '');
+  const pct       = Math.min(((r.rating ?? 0) / 5) * 100, 100);
+  const canDelete = isAdmin || r.reviewerId === myEmployeeId;
+
+  return (
+    <Box sx={{
+      bgcolor: '#fff', border: '1px solid #f1f5f9', borderRadius: '14px',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.05)', p: 2.5, height: '100%',
+      display: 'flex', flexDirection: 'column',
+      transition: 'box-shadow .2s, transform .2s',
+      '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.09)', transform: 'translateY(-2px)' },
+    }}>
+      {/* Header row */}
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1.5 }}>
+        <Avatar sx={{ width: 46, height: 46, bgcolor: avColor.bg, color: avColor.color, fontSize: '0.88rem', fontWeight: 700, flexShrink: 0 }}>
+          {initials(r.employeeName || r.reviewerName || '')}
+        </Avatar>
+        <Box sx={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
+          <Typography sx={{ fontSize: 14.5, fontWeight: 700, color: '#0f172a' }} noWrap>
+            {r.employeeName || 'Unknown'}
+          </Typography>
+          <Typography sx={{ fontSize: 12.5, color: '#64748b', lineHeight: 1.4 }}>
+            Reviewed by: {r.reviewerName || '—'}
+          </Typography>
+          <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>{r.reviewPeriod || '—'}</Typography>
+        </Box>
+        {/* Rating badge */}
+        <Box sx={{ flexShrink: 0, textAlign: 'center' }}>
+          <Box sx={{ width: 54, height: 54, borderRadius: '50%', bgcolor: info.bg, border: `2px solid ${info.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: info.color, lineHeight: 1 }}>
+              {r.rating}/5
+            </Typography>
+          </Box>
+          <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: info.color, mt: .4 }}>{info.label}</Typography>
+        </Box>
+      </Box>
+
+      {/* Progress bar */}
+      <Box sx={{ height: 5, bgcolor: '#f1f5f9', borderRadius: 4, overflow: 'hidden', mb: 1.75 }}>
+        <Box sx={{ height: '100%', width: `${pct}%`, bgcolor: info.bar, borderRadius: 4, transition: 'width .5s ease' }} />
+      </Box>
+
+      {/* Comment */}
+      {r.comments && (
+        <Typography sx={{ fontSize: 13, color: '#64748b', fontStyle: 'italic', mb: 1.25, lineHeight: 1.5 }}>
+          "{r.comments}"
+        </Typography>
+      )}
+
+      {/* Strengths / Improve */}
+      {r.strengths && (
+        <Box sx={{ mb: .6 }}>
+          <Typography component="span" sx={{ fontSize: 12.5, fontWeight: 700, color: '#16a34a' }}>Strengths: </Typography>
+          <Typography component="span" sx={{ fontSize: 12.5, color: '#374151' }}>{r.strengths}</Typography>
+        </Box>
+      )}
+      {r.areasOfImprovement && (
+        <Box sx={{ mb: 1.5 }}>
+          <Typography component="span" sx={{ fontSize: 12.5, fontWeight: 700, color: '#d97706' }}>Improve: </Typography>
+          <Typography component="span" sx={{ fontSize: 12.5, color: '#374151' }}>{r.areasOfImprovement}</Typography>
+        </Box>
+      )}
+
+      <Box sx={{ flex: 1 }} />
+
+      {/* Footer */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1.5, pt: 1.5, borderTop: '1px solid #f8fafc' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: .75 }}>
+          <CalendarTodayIcon sx={{ fontSize: 13, color: '#94a3b8' }} />
+          <Typography sx={{ fontSize: 12, color: '#64748b' }}>{fmtDate(r.reviewDate)}</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: .75 }}>
+          <Button
+            size="small" variant="outlined"
+            onClick={() => onViewDetails(r)}
+            sx={{ fontSize: 12, py: .45, px: 1.5, borderRadius: '8px', borderColor: '#14b8a6', color: '#14b8a6', fontWeight: 600, '&:hover': { bgcolor: '#f0fdfa', borderColor: '#0d9488' } }}
+          >
+            View Details
+          </Button>
+          <IconButton
+            size="small"
+            onClick={e => setAnchorEl(e.currentTarget)}
+            sx={{ color: '#94a3b8', '&:hover': { bgcolor: '#f8fafc', color: '#374151' } }}
+          >
+            <MoreVertIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+          <Menu
+            anchorEl={anchorEl}
+            open={menuOpen}
+            onClose={() => setAnchorEl(null)}
+            PaperProps={{ sx: { borderRadius: '10px', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', border: '1px solid #f1f5f9', minWidth: 160 } }}
+            transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+            anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+          >
+            <MenuItem
+              onClick={() => { setAnchorEl(null); onViewDetails(r); }}
+              sx={{ fontSize: 13.5, gap: 1.25, py: 1.1, color: '#374151' }}
+            >
+              <OpenInNewIcon sx={{ fontSize: 17, color: '#64748b' }} />
+              View Details
+            </MenuItem>
+            {canDelete && (
+              <MenuItem
+                onClick={() => { setAnchorEl(null); onDelete(r); }}
+                sx={{ fontSize: 13.5, gap: 1.25, py: 1.1, color: '#dc2626' }}
+              >
+                <DeleteOutlineIcon sx={{ fontSize: 17, color: '#dc2626' }} />
+                Delete Review
+              </MenuItem>
+            )}
+          </Menu>
+        </Box>
+      </Box>
+    </Box>
+  );
+};
+
+/* ════════════════════════════════════════════════════
+   PAGE
+════════════════════════════════════════════════════ */
 const PerformancePage = () => {
   const { user } = useSelector((s) => s.auth);
   const isAdmin   = user?.role === 'ADMIN';
   const isManager = user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER';
+  const canReview = isAdmin || isManager;
 
-  const [myEmployee,   setMyEmployee]   = useState(null);
-  const [reviews,      setReviews]      = useState([]);
-  const [avgRating,    setAvgRating]    = useState(null);
-  const [loading,      setLoading]      = useState(true);
+  const [myEmployee,  setMyEmployee]  = useState(null);
+  const [reviews,     setReviews]     = useState([]);
+  const [allEmps,     setAllEmps]     = useState([]);
+  const [loading,     setLoading]     = useState(true);
   const [addOpen,      setAddOpen]      = useState(false);
-  const [form,         setForm]         = useState(BLANK_FORM);
-  const [empOptions,   setEmpOptions]   = useState([]);   // available employees for the picker
-  const [empLoading,   setEmpLoading]   = useState(false);
-  const [submitting,   setSubmitting]   = useState(false);
+  const [detailOpen,   setDetailOpen]   = useState(false);
+  const [selectedRev,  setSelectedRev]  = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting,     setDeleting]     = useState(false);
+  const [form,        setForm]        = useState(BLANK_FORM);
+  const [empOptions,  setEmpOptions]  = useState([]);
+  const [empLoading,  setEmpLoading]  = useState(false);
+  const [submitting,  setSubmitting]  = useState(false);
 
-  // ── Initial load ────────────────────────────────────────────────────────────
+  /* filter state */
+  const [searchText, setSearchText] = useState('');
+  const [quarterFlt, setQuarterFlt] = useState('');
+  const [ratingFlt,  setRatingFlt]  = useState('');
+  const [deptFlt,    setDeptFlt]    = useState('');
+  const [tab,        setTab]        = useState(0);
+  const [sortBy,     setSortBy]     = useState('recent');
+  const [viewMode,   setViewMode]   = useState('grid');
+  const [page,       setPage]       = useState(0);
+
+  /* ── initial load ── */
   useEffect(() => {
-    const isAdminOrMgr = user?.role === 'ADMIN' || user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER';
+    const isAdminOrMgr = canReview;
     employeeApi.getByUserId(user.userId)
       .then(async (emp) => {
         setMyEmployee(emp);
-        const [revs, avg, allEmps] = await Promise.all([
+        const [revs, empsData] = await Promise.all([
           isAdminOrMgr
             ? performanceApi.getAll().catch(() => [])
             : performanceApi.getByEmployee(emp.id).catch(() => []),
-          performanceApi.getAverage(emp.id).catch(() => ({ averageRating: 0 })),
           isAdminOrMgr ? employeeApi.getAll().catch(() => []) : Promise.resolve([]),
         ]);
-        const activeIds = new Set((allEmps || []).filter((e) => e.active !== false).map((e) => e.id));
-        const filtered = (Array.isArray(revs) ? revs : []).filter((r) =>
+        const empsArr  = Array.isArray(empsData) ? empsData : [];
+        setAllEmps(empsArr);
+        const activeIds = new Set(empsArr.filter(e => e.active !== false).map(e => e.id));
+        const filtered  = (Array.isArray(revs) ? revs : []).filter(r =>
           isAdminOrMgr ? activeIds.has(r.employeeId) : true
         );
         setReviews(filtered);
-        setAvgRating(avg?.averageRating || 0);
       })
       .catch(() => toast.error('Failed to load performance data'))
       .finally(() => setLoading(false));
   }, [user]);
 
-  // ── Load reviewable employees when dialog opens ──────────────────────────────
+  /* ── open add dialog ── */
   const openDialog = useCallback(async () => {
     setForm({ ...BLANK_FORM, reviewDate: new Date().toISOString().split('T')[0] });
     setAddOpen(true);
     if (!myEmployee) return;
     setEmpLoading(true);
     try {
-      let list;
-      if (isAdmin) {
-        list = await employeeApi.getAll();
-      } else {
-        list = await employeeApi.getTeam(myEmployee.id);
-      }
-      // Exclude self, admins, and inactive employees
-      setEmpOptions((list || []).filter((e) => e.id !== myEmployee.id && e.role !== 'ADMIN' && e.active !== false));
+      const list = isAdmin
+        ? await employeeApi.getAll()
+        : await employeeApi.getTeam(myEmployee.id);
+      setEmpOptions((list || []).filter(e => e.id !== myEmployee.id && e.role !== 'ADMIN' && e.active !== false));
     } catch {
       toast.error('Failed to load employees');
     } finally {
@@ -93,31 +301,25 @@ const PerformancePage = () => {
     }
   }, [myEmployee, isAdmin]);
 
-  // ── Submit ──────────────────────────────────────────────────────────────────
+  /* ── submit review ── */
   const handleCreate = async () => {
-    if (!form.employeeId) { toast.error('Please select an employee'); return; }
-    if (!form.reviewPeriod) { toast.error('Please select a review period'); return; }
+    if (!form.employeeId)  { toast.error('Please select an employee'); return; }
+    if (!form.reviewPeriod){ toast.error('Please select a review period'); return; }
     setSubmitting(true);
     try {
-      const payload = {
-        ...form,
-        reviewerId: myEmployee.id,
-        employeeId: form.employeeId,
-      };
-      await performanceApi.create(payload);
+      await performanceApi.create({ ...form, reviewerId: myEmployee.id });
       toast.success('Review submitted!');
       setAddOpen(false);
-      if (isAdmin || isManager) {
-        const [revs, allEmps] = await Promise.all([
-          performanceApi.getAll().catch(() => []),
-          employeeApi.getAll().catch(() => []),
-        ]);
-        const activeIds = new Set((allEmps || []).filter((e) => e.active !== false).map((e) => e.id));
-        setReviews((Array.isArray(revs) ? revs : []).filter((r) => activeIds.has(r.employeeId)));
-      } else {
-        const revs = await performanceApi.getByEmployee(myEmployee.id).catch(() => []);
-        setReviews(Array.isArray(revs) ? revs : []);
-      }
+      const [revs, empsData] = await Promise.all([
+        canReview ? performanceApi.getAll().catch(() => []) : performanceApi.getByEmployee(myEmployee.id).catch(() => []),
+        canReview ? employeeApi.getAll().catch(() => []) : Promise.resolve(allEmps),
+      ]);
+      const empsArr  = Array.isArray(empsData) ? empsData : [];
+      if (empsArr.length) setAllEmps(empsArr);
+      const activeIds = new Set(empsArr.filter(e => e.active !== false).map(e => e.id));
+      setReviews((Array.isArray(revs) ? revs : []).filter(r =>
+        canReview ? activeIds.has(r.employeeId) : true
+      ));
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to submit review');
     } finally {
@@ -125,212 +327,482 @@ const PerformancePage = () => {
     }
   };
 
+  /* ── delete review ── */
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await performanceApi.delete(deleteTarget.id);
+      toast.success('Review deleted');
+      setReviews(prev => prev.filter(r => r.id !== deleteTarget.id));
+    } catch {
+      toast.error('Failed to delete review');
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
+    }
+  };
+
+  /* ── derived stats ── */
+  const avgRating = reviews.length
+    ? reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviews.length
+    : 0;
+
+  const now      = new Date();
+  const currentQ = `Q${Math.ceil((now.getMonth() + 1) / 3)} ${now.getFullYear()}`;
+
+  /* top performer: highest all-time avg rating; tiebreak by review count, then name */
+  const empRatingMap = {};
+  reviews.forEach(r => {
+    if (!r.employeeId) return;
+    if (!empRatingMap[r.employeeId])
+      empRatingMap[r.employeeId] = { name: r.employeeName || '', total: 0, count: 0 };
+    empRatingMap[r.employeeId].total += r.rating || 0;
+    empRatingMap[r.employeeId].count++;
+  });
+  const topPerfEntry = Object.values(empRatingMap)
+    .map(d => ({ name: d.name, avg: d.count > 0 ? d.total / d.count : 0, count: d.count }))
+    .sort((a, b) => {
+      if (Math.abs(b.avg - a.avg) > 0.001) return b.avg - a.avg;
+      if (b.count !== a.count) return b.count - a.count;
+      return a.name.localeCompare(b.name);
+    })[0];
+
+  const reviewedThisQ = new Set(reviews.filter(r => r.reviewPeriod === currentQ).map(r => r.employeeId));
+  const pendingCount  = canReview
+    ? allEmps.filter(e => e.active !== false && e.id !== myEmployee?.id && !reviewedThisQ.has(e.id)).length
+    : 0;
+
+  /* ── departments for filter ── */
+  const departments = [...new Set(allEmps.filter(e => e.department).map(e => e.department))].sort();
+  const empDeptMap  = Object.fromEntries(allEmps.map(e => [e.id, e.department || '']));
+
+  /* ── existing quarters ── */
+  const existingQuarters = [...new Set(reviews.map(r => r.reviewPeriod).filter(Boolean))].sort().reverse();
+
+  /* ── filtered reviews ── */
+  const tabReviews = (() => {
+    if (tab === 1) return reviews.filter(r => r.employeeId === myEmployee?.id);
+    if (tab === 2) return reviews.filter(r => r.reviewerId === myEmployee?.id);
+    return reviews;
+  })();
+
+  const filteredReviews = tabReviews
+    .filter(r => {
+      const q = searchText.toLowerCase();
+      if (q && !(r.employeeName || '').toLowerCase().includes(q) && !(r.reviewerName || '').toLowerCase().includes(q)) return false;
+      if (quarterFlt && r.reviewPeriod !== quarterFlt) return false;
+      if (ratingFlt) {
+        const min = parseFloat(ratingFlt);
+        if ((r.rating || 0) < min) return false;
+        if (min < 5 && (r.rating || 0) >= min + 1) return false;
+      }
+      if (deptFlt && empDeptMap[r.employeeId] !== deptFlt) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'highest') return (b.rating || 0) - (a.rating || 0);
+      if (sortBy === 'lowest')  return (a.rating || 0) - (b.rating || 0);
+      return new Date(b.reviewDate || 0) - new Date(a.reviewDate || 0);
+    });
+
+  const totalPages   = Math.ceil(filteredReviews.length / ROWS_PER_PAGE);
+  const pagedReviews = filteredReviews.slice(page * ROWS_PER_PAGE, (page + 1) * ROWS_PER_PAGE);
+
+  const resetFilters = () => { setSearchText(''); setQuarterFlt(''); setRatingFlt(''); setDeptFlt(''); setPage(0); };
+
+  /* ── loading ── */
   if (loading) return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
-      <CircularProgress />
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 360 }}>
+      <CircularProgress sx={{ color: '#14b8a6' }} />
     </Box>
   );
 
-  const ratingColor = (r) => r >= 4 ? 'success' : r >= 3 ? 'warning' : 'error';
-
+  /* ── render ── */
   return (
-    <Box>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" fontWeight={700}>Performance Reviews</Typography>
-        {(isAdmin || isManager) && (
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openDialog}>
+    <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh' }}>
+
+      {/* Page header */}
+      <Box sx={{ mb: 3 }}>
+        <Typography sx={{ fontSize: 26, fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>Performance Reviews</Typography>
+        <Typography sx={{ fontSize: 13.5, color: '#64748b', mt: .4 }}>Track and manage employee performance reviews.</Typography>
+      </Box>
+
+      {/* ── Filter bar ── */}
+      <Box sx={{
+        bgcolor: '#fff', border: '1px solid #f1f5f9', borderRadius: '14px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.05)', p: 1.75, mb: 3,
+        display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap',
+      }}>
+        <OutlinedInput
+          placeholder="Search by employee name..."
+          value={searchText}
+          onChange={e => { setSearchText(e.target.value); setPage(0); }}
+          startAdornment={<InputAdornment position="start"><SearchIcon sx={{ fontSize: 19, color: '#94a3b8' }} /></InputAdornment>}
+          sx={{
+            height: 40, fontSize: 13.5, borderRadius: '10px', minWidth: 230, flex: '1 1 200px',
+            '& fieldset': { borderColor: '#e2e8f0' }, '&:hover fieldset': { borderColor: '#cbd5e1' },
+          }}
+        />
+
+        <Select
+          value={quarterFlt} onChange={e => { setQuarterFlt(e.target.value); setPage(0); }}
+          displayEmpty renderValue={v => v || 'All Quarters'}
+          sx={{ height: 40, fontSize: 13.5, borderRadius: '10px', minWidth: 145, '& fieldset': { borderColor: '#e2e8f0' } }}
+        >
+          <MenuItem value="">All Quarters</MenuItem>
+          {existingQuarters.map(q => <MenuItem key={q} value={q} sx={{ fontSize: 13.5 }}>{q}</MenuItem>)}
+        </Select>
+
+        <Select
+          value={ratingFlt} onChange={e => { setRatingFlt(e.target.value); setPage(0); }}
+          displayEmpty renderValue={v => v ? `Rating ${v}+` : 'All Ratings'}
+          sx={{ height: 40, fontSize: 13.5, borderRadius: '10px', minWidth: 135, '& fieldset': { borderColor: '#e2e8f0' } }}
+        >
+          <MenuItem value="">All Ratings</MenuItem>
+          <MenuItem value="5"  sx={{ fontSize: 13.5 }}>Excellent (5)</MenuItem>
+          <MenuItem value="4"  sx={{ fontSize: 13.5 }}>Very Good (4+)</MenuItem>
+          <MenuItem value="3"  sx={{ fontSize: 13.5 }}>Good (3+)</MenuItem>
+          <MenuItem value="2"  sx={{ fontSize: 13.5 }}>Average (2+)</MenuItem>
+          <MenuItem value="1"  sx={{ fontSize: 13.5 }}>Any Rating</MenuItem>
+        </Select>
+
+        {departments.length > 0 && (
+          <Select
+            value={deptFlt} onChange={e => { setDeptFlt(e.target.value); setPage(0); }}
+            displayEmpty renderValue={v => v || 'All Departments'}
+            sx={{ height: 40, fontSize: 13.5, borderRadius: '10px', minWidth: 155, '& fieldset': { borderColor: '#e2e8f0' } }}
+          >
+            <MenuItem value="">All Departments</MenuItem>
+            {departments.map(d => <MenuItem key={d} value={d} sx={{ fontSize: 13.5 }}>{d}</MenuItem>)}
+          </Select>
+        )}
+
+        <Button
+          variant="outlined" onClick={resetFilters}
+          startIcon={<RefreshIcon sx={{ fontSize: 17 }} />}
+          sx={{
+            height: 40, borderRadius: '10px', borderColor: '#e2e8f0', color: '#64748b',
+            fontSize: 13.5, fontWeight: 600, px: 2,
+            '&:hover': { borderColor: '#cbd5e1', bgcolor: '#f8fafc' },
+          }}
+        >
+          Reset
+        </Button>
+
+        {canReview && (
+          <Button
+            variant="contained" onClick={openDialog}
+            startIcon={<AddIcon />}
+            sx={{
+              height: 40, borderRadius: '10px', bgcolor: '#14b8a6',
+              '&:hover': { bgcolor: '#0d9488' }, fontSize: 13.5, fontWeight: 700, px: 2.5,
+              boxShadow: '0 4px 12px rgba(20,184,166,0.3)', ml: 'auto',
+            }}
+          >
             New Review
           </Button>
         )}
       </Box>
 
-      {/* Average rating summary */}
-      {avgRating > 0 && (
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h2" fontWeight={700} color="primary">
-                  {avgRating.toFixed(1)}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">Avg. Rating</Typography>
-              </Box>
-              <Box>
-                <Rating value={avgRating} readOnly precision={0.5} size="large" />
-                <Typography variant="body2" color="text.secondary">
-                  Based on {reviews.length} review{reviews.length !== 1 ? 's' : ''}
-                </Typography>
-              </Box>
+      {/* ── Stat cards ── */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard icon={<AssignmentIcon />} label="Total Reviews" value={reviews.length} sub="All Time" accent="#14b8a6" />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Box sx={{
+            bgcolor: '#fff', border: '1px solid #f1f5f9', borderRadius: '14px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)', p: 2.5,
+            display: 'flex', alignItems: 'center', gap: 2, height: '100%',
+          }}>
+            <Box sx={{ width: 52, height: 52, borderRadius: '14px', bgcolor: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <StarRoundedIcon sx={{ fontSize: 27, color: '#f59e0b' }} />
             </Box>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Reviews grid */}
-      <Grid container spacing={2}>
-        {reviews.length === 0 ? (
-          <Grid item xs={12}>
-            <Card>
-              <CardContent>
-                <Typography align="center" color="text.secondary" py={3}>
-                  No performance reviews yet
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ) : reviews.map((r) => (
-          <Grid item xs={12} md={6} key={r.id}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Avatar sx={{ width: 36, height: 36, bgcolor: '#1976d2', fontSize: '0.85rem' }}>
-                      {r.employeeName?.charAt(0) || r.reviewerName?.charAt(0)}
-                    </Avatar>
-                    <Box>
-                      {(isAdmin || isManager) && r.employeeName && (
-                        <Typography variant="subtitle2" fontWeight={700} color="#0f172a">
-                          {r.employeeName}
-                        </Typography>
-                      )}
-                      <Typography variant="subtitle2" fontWeight={600} color="text.secondary">
-                        Reviewed by: {r.reviewerName}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">{r.reviewPeriod}</Typography>
-                    </Box>
-                  </Box>
-                  <Chip label={`${r.rating}/5`} size="small" color={ratingColor(r.rating)} />
-                </Box>
-                <Rating value={r.rating} readOnly size="small" sx={{ mb: 1 }} />
-                {r.comments && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontStyle: 'italic' }}>
-                    "{r.comments}"
-                  </Typography>
-                )}
-                {r.strengths && (
-                  <Box sx={{ mb: 0.5 }}>
-                    <Typography variant="caption" fontWeight={600} color="success.main">Strengths: </Typography>
-                    <Typography variant="caption">{r.strengths}</Typography>
-                  </Box>
-                )}
-                {r.areasOfImprovement && (
-                  <Box>
-                    <Typography variant="caption" fontWeight={600} color="warning.main">Improve: </Typography>
-                    <Typography variant="caption">{r.areasOfImprovement}</Typography>
-                  </Box>
-                )}
-                <Typography variant="caption" color="text.secondary" display="block" mt={1}>
-                  {r.reviewDate}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
+            <Box>
+              <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.5px', mb: .3 }}>Average Rating</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: .5, mb: .35 }}>
+                <Typography sx={{ fontSize: 26, fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{avgRating.toFixed(1)}</Typography>
+                <Typography sx={{ fontSize: 14, color: '#94a3b8' }}>/ 5</Typography>
+              </Box>
+              <Rating value={avgRating} readOnly precision={0.5} size="small" sx={{ '& .MuiRating-iconFilled': { color: '#f59e0b' } }} />
+            </Box>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard
+            icon={<EmojiEventsIcon />}
+            label="Top Performer"
+            value={topPerfEntry?.name || '—'}
+            sub={topPerfEntry ? `Avg ${(topPerfEntry.avg).toFixed(1)}/5 · ${topPerfEntry.count} review${topPerfEntry.count !== 1 ? 's' : ''}` : 'No reviews yet'}
+            accent="#f59e0b"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard icon={<AccessTimeIcon />} label="Not Reviewed Yet" value={pendingCount} sub={`Employees · ${currentQ}`} accent="#6366f1" />
+        </Grid>
       </Grid>
 
-      {/* New Review Dialog */}
-      <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle fontWeight={700}>Submit Performance Review</DialogTitle>
+      {/* ── Tabs + Sort + View ── */}
+      <Box sx={{
+        bgcolor: '#fff', border: '1px solid #f1f5f9', borderRadius: '14px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.05)', mb: 2.5, overflow: 'hidden',
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, borderBottom: '1px solid #f1f5f9', flexWrap: 'wrap', gap: 1 }}>
+          <Tabs
+            value={tab}
+            onChange={(_, v) => { setTab(v); setPage(0); }}
+            TabIndicatorProps={{ style: { backgroundColor: '#14b8a6', height: 2.5 } }}
+            sx={{
+              minHeight: 52,
+              '& .MuiTab-root': {
+                fontSize: 13.5, fontWeight: 600, textTransform: 'none',
+                color: '#64748b', minHeight: 52, px: 2,
+                '&.Mui-selected': { color: '#14b8a6' },
+              },
+            }}
+          >
+            <Tab label="All Reviews" />
+            <Tab label="Received by Me" />
+            <Tab label="Given by Me" />
+          </Tabs>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, py: 1 }}>
+            <Typography sx={{ fontSize: 13, color: '#64748b', fontWeight: 500 }}>Sort by:</Typography>
+            <Select
+              value={sortBy} onChange={e => setSortBy(e.target.value)}
+              sx={{ height: 34, fontSize: 13, borderRadius: '8px', minWidth: 140, '& fieldset': { borderColor: '#e2e8f0' } }}
+            >
+              <MenuItem value="recent"  sx={{ fontSize: 13 }}>Most Recent</MenuItem>
+              <MenuItem value="highest" sx={{ fontSize: 13 }}>Highest Rating</MenuItem>
+              <MenuItem value="lowest"  sx={{ fontSize: 13 }}>Lowest Rating</MenuItem>
+            </Select>
+            {/* Grid / List toggle */}
+            {(['grid', 'list']).map((mode) => (
+              <IconButton
+                key={mode} size="small"
+                onClick={() => setViewMode(mode)}
+                sx={{
+                  width: 32, height: 32, borderRadius: '8px',
+                  bgcolor: viewMode === mode ? '#14b8a6' : '#f8fafc',
+                  color: viewMode === mode ? '#fff' : '#64748b',
+                  border: '1px solid',
+                  borderColor: viewMode === mode ? '#14b8a6' : '#e2e8f0',
+                  '&:hover': { bgcolor: viewMode === mode ? '#0d9488' : '#f1f5f9' },
+                }}
+              >
+                {mode === 'grid'
+                  ? <ViewModuleIcon sx={{ fontSize: 17 }} />
+                  : <ViewListIcon  sx={{ fontSize: 17 }} />
+                }
+              </IconButton>
+            ))}
+          </Box>
+        </Box>
+      </Box>
+
+      {/* ── Review cards ── */}
+      {filteredReviews.length === 0 ? (
+        <Box sx={{
+          bgcolor: '#fff', border: '1px solid #f1f5f9', borderRadius: '14px',
+          py: 9, textAlign: 'center',
+        }}>
+          <AssignmentIcon sx={{ fontSize: 52, color: '#e2e8f0', display: 'block', mx: 'auto', mb: 1.5 }} />
+          <Typography sx={{ color: '#94a3b8', fontSize: 15 }}>No reviews found</Typography>
+          {(searchText || quarterFlt || ratingFlt || deptFlt) && (
+            <Button onClick={resetFilters} sx={{ mt: 1.5, color: '#14b8a6', fontSize: 13, fontWeight: 600, textTransform: 'none' }}>
+              Clear filters
+            </Button>
+          )}
+        </Box>
+      ) : (
+        <Grid container spacing={2}>
+          {pagedReviews.map(r => (
+            <Grid item xs={12} md={viewMode === 'list' ? 12 : 6} lg={viewMode === 'list' ? 12 : 4} key={r.id}>
+              <ReviewCard
+                r={r}
+                isAdmin={isAdmin}
+                isManager={isManager}
+                myEmployeeId={myEmployee?.id}
+                onViewDetails={rev => { setSelectedRev(rev); setDetailOpen(true); }}
+                onDelete={rev => setDeleteTarget(rev)}
+              />
+            </Grid>
+          ))}
+        </Grid>
+      )}
+
+      {/* ── Pagination ── */}
+      {filteredReviews.length > 0 && (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 3, flexWrap: 'wrap', gap: 1.5 }}>
+          <Typography sx={{ fontSize: 13, color: '#64748b' }}>
+            Showing {page * ROWS_PER_PAGE + 1} to {Math.min((page + 1) * ROWS_PER_PAGE, filteredReviews.length)} of {filteredReviews.length} reviews
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: .75 }}>
+            <IconButton
+              size="small" disabled={page === 0}
+              onClick={() => setPage(p => p - 1)}
+              sx={{ width: 32, height: 32, borderRadius: '8px', border: '1px solid #e2e8f0', bgcolor: '#fff', '&.Mui-disabled': { opacity: .4 } }}
+            >
+              <ChevronLeftIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+            {Array.from({ length: totalPages }, (_, i) => (
+              <IconButton
+                key={i} size="small"
+                onClick={() => setPage(i)}
+                sx={{
+                  width: 32, height: 32, borderRadius: '8px',
+                  bgcolor: page === i ? '#14b8a6' : '#fff',
+                  color: page === i ? '#fff' : '#374151',
+                  border: '1px solid',
+                  borderColor: page === i ? '#14b8a6' : '#e2e8f0',
+                  fontWeight: page === i ? 700 : 500,
+                  '&:hover': { bgcolor: page === i ? '#0d9488' : '#f8fafc' },
+                }}
+              >
+                <Typography sx={{ fontSize: 13, fontWeight: page === i ? 700 : 500, color: 'inherit', lineHeight: 1 }}>{i + 1}</Typography>
+              </IconButton>
+            ))}
+            <IconButton
+              size="small" disabled={page >= totalPages - 1}
+              onClick={() => setPage(p => p + 1)}
+              sx={{ width: 32, height: 32, borderRadius: '8px', border: '1px solid #e2e8f0', bgcolor: '#fff', '&.Mui-disabled': { opacity: .4 } }}
+            >
+              <ChevronRightIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Box>
+        </Box>
+      )}
+
+      {/* ── Delete Confirmation Dialog ── */}
+      <Dialog open={Boolean(deleteTarget)} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '14px' } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 16, pb: 1 }}>Delete Review?</DialogTitle>
+        <Divider />
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography sx={{ fontSize: 14, color: '#374151' }}>
+            This will permanently delete the review for <strong>{deleteTarget?.employeeName}</strong> ({deleteTarget?.reviewPeriod}). This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setDeleteTarget(null)} disabled={deleting} sx={{ borderRadius: '10px', fontSize: 13.5, fontWeight: 600, textTransform: 'none', color: '#64748b' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained" onClick={handleDelete} disabled={deleting}
+            sx={{ borderRadius: '10px', bgcolor: '#dc2626', '&:hover': { bgcolor: '#b91c1c' }, fontSize: 13.5, fontWeight: 700, textTransform: 'none' }}
+          >
+            {deleting ? <CircularProgress size={16} sx={{ mr: 1, color: '#fff' }} /> : null}
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Detail Dialog ── */}
+      <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '16px' } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 17, pb: 1.5 }}>Review Details</DialogTitle>
+        <Divider />
+        {selectedRev && (() => {
+          const info    = ratingInfo(selectedRev.rating ?? 0);
+          const avColor = avatarColor(selectedRev.employeeName || '');
+          return (
+            <DialogContent sx={{ pt: 2.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2.5 }}>
+                <Avatar sx={{ width: 52, height: 52, bgcolor: avColor.bg, color: avColor.color, fontSize: '1rem', fontWeight: 700 }}>
+                  {initials(selectedRev.employeeName || '')}
+                </Avatar>
+                <Box sx={{ flex: 1 }}>
+                  <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{selectedRev.employeeName}</Typography>
+                  <Typography sx={{ fontSize: 13, color: '#64748b' }}>Reviewed by: {selectedRev.reviewerName}</Typography>
+                  <Typography sx={{ fontSize: 12.5, color: '#94a3b8' }}>{selectedRev.reviewPeriod} · {fmtDate(selectedRev.reviewDate)}</Typography>
+                </Box>
+                <Box sx={{ textAlign: 'center', flexShrink: 0 }}>
+                  <Box sx={{ width: 60, height: 60, borderRadius: '50%', bgcolor: info.bg, border: `2px solid ${info.border}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: info.color, lineHeight: 1 }}>{selectedRev.rating}/5</Typography>
+                  </Box>
+                  <Typography sx={{ fontSize: 11, fontWeight: 700, color: info.color, mt: .5 }}>{info.label}</Typography>
+                </Box>
+              </Box>
+              <Rating value={selectedRev.rating} readOnly precision={0.5} sx={{ mb: 2.5, '& .MuiRating-iconFilled': { color: '#f59e0b' } }} />
+              {selectedRev.comments && (
+                <Box sx={{ bgcolor: '#f8fafc', borderRadius: '10px', p: 2, mb: 2 }}>
+                  <Typography sx={{ fontSize: 13.5, color: '#64748b', fontStyle: 'italic', lineHeight: 1.6 }}>"{selectedRev.comments}"</Typography>
+                </Box>
+              )}
+              {selectedRev.strengths && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '.4px', mb: .6 }}>Strengths</Typography>
+                  <Typography sx={{ fontSize: 14, color: '#374151' }}>{selectedRev.strengths}</Typography>
+                </Box>
+              )}
+              {selectedRev.areasOfImprovement && (
+                <Box>
+                  <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '.4px', mb: .6 }}>Areas for Improvement</Typography>
+                  <Typography sx={{ fontSize: 14, color: '#374151' }}>{selectedRev.areasOfImprovement}</Typography>
+                </Box>
+              )}
+            </DialogContent>
+          );
+        })()}
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setDetailOpen(false)} sx={{ borderRadius: '10px', fontSize: 13.5, fontWeight: 600, color: '#64748b', textTransform: 'none' }}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── New Review Dialog ── */}
+      <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '16px' } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 17 }}>Submit Performance Review</DialogTitle>
+        <Divider />
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1 }}>
-
-            {/* Employee name picker */}
             <Autocomplete
               options={empOptions}
-              getOptionLabel={(emp) => emp.fullName || ''}
+              getOptionLabel={emp => emp.fullName || ''}
               loading={empLoading}
-              value={empOptions.find((e) => e.id === form.employeeId) || null}
+              value={empOptions.find(e => e.id === form.employeeId) || null}
               onChange={(_, emp) => setForm({ ...form, employeeId: emp ? emp.id : null })}
               renderOption={(props, emp) => (
                 <Box component="li" {...props} key={emp.id}>
                   <Box>
                     <Typography variant="body2" fontWeight={600}>{emp.fullName}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {emp.position || emp.role} · {emp.department}
-                    </Typography>
+                    <Typography variant="caption" color="text.secondary">{emp.position || emp.role} · {emp.department}</Typography>
                   </Box>
                 </Box>
               )}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Employee"
-                  required
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {empLoading ? <CircularProgress color="inherit" size={16} /> : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
-                  }}
+              renderInput={params => (
+                <TextField {...params} label="Employee" required
+                  InputProps={{ ...params.InputProps, endAdornment: (<>{empLoading ? <CircularProgress color="inherit" size={16} /> : null}{params.InputProps.endAdornment}</>) }}
                 />
               )}
               fullWidth
             />
-
-            {/* Rating */}
             <Box>
               <Typography variant="body2" gutterBottom fontWeight={500}>Rating</Typography>
-              <Rating
-                value={form.rating}
-                onChange={(_, v) => setForm({ ...form, rating: v })}
-                size="large"
-              />
+              <Rating value={form.rating} onChange={(_, v) => setForm({ ...form, rating: v })} size="large" />
             </Box>
-
-            {/* Review period — quarter dropdown */}
             <FormControl fullWidth required>
               <InputLabel>Review Period</InputLabel>
-              <Select
-                value={form.reviewPeriod}
-                label="Review Period"
-                onChange={(e) => setForm({ ...form, reviewPeriod: e.target.value })}
-              >
-                {QUARTER_OPTIONS.map((q) => (
-                  <MenuItem key={q} value={q}>{q}</MenuItem>
-                ))}
+              <Select value={form.reviewPeriod} label="Review Period" onChange={e => setForm({ ...form, reviewPeriod: e.target.value })}>
+                {QUARTER_OPTIONS.map(q => <MenuItem key={q} value={q}>{q}</MenuItem>)}
               </Select>
             </FormControl>
-
-            <TextField
-              label="Comments"
-              value={form.comments}
-              onChange={(e) => setForm({ ...form, comments: e.target.value })}
-              multiline rows={2} fullWidth
-            />
-            <TextField
-              label="Strengths"
-              value={form.strengths}
-              onChange={(e) => setForm({ ...form, strengths: e.target.value })}
-              multiline rows={2} fullWidth
-            />
-            <TextField
-              label="Areas of Improvement"
-              value={form.areasOfImprovement}
-              onChange={(e) => setForm({ ...form, areasOfImprovement: e.target.value })}
-              multiline rows={2} fullWidth
-            />
-            <TextField
-              label="Review Date"
-              type="date"
-              value={form.reviewDate}
-              onChange={(e) => setForm({ ...form, reviewDate: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-            />
+            <TextField label="Comments"             value={form.comments}            onChange={e => setForm({ ...form, comments: e.target.value })}            multiline rows={2} fullWidth />
+            <TextField label="Strengths"            value={form.strengths}           onChange={e => setForm({ ...form, strengths: e.target.value })}           multiline rows={2} fullWidth />
+            <TextField label="Areas of Improvement" value={form.areasOfImprovement} onChange={e => setForm({ ...form, areasOfImprovement: e.target.value })} multiline rows={2} fullWidth />
+            <TextField label="Review Date" type="date" value={form.reviewDate} onChange={e => setForm({ ...form, reviewDate: e.target.value })} InputLabelProps={{ shrink: true }} fullWidth />
           </Box>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setAddOpen(false)} disabled={submitting}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreate} disabled={submitting}>
-            {submitting ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setAddOpen(false)} disabled={submitting} sx={{ borderRadius: '10px', fontSize: 13.5, fontWeight: 600, textTransform: 'none' }}>Cancel</Button>
+          <Button
+            variant="contained" onClick={handleCreate} disabled={submitting}
+            sx={{ borderRadius: '10px', bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' }, fontSize: 13.5, fontWeight: 700, textTransform: 'none' }}
+          >
+            {submitting ? <CircularProgress size={18} sx={{ mr: 1, color: '#fff' }} /> : null}
             Submit Review
           </Button>
         </DialogActions>
       </Dialog>
+
     </Box>
   );
 };

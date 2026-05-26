@@ -63,6 +63,13 @@ public class PerformanceService {
         return reviewRepository.getAverageRatingByEmployee(employeeId);
     }
 
+    @Transactional
+    public void deleteReview(Long id) {
+        PerformanceReview review = reviewRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("PerformanceReview", id));
+        reviewRepository.delete(review);
+    }
+
     private EmployeeDetails findEmployee(Long id) {
         return employeeDetailsRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee", id));

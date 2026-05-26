@@ -45,4 +45,11 @@ public class PerformanceController {
         Double avg = performanceService.getAverageRating(employeeId);
         return ResponseEntity.ok(Map.of("employeeId", employeeId, "averageRating", avg != null ? avg : 0.0));
     }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER')")
+    public ResponseEntity<Void> deleteReview(@PathVariable Long id) {
+        performanceService.deleteReview(id);
+        return ResponseEntity.noContent().build();
+    }
 }

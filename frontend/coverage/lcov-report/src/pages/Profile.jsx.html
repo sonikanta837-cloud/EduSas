@@ -25,28 +25,28 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/233</span>
+                <span class='fraction'>0/246</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/249</span>
+                <span class='fraction'>0/251</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/92</span>
+                <span class='fraction'>0/93</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/186</span>
+                <span class='fraction'>0/196</span>
             </div>
         
             
@@ -928,7 +928,19 @@
 <a name='L863'></a><a href='#L863'>863</a>
 <a name='L864'></a><a href='#L864'>864</a>
 <a name='L865'></a><a href='#L865'>865</a>
-<a name='L866'></a><a href='#L866'>866</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L866'></a><a href='#L866'>866</a>
+<a name='L867'></a><a href='#L867'>867</a>
+<a name='L868'></a><a href='#L868'>868</a>
+<a name='L869'></a><a href='#L869'>869</a>
+<a name='L870'></a><a href='#L870'>870</a>
+<a name='L871'></a><a href='#L871'>871</a>
+<a name='L872'></a><a href='#L872'>872</a>
+<a name='L873'></a><a href='#L873'>873</a>
+<a name='L874'></a><a href='#L874'>874</a>
+<a name='L875'></a><a href='#L875'>875</a>
+<a name='L876'></a><a href='#L876'>876</a>
+<a name='L877'></a><a href='#L877'>877</a>
+<a name='L878'></a><a href='#L878'>878</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1075,6 +1087,8 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1226,16 +1240,27 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1593,7 +1618,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1831,7 +1855,7 @@ import {
   CategoryScale, LinearScale, BarElement,
   Title, Tooltip as ChartTooltip, Legend, ArcElement,
 } from 'chart.js';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { employeeApi } from '../api/employeeApi';
 import { courseApi } from '../api/courseApi';
 import { performanceApi } from '../api/performanceApi';
@@ -1937,7 +1961,9 @@ const ProfilePage = <span class="cstat-no" title="statement not covered" ><span 
   const [loading, setLoading] = <span class="cstat-no" title="statement not covered" >useState(true);</span>
   const [editing, setEditing] = <span class="cstat-no" title="statement not covered" >useState(false);</span>
   const [form, setForm] = <span class="cstat-no" title="statement not covered" >useState({});</span>
-  const [activeTab, setActiveTab] = <span class="cstat-no" title="statement not covered" >useState(0);</span>
+  const [searchParams, setSearchParams] = <span class="cstat-no" title="statement not covered" >useSearchParams();</span>
+  const activeTab    = <span class="cstat-no" title="statement not covered" >parseInt(searchParams.get('tab') || '0', 10);</span>
+  const setActiveTab = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(v</span>) =&gt; <span class="cstat-no" title="statement not covered" >setSearchParams({ tab: v }, { replace: false });</span></span>
   const [addingEdu, setAddingEdu] = <span class="cstat-no" title="statement not covered" >useState(false);</span>
   const [newEdu, setNewEdu] = <span class="cstat-no" title="statement not covered" >useState({ institute: '', degree: '', year: '' });</span>
 &nbsp;
@@ -2018,7 +2044,7 @@ const ProfilePage = <span class="cstat-no" title="statement not covered" ><span 
   const enrolledCourses  = <span class="cstat-no" title="statement not covered" >useMemo(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >courses.filter(<span class="fstat-no" title="function not covered" >c </span>=&gt; <span class="cstat-no" title="statement not covered" >['ENROLLED','IN_PROGRESS','COMPLETED'].includes(c.enrollmentStatus))</span>.length,</span> [courses]);</span>
 &nbsp;
   const approvedLeaves = <span class="cstat-no" title="statement not covered" >useMemo(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >leaves.filter(<span class="fstat-no" title="function not covered" >l </span>=&gt; <span class="cstat-no" title="statement not covered" >l.status === 'APPROVED')</span>.length,</span> [leaves]);</span>
-  const LEAVE_TOTAL = <span class="cstat-no" title="statement not covered" >24;</span>
+  const LEAVE_TOTAL = <span class="cstat-no" title="statement not covered" >21;</span>
   const leaveBalance = <span class="cstat-no" title="statement not covered" >Math.max(0, LEAVE_TOTAL - approvedLeaves);</span>
 &nbsp;
   /* years in company */
@@ -2092,13 +2118,24 @@ const ProfilePage = <span class="cstat-no" title="statement not covered" ><span 
     },
   }), []);
 &nbsp;
+  const TARGET_HRS = <span class="cstat-no" title="statement not covered" >useMemo(<span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
+    const now = <span class="cstat-no" title="statement not covered" >new Date();</span>
+    const year = <span class="cstat-no" title="statement not covered" >now.getFullYear();</span>
+    const month = <span class="cstat-no" title="statement not covered" >now.getMonth();</span>
+    const daysInMonth = <span class="cstat-no" title="statement not covered" >new Date(year, month + 1, 0).getDate();</span>
+    let workingDays = <span class="cstat-no" title="statement not covered" >0;</span>
+<span class="cstat-no" title="statement not covered" >    for (let d = <span class="cstat-no" title="statement not covered" >1;</span> d &lt;= daysInMonth; d++) {</span>
+      const day = <span class="cstat-no" title="statement not covered" >new Date(year, month, d).getDay();</span>
+<span class="cstat-no" title="statement not covered" >      if (day !== 0 &amp;&amp; day !== 6) <span class="cstat-no" title="statement not covered" >workingDays++;</span></span>
+    }
+<span class="cstat-no" title="statement not covered" >    return workingDays * 8;</span>
+  }, []);
+&nbsp;
 <span class="cstat-no" title="statement not covered" >  if (loading) <span class="cstat-no" title="statement not covered" >return (</span></span>
     &lt;Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 360 }}&gt;
       &lt;CircularProgress sx={{ color: '#0891b2' }} /&gt;
     &lt;/Box&gt;
   );
-&nbsp;
-  const TARGET_HRS = <span class="cstat-no" title="statement not covered" >168;</span> // 21 working days × 8h
 &nbsp;
   /* ═══════════ RENDER ═══════════ */
 <span class="cstat-no" title="statement not covered" >  return (</span>
@@ -2458,7 +2495,6 @@ const ProfilePage = <span class="cstat-no" title="statement not covered" ><span 
                   &lt;Divider sx={{ mb: 0.75 }} /&gt;
                   {[
                     { icon: '☀', l: 'Annual Leave', taken: approvedLeaves, of: LEAVE_TOTAL, c: '#0891b2' },
-                    { icon: '🏥', l: 'Sick Leave', taken: leaves.filter(<span class="fstat-no" title="function not covered" >l </span>=&gt; <span class="cstat-no" title="statement not covered" >l.status === 'APPROVED' &amp;&amp; (l.leaveType || '').toLowerCase().includes('sick'))</span>.length, of: 6, c: '#ef4444' },
                   ].map(<span class="fstat-no" title="function not covered" >({</span> icon, l, taken, of, c }) =&gt; (
 <span class="cstat-no" title="statement not covered" >                    &lt;Box key={l} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}&gt;</span>
                       &lt;Typography sx={{ fontSize: 12 }}&gt;{icon}&lt;/Typography&gt;
@@ -2665,7 +2701,7 @@ export default ProfilePage;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-16T10:23:21.028Z
+                at 2026-05-26T12:46:11.874Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
