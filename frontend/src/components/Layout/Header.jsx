@@ -26,7 +26,6 @@ const pageTitles = {
   '/reports':     'Leave Reports',
   '/resources':   'Resource Management',
   '/profile':     'My Profile',
-  '/about':       'About Us',
 };
 
 // Default fallback routes per section when there is no history to go back to
@@ -42,7 +41,6 @@ const fallbackRoutes = {
   '/reports':     '/reports',
   '/resources':   '/resources',
   '/profile':     '/dashboard',
-  '/about':       '/dashboard',
 };
 
 const Header = () => {

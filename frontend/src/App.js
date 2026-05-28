@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { createTheme, ThemeProvider, CssBaseline } from '@mui/material';
 import Layout from './components/Layout/Layout';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
+import HomePage from './pages/Home';
 import LoginPage from './pages/Login';
 import ResetPasswordPage from './pages/ResetPassword';
 import DashboardPage from './pages/Dashboard';
@@ -18,7 +19,6 @@ import ReportsPage from './pages/Reports';
 import OrgChartPage from './pages/OrgChart';
 import ResourcesPage from './pages/Resources';
 import LeaveUploadPage from './pages/LeaveUpload';
-import AboutPage from './pages/About';
 
 const theme = createTheme({
   palette: {
@@ -61,11 +61,12 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Routes>
+        <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/home" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/employees" element={<EmployeesPage />} />
             <Route path="/employees/:id" element={<EmployeeDetailPage />} />
@@ -79,10 +80,9 @@ function App() {
             <Route path="/resources" element={<ResourcesPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/leave-upload" element={<LeaveUploadPage />} />
-            <Route path="/about" element={<AboutPage />} />
           </Route>
         </Route>
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </ThemeProvider>
   );

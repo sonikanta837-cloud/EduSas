@@ -60,4 +60,9 @@ public interface LeaveRepository extends JpaRepository<Leave, Long> {
 
     @Query("SELECT l.reason, l.startDate, COUNT(l) FROM Leave l WHERE l.leaveType = 'Public Holiday' GROUP BY l.reason, l.startDate ORDER BY l.startDate DESC")
     List<Object[]> findDistinctPublicHolidays();
+
+    @Query("SELECT l.employee.firstName, l.employee.lastName, l.employee.employeeCode, l.employee.seatingLocation " +
+           "FROM Leave l WHERE l.leaveType = 'Public Holiday' AND l.startDate = :date AND l.reason = :name " +
+           "ORDER BY l.employee.firstName, l.employee.lastName")
+    List<Object[]> findEmployeesForHoliday(@Param("date") LocalDate date, @Param("name") String name);
 }

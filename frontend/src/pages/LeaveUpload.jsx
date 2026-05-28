@@ -4,7 +4,8 @@ import {
   Table, TableHead, TableRow, TableCell, TableBody,
   CircularProgress, Alert, Divider, Stack,
   Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Grid, IconButton,
+  TextField, Grid, IconButton, Select, MenuItem,
+  FormControl, InputLabel, InputAdornment,
 } from '@mui/material';
 import UploadFileIcon    from '@mui/icons-material/UploadFile';
 import DownloadIcon      from '@mui/icons-material/Download';
@@ -15,15 +16,17 @@ import PeopleIcon        from '@mui/icons-material/People';
 import EventIcon         from '@mui/icons-material/Event';
 import AddIcon           from '@mui/icons-material/Add';
 import CloseIcon         from '@mui/icons-material/Close';
+import LocationOnIcon    from '@mui/icons-material/LocationOn';
+import CheckIcon         from '@mui/icons-material/Check';
 import { leaveUploadApi } from '../api/leaveUploadApi';
 import { toast } from 'react-toastify';
 
 const SAMPLE_HOLIDAYS = [
-  { name: "New Year's Day",   date: '01-January-2026'  },
-  { name: 'Holi',             date: '15-June-2026'     },
-  { name: 'Independence Day', date: '15-August-2026'   },
-  { name: 'Diwali',           date: '20-October-2026'  },
-  { name: 'Christmas',        date: '25-December-2026' },
+  { name: "New Year's Day",   date: '01-January-2026',  location: ''          },
+  { name: 'Holi',             date: '15-June-2026',     location: 'Mandsaur'  },
+  { name: 'Independence Day', date: '15-August-2026',   location: 'Ahmedabad' },
+  { name: 'Diwali',           date: '20-October-2026',  location: ''          },
+  { name: 'Christmas',        date: '25-December-2026', location: 'Jamnagar'  },
 ];
 
 const LeaveUploadPage = () => {
@@ -33,12 +36,63 @@ const LeaveUploadPage = () => {
   const [result,      setResult]      = useState(null);
   const [holidays,    setHolidays]    = useState([]);
 
+  // Employee list dialog
+  const [empListOpen,      setEmpListOpen]      = useState(false);
+  const [empListHoliday,   setEmpListHoliday]   = useState(null);   // { name, date }
+  const [empListData,      setEmpListData]       = useState([]);
+  const [empListLoading,   setEmpListLoading]   = useState(false);
+
+  const openEmpList = async (holiday) => {
+    setEmpListHoliday(holiday);
+    setEmpListData([]);
+    setEmpListOpen(true);
+    setEmpListLoading(true);
+    try {
+      const data = await leaveUploadApi.getHolidayEmployees(holiday.name, holiday.date);
+      setEmpListData(data);
+    } catch { setEmpListData([]); }
+    finally { setEmpListLoading(false); }
+  };
+
   // Add Holiday dialog
-  const [addOpen,     setAddOpen]     = useState(false);
-  const [holName,     setHolName]     = useState('');
-  const [holDate,     setHolDate]     = useState('');
-  const [addSaving,   setAddSaving]   = useState(false);
-  const [addError,    setAddError]    = useState('');
+  const [addOpen,          setAddOpen]          = useState(false);
+  const [holName,          setHolName]          = useState('');
+  const [holDate,          setHolDate]          = useState('');
+  const [holLocation,      setHolLocation]      = useState('');        // '' = All Locations
+  const [addSaving,        setAddSaving]        = useState(false);
+  const [addError,         setAddError]         = useState('');
+
+  // Location management (shared between upload area and Add Holiday dialog)
+  const DEFAULT_LOCATIONS = ['Mandsaur', 'Ahmedabad', 'Jamnagar'];
+  const [customLocations,     setCustomLocations]     = useState([]);
+  // Dialog new-loc inline input
+  const [showNewLocInput,     setShowNewLocInput]     = useState(false);
+  const [newLocName,          setNewLocName]          = useState('');
+  // Upload area new-loc inline input
+  const [showUploadLocInput,  setShowUploadLocInput]  = useState(false);
+  const [newUploadLocName,    setNewUploadLocName]    = useState('');
+  // Upload location filter
+  const [uploadLocation,      setUploadLocation]      = useState('');
+
+  const allLocations = [...DEFAULT_LOCATIONS, ...customLocations];
+
+  const confirmNewLocation = () => {
+    const trimmed = newLocName.trim();
+    if (!trimmed) return;
+    if (!allLocations.includes(trimmed)) setCustomLocations(prev => [...prev, trimmed]);
+    setHolLocation(trimmed);
+    setShowNewLocInput(false);
+    setNewLocName('');
+  };
+
+  const confirmUploadLocation = () => {
+    const trimmed = newUploadLocName.trim();
+    if (!trimmed) return;
+    if (!allLocations.includes(trimmed)) setCustomLocations(prev => [...prev, trimmed]);
+    setUploadLocation(trimmed);
+    setShowUploadLocInput(false);
+    setNewUploadLocName('');
+  };
 
   const loadHolidays = () => {
     leaveUploadApi.getHolidays()
@@ -59,10 +113,11 @@ const LeaveUploadPage = () => {
     setUploading(true);
     setResult(null);
     try {
-      const data = await leaveUploadApi.upload(file);
+      const data = await leaveUploadApi.upload(file, uploadLocation || null);
       setResult(data);
       if (data.imported > 0) {
-        toast.success(`${data.imported} holiday(s) applied to all employees`);
+        const where = uploadLocation ? `employees in ${uploadLocation}` : 'all employees';
+        toast.success(`${data.imported} holiday(s) applied to ${where}`);
         loadHolidays();
       } else {
         toast.warning('No holidays were imported — check the error log below');
@@ -96,18 +151,22 @@ const LeaveUploadPage = () => {
 
   // ── Manual add holiday ──────────────────────────────────────────────────────
   const openAddHoliday = () => {
-    setHolName(''); setHolDate(''); setAddError('');
+    setHolName(''); setHolDate(''); setHolLocation(''); setAddError('');
+    setShowNewLocInput(false); setNewLocName('');
     setAddOpen(true);
   };
 
   const handleAddHoliday = async () => {
     if (!holName.trim()) { setAddError('Holiday name is required.'); return; }
     if (!holDate)        { setAddError('Date is required.'); return; }
+    // Auto-confirm a pending new location before submitting
+    if (showNewLocInput && newLocName.trim()) confirmNewLocation();
     setAddSaving(true); setAddError('');
     try {
-      const data = await leaveUploadApi.addHoliday(holName.trim(), holDate);
+      const data = await leaveUploadApi.addHoliday(holName.trim(), holDate, holLocation || null);
       if (data.imported > 0) {
-        toast.success(`"${holName}" applied to all active employees`);
+        const where = holLocation ? `employees in ${holLocation}` : 'all active employees';
+        toast.success(`"${holName}" applied to ${where}`);
         loadHolidays();
         setAddOpen(false);
       } else {
@@ -164,6 +223,69 @@ const LeaveUploadPage = () => {
                 <strong>Step 3:</strong> Holidays are automatically added as approved leaves for every active employee
               </Typography>
             </Box>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      {/* Upload location filter */}
+      <Card sx={{ mb: 2, border: '1px solid #e2e8f0' }}>
+        <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+          <Stack direction="row" alignItems="center" spacing={2} flexWrap="wrap" gap={1}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <LocationOnIcon sx={{ color: '#14b8a6', fontSize: 18 }} />
+              <Typography variant="body2" fontWeight={600} color="text.secondary">
+                Apply uploaded holidays to:
+              </Typography>
+            </Box>
+            <FormControl size="small" sx={{ minWidth: 200, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
+              <Select
+                value={uploadLocation}
+                displayEmpty
+                onChange={e => {
+                  if (e.target.value === '__add_new__') {
+                    setShowUploadLocInput(true);
+                  } else {
+                    setUploadLocation(e.target.value);
+                    setShowUploadLocInput(false);
+                  }
+                }}
+              >
+                <MenuItem value=""><em>All Locations</em></MenuItem>
+                {allLocations.map(loc => (
+                  <MenuItem key={loc} value={loc}>{loc}</MenuItem>
+                ))}
+                <MenuItem value="__add_new__" sx={{ color: '#14b8a6', fontWeight: 600 }}>
+                  + Add New Location
+                </MenuItem>
+              </Select>
+            </FormControl>
+            {showUploadLocInput && (
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <TextField
+                  size="small" label="New Location" value={newUploadLocName}
+                  onChange={e => setNewUploadLocName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') confirmUploadLocation(); }}
+                  placeholder="e.g. Mumbai"
+                  sx={{ width: 160, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                  autoFocus
+                />
+                <IconButton size="small" onClick={confirmUploadLocation} disabled={!newUploadLocName.trim()}
+                  sx={{ bgcolor: '#14b8a6', color: 'white', borderRadius: 1.5, '&:hover': { bgcolor: '#0d9488' }, '&:disabled': { bgcolor: '#e2e8f0' } }}>
+                  <CheckIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+                <IconButton size="small" onClick={() => { setShowUploadLocInput(false); setNewUploadLocName(''); }}
+                  sx={{ bgcolor: '#f1f5f9', borderRadius: 1.5, '&:hover': { bgcolor: '#e2e8f0' } }}>
+                  <CloseIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Box>
+            )}
+            {uploadLocation && (
+              <Chip
+                label={`Only ${uploadLocation} employees`}
+                size="small" color="primary" variant="outlined"
+                onDelete={() => setUploadLocation('')}
+              />
+            )}
           </Stack>
         </CardContent>
       </Card>
@@ -301,6 +423,8 @@ const LeaveUploadPage = () => {
                         icon={<PeopleIcon sx={{ fontSize: '14px !important' }} />}
                         label={`${h.employeeCount} employees`}
                         size="small" color="primary" variant="outlined"
+                        onClick={() => openEmpList(h)}
+                        sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'primary.50', borderColor: 'primary.main' } }}
                       />
                     </TableCell>
                   </TableRow>
@@ -352,6 +476,19 @@ const LeaveUploadPage = () => {
                   </Typography>
                 </TableCell>
               </TableRow>
+              <TableRow hover>
+                <TableCell><Typography variant="caption" fontWeight={700} color="text.secondary">C</Typography></TableCell>
+                <TableCell>
+                  <Typography variant="body2" fontWeight={600}>Location
+                    <Chip label="optional" size="small" color="default" sx={{ ml: 1, height: 16, fontSize: 10 }} />
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="caption" color="text.secondary">
+                    Leave blank to apply to all employees. Fill with a location (e.g. Mandsaur, Ahmedabad, Jamnagar) to apply only to employees at that location. Each row can have a different location.
+                  </Typography>
+                </TableCell>
+              </TableRow>
             </TableBody>
           </Table>
 
@@ -364,6 +501,7 @@ const LeaveUploadPage = () => {
                 <TableRow sx={{ bgcolor: '#0f172a' }}>
                   <TableCell sx={{ color: 'white', fontWeight: 700, fontSize: 12 }}>Holiday Name</TableCell>
                   <TableCell sx={{ color: 'white', fontWeight: 700, fontSize: 12 }}>Date</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 700, fontSize: 12 }}>Location</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -371,6 +509,12 @@ const LeaveUploadPage = () => {
                   <TableRow key={i} sx={{ bgcolor: i % 2 === 0 ? 'white' : '#f8fafc' }}>
                     <TableCell sx={{ fontSize: 13 }}>{h.name}</TableCell>
                     <TableCell sx={{ fontSize: 13, fontFamily: 'monospace', color: '#14b8a6' }}>{h.date}</TableCell>
+                    <TableCell sx={{ fontSize: 13 }}>
+                      {h.location
+                        ? <Chip label={h.location} size="small" sx={{ bgcolor: '#f0fdfa', color: '#0f766e', fontSize: 11 }} />
+                        : <Typography variant="caption" color="text.disabled" fontStyle="italic">all employees</Typography>
+                      }
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -382,6 +526,74 @@ const LeaveUploadPage = () => {
           </Typography>
         </CardContent>
       </Card>
+
+      {/* ── Holiday Employees Dialog ── */}
+      <Dialog open={empListOpen} onClose={() => setEmpListOpen(false)} maxWidth="sm" fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box>
+            <Typography variant="h6" fontWeight={700}>{empListHoliday?.name}</Typography>
+            <Typography variant="caption" color="text.secondary">{empListHoliday?.date}</Typography>
+          </Box>
+          <IconButton size="small" onClick={() => setEmpListOpen(false)}><CloseIcon sx={{ fontSize: 18 }} /></IconButton>
+        </DialogTitle>
+        <Divider />
+        <DialogContent sx={{ p: 0 }}>
+          {empListLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+              <CircularProgress size={32} />
+            </Box>
+          ) : empListData.length === 0 ? (
+            <Box sx={{ py: 4, textAlign: 'center' }}>
+              <Typography color="text.secondary">No employees found</Typography>
+            </Box>
+          ) : (
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: '#f1f5f9' }}>
+                  <TableCell sx={{ fontWeight: 700, width: 40 }}>#</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Employee</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Code</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Location</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {empListData.map((e, i) => (
+                  <TableRow key={i} hover sx={{ bgcolor: i % 2 === 0 ? 'white' : '#f8fafc' }}>
+                    <TableCell sx={{ color: '#94a3b8', fontSize: 12 }}>{i + 1}</TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={500}>
+                        {e.firstName} {e.lastName}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="caption" sx={{ fontFamily: 'monospace', color: '#64748b' }}>
+                        {e.employeeCode}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {e.location ? (
+                        <Chip label={e.location} size="small"
+                          sx={{ bgcolor: '#f0fdfa', color: '#0f766e', fontSize: 11 }} />
+                      ) : (
+                        <Typography variant="caption" color="text.disabled">—</Typography>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </DialogContent>
+        <Divider />
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+            {empListData.length} employee{empListData.length !== 1 ? 's' : ''} applied
+          </Typography>
+          <Button variant="outlined" size="small" onClick={() => setEmpListOpen(false)}
+            sx={{ borderColor: '#e2e8f0', color: '#64748b' }}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* ── Add Holiday Dialog ── */}
       <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="xs" fullWidth
@@ -406,9 +618,66 @@ const LeaveUploadPage = () => {
                 InputLabelProps={{ shrink: true }}
                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
             </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth size="small" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
+                <InputLabel>Location (optional)</InputLabel>
+                <Select
+                  value={holLocation}
+                  label="Location (optional)"
+                  onChange={e => {
+                    if (e.target.value === '__add_new__') {
+                      setShowNewLocInput(true);
+                    } else {
+                      setHolLocation(e.target.value);
+                      setShowNewLocInput(false);
+                    }
+                  }}
+                  startAdornment={<InputAdornment position="start"><LocationOnIcon sx={{ fontSize: 18, color: '#94a3b8' }} /></InputAdornment>}
+                >
+                  <MenuItem value=""><em>All Locations</em></MenuItem>
+                  {allLocations.map(loc => (
+                    <MenuItem key={loc} value={loc}>{loc}</MenuItem>
+                  ))}
+                  <MenuItem value="__add_new__" sx={{ color: '#14b8a6', fontWeight: 600 }}>
+                    + Add New Location
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            {showNewLocInput && (
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <TextField
+                    fullWidth size="small" label="New Location Name"
+                    value={newLocName}
+                    onChange={e => setNewLocName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') confirmNewLocation(); }}
+                    placeholder="e.g. Mumbai"
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                    autoFocus
+                  />
+                  <IconButton
+                    onClick={confirmNewLocation}
+                    disabled={!newLocName.trim()}
+                    sx={{ bgcolor: '#14b8a6', color: 'white', borderRadius: 2, '&:hover': { bgcolor: '#0d9488' }, '&:disabled': { bgcolor: '#e2e8f0' } }}
+                  >
+                    <CheckIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                  <IconButton
+                    onClick={() => { setShowNewLocInput(false); setNewLocName(''); }}
+                    sx={{ bgcolor: '#f1f5f9', borderRadius: 2, '&:hover': { bgcolor: '#e2e8f0' } }}
+                  >
+                    <CloseIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                </Box>
+              </Grid>
+            )}
           </Grid>
           <Alert severity="info" sx={{ mt: 2, borderRadius: 2, fontSize: '0.82rem' }}>
-            This holiday will be applied to <strong>all active employees</strong> as an Approved leave.
+            {holLocation
+              ? <>This holiday will be applied to <strong>employees in {holLocation}</strong> as an Approved leave.</>
+              : <>This holiday will be applied to <strong>all active employees</strong> as an Approved leave.</>
+            }
           </Alert>
         </DialogContent>
         <Divider />

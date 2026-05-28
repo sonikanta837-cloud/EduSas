@@ -8,11 +8,14 @@ import {
   Select, FormControl, InputLabel, CircularProgress, Tabs, Tab,
   IconButton, Tooltip, LinearProgress,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import CheckIcon from '@mui/icons-material/Check';
-import CloseIcon from '@mui/icons-material/Close';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon          from '@mui/icons-material/Add';
+import CheckIcon        from '@mui/icons-material/Check';
+import CloseIcon        from '@mui/icons-material/Close';
+import EditIcon         from '@mui/icons-material/Edit';
+import DeleteIcon       from '@mui/icons-material/Delete';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import FilterAltOffIcon  from '@mui/icons-material/FilterAltOff';
+import PeopleAltIcon     from '@mui/icons-material/PeopleAlt';
 import { leaveApi } from '../api/leaveApi';
 import { employeeApi } from '../api/employeeApi';
 import { toast } from 'react-toastify';
@@ -40,13 +43,47 @@ const LeavesPage = () => {
   const [applyOpen, setApplyOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const tab    = parseInt(searchParams.get('tab') || '0', 10);
-  const setTab = (v) => setSearchParams({ tab: v }, { replace: false });
+  const setTab = (v) => {
+    setSearchParams({ tab: v }, { replace: false });
+    if (v !== 1) { setFilterFrom(''); setFilterTo(''); setStatusFilter(''); }
+  };
   const [form, setForm] = useState({ leaveType: 'ANNUAL', startDate: '', endDate: '', reason: '' });
   const [editOpen, setEditOpen] = useState(false);
   const [editingLeave, setEditingLeave] = useState(null);
   const [editForm, setEditForm] = useState({ leaveType: 'ANNUAL', startDate: '', endDate: '', reason: '' });
   const [deleteDialogId, setDeleteDialogId] = useState(null);
   const isManagerOrAdmin = ['ADMIN', 'MANAGER', 'ASSISTANT_MANAGER'].includes(user?.role);
+
+  /* ── date range filter (Team Leaves tab) ── */
+  const [filterFrom,   setFilterFrom]   = useState('');
+  const [filterTo,     setFilterTo]     = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  /* A leave overlaps [filterFrom, filterTo] when:
+     leave.startDate <= filterTo  AND  leave.endDate >= filterFrom */
+  const displayedLeaves = useMemo(() => {
+    if (tab !== 1) return leaves;
+    let rows = leaves;
+    if (filterFrom || filterTo) {
+      rows = rows.filter(l => {
+        if (!l.startDate || !l.endDate) return false;
+        const afterFrom = !filterFrom || l.endDate   >= filterFrom;
+        const beforeTo  = !filterTo   || l.startDate <= filterTo;
+        return afterFrom && beforeTo;
+      });
+    }
+    if (statusFilter) rows = rows.filter(l => l.status === statusFilter);
+    return rows;
+  }, [leaves, tab, filterFrom, filterTo, statusFilter]);
+
+  const hasFilter = filterFrom || filterTo || statusFilter;
+
+  const onLeaveCount = useMemo(() => {
+    if (tab !== 1 || (!filterFrom && !filterTo)) return null;
+    return displayedLeaves.filter(l => l.status === 'APPROVED').length;
+  }, [displayedLeaves, tab, filterFrom, filterTo]);
 
   const currentYear = new Date().getFullYear();
 
@@ -212,6 +249,128 @@ const LeavesPage = () => {
         </Tabs>
       )}
 
+      {/* ── Date range filter bar — Team Leaves only ── */}
+      {tab === 1 && (
+        <Box sx={{
+          mb: 2, p: 2,
+          bgcolor: '#fff', border: '1px solid #f1f5f9', borderRadius: '12px',
+          boxShadow: '0 1px 6px rgba(0,0,0,0.05)',
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+
+            <CalendarTodayIcon sx={{ fontSize: 17, color: '#64748b' }} />
+
+            {/* From date */}
+            <TextField
+              label="From Date"
+              type="date"
+              size="small"
+              value={filterFrom}
+              onChange={e => {
+                setFilterFrom(e.target.value);
+                /* auto-clear To if it's before the new From */
+                if (filterTo && e.target.value && filterTo < e.target.value) setFilterTo('');
+              }}
+              inputProps={{ max: filterTo || undefined }}
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 160, '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+            />
+
+            <Typography sx={{ fontSize: 13, color: '#94a3b8', fontWeight: 500 }}>to</Typography>
+
+            {/* To date */}
+            <TextField
+              label="To Date"
+              type="date"
+              size="small"
+              value={filterTo}
+              onChange={e => setFilterTo(e.target.value)}
+              inputProps={{ min: filterFrom || undefined }}
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 160, '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+            />
+
+
+            {/* Status filter */}
+            <FormControl size="small" sx={{ minWidth: 130 }}>
+              <InputLabel sx={{ fontSize: 13 }}>Status</InputLabel>
+              <Select
+                value={statusFilter}
+                label="Status"
+                onChange={e => setStatusFilter(e.target.value)}
+                sx={{ borderRadius: '8px', fontSize: 13 }}
+              >
+                <MenuItem value="">All</MenuItem>
+                <MenuItem value="APPROVED">Approved</MenuItem>
+                <MenuItem value="PENDING">Pending</MenuItem>
+                <MenuItem value="REJECTED">Rejected</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Clear */}
+            {hasFilter && (
+              <Button size="small" variant="text"
+                startIcon={<FilterAltOffIcon sx={{ fontSize: 16 }} />}
+                onClick={() => { setFilterFrom(''); setFilterTo(''); setStatusFilter(''); }}
+                sx={{ borderRadius: '8px', textTransform: 'none', fontSize: 13, color: '#64748b', fontWeight: 600 }}
+              >
+                Clear
+              </Button>
+            )}
+
+            {/* Live approved-count badge */}
+            {onLeaveCount !== null && (
+              <Box sx={{
+                ml: 'auto', display: 'flex', alignItems: 'center', gap: 1,
+                px: 2, py: .65, borderRadius: '20px',
+                bgcolor: onLeaveCount > 0 ? '#f0fdfa' : '#f8fafc',
+                border: `1px solid ${onLeaveCount > 0 ? '#99f6e4' : '#e2e8f0'}`,
+              }}>
+                <PeopleAltIcon sx={{ fontSize: 16, color: onLeaveCount > 0 ? '#14b8a6' : '#94a3b8' }} />
+                <Typography sx={{ fontSize: 13, fontWeight: 700, color: onLeaveCount > 0 ? '#0f766e' : '#64748b' }}>
+                  {onLeaveCount} approved
+                </Typography>
+                {filterFrom && filterTo && filterFrom !== filterTo && (
+                  <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>
+                    · {new Date(filterFrom + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                    {' – '}
+                    {new Date(filterTo + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </Typography>
+                )}
+                {filterFrom && (!filterTo || filterFrom === filterTo) && (
+                  <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>
+                    · {new Date((filterTo || filterFrom) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </Typography>
+                )}
+              </Box>
+            )}
+          </Box>
+
+          {/* Range summary label */}
+          {(filterFrom || filterTo) && (
+            <Box sx={{ mt: 1.25, display: 'flex', alignItems: 'center', gap: .75 }}>
+              <Typography sx={{ fontSize: 12.5, color: '#64748b' }}>
+                Showing leaves overlapping
+                <strong style={{ color: '#0f172a', marginLeft: 4 }}>
+                  {filterFrom
+                    ? new Date(filterFrom + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : '(any start)'}
+                </strong>
+                {' → '}
+                <strong style={{ color: '#0f172a' }}>
+                  {filterTo
+                    ? new Date(filterTo + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : '(any end)'}
+                </strong>
+                <Typography component="span" sx={{ ml: 1, fontSize: 12, color: '#94a3b8' }}>
+                  ({displayedLeaves.length} record{displayedLeaves.length !== 1 ? 's' : ''})
+                </Typography>
+              </Typography>
+            </Box>
+          )}
+        </Box>
+      )}
+
       <Card>
         <TableContainer>
           <Table>
@@ -228,9 +387,15 @@ const LeavesPage = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {leaves.length === 0 ? (
-                <TableRow><TableCell colSpan={8} align="center">No leave records found</TableCell></TableRow>
-              ) : leaves.map((l) => (
+              {displayedLeaves.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} align="center" sx={{ py: 4, color: '#94a3b8' }}>
+                    {(filterFrom || filterTo)
+                    ? `No leave records found for the selected date range`
+                    : 'No leave records found'}
+                  </TableCell>
+                </TableRow>
+              ) : displayedLeaves.map((l) => (
                 <TableRow key={l.id} hover
                   sx={l.status === 'PENDING' && tab === 1 ? { bgcolor: '#fffbeb', '&:hover': { bgcolor: '#fef3c7' } } : {}}>
                   {tab === 1 && (
