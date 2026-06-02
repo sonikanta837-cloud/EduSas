@@ -95,11 +95,20 @@ public class CourseController {
     @PostMapping("/{courseId}/assign")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER','ASSISTANT_MANAGER')")
     public ResponseEntity<String> assignCourse(@PathVariable Long courseId,
-                                                @RequestBody Map<String, Object> body) {
+                                                @RequestBody Map<String, Object> body,
+                                                Authentication authentication) {
         Long employeeId = body.get("employeeId") != null
                 ? ((Number) body.get("employeeId")).longValue() : null;
         boolean assignAll = Boolean.TRUE.equals(body.get("assignAll"));
-        courseService.assignCourse(courseId, employeeId, assignAll);
+
+        // Resolve assigner display name: prefer full name from EmployeeDetails, fall back to email
+        String assignerName = authentication.getName();
+        var assignerEmp = employeeDetailsRepository.findByUserEmail(authentication.getName()).orElse(null);
+        if (assignerEmp != null) {
+            assignerName = assignerEmp.getFullName();
+        }
+
+        courseService.assignCourse(courseId, employeeId, assignAll, assignerName);
         return ResponseEntity.ok("Course assigned successfully");
     }
 

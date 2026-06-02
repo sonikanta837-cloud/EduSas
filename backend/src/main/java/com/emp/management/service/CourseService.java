@@ -9,9 +9,11 @@ import com.emp.management.repository.*;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -35,6 +37,10 @@ public class CourseService {
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
     private final CourseNotificationService courseNotificationService;
+    private final EmailService emailService;
+
+    @Value("${app.cors.allowed-origins:http://localhost:3000}")
+    private String frontendBaseUrl;
 
     @Transactional(readOnly = true)
     public List<CourseLearnerDTO> getLearners(Long courseId) {
@@ -126,7 +132,7 @@ public class CourseService {
     }
 
     @Transactional
-    public void assignCourse(Long courseId, Long employeeId, boolean assignAll) {
+    public void assignCourse(Long courseId, Long employeeId, boolean assignAll, String assignerName) {
         if (!assignAll && employeeId == null) {
             throw new BadRequestException("Employee ID is required when not assigning to all employees");
         }
@@ -136,11 +142,27 @@ public class CourseService {
                 : List.of(employeeDetailsRepository.findById(employeeId)
                     .orElseThrow(() -> new ResourceNotFoundException("Employee", employeeId)));
 
+        String courseLink = frontendBaseUrl + "/courses";
+        LocalDate today   = LocalDate.now();
+
         for (EmployeeDetails emp : targets) {
             if (!enrollmentRepository.existsByEmployeeIdAndCourseId(emp.getId(), courseId)) {
                 enrollmentRepository.save(Enrollment.builder()
                         .employee(emp).course(course).status(EnrollmentStatus.ENROLLED).build());
                 courseNotificationService.createNotification(emp, course);
+
+                // Send individual email to each newly enrolled employee
+                String empEmail = emp.getUser() != null ? emp.getUser().getEmail() : null;
+                if (empEmail != null) {
+                    emailService.sendCourseAssignmentEmail(
+                            empEmail,
+                            emp.getFullName(),
+                            course.getTitle(),
+                            assignerName,
+                            today,
+                            courseLink
+                    );
+                }
             }
         }
     }

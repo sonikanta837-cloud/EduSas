@@ -93,6 +93,32 @@ public class EmailService {
         }
     }
 
+    public void sendCourseAssignmentEmail(String to, String employeeName,
+                                          String courseName, String assignedBy,
+                                          LocalDate assignmentDate, String courseLink) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            message.setSubject("New Course Assigned: " + courseName + " – EmpSAS");
+            message.setText(
+                "Dear " + employeeName + ",\n\n" +
+                "A new course has been assigned to you. Please find the details below.\n\n" +
+                "Course Details\n" +
+                "─────────────────────────────────────\n" +
+                "  Course Name     : " + courseName + "\n" +
+                "  Assigned By     : " + assignedBy + "\n" +
+                "  Assignment Date : " + assignmentDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy")) + "\n" +
+                "  Course Link     : " + courseLink + "\n\n" +
+                "Please log in to EmpSAS and complete this course at your earliest convenience.\n\n" +
+                "EmpSAS Team"
+            );
+            mailSender.send(message);
+            log.info("Course assignment email sent to {} for course '{}'", to, courseName);
+        } catch (Exception e) {
+            log.error("Failed to send course assignment email to {} for course '{}': {}", to, courseName, e.getMessage());
+        }
+    }
+
     public void sendMissingTimesheetManagerAlert(String to, String[] cc,
                                                  String employeeName, String employeeCode,
                                                  String department, String employeeEmail,
