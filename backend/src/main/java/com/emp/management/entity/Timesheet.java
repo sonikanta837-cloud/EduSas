@@ -42,6 +42,7 @@ public class Timesheet {
     private String notes;
 
     private boolean alertSent;
+    private boolean missingAlertSent;
 
     @CreationTimestamp
     private LocalDateTime createdAt;

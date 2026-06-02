@@ -298,42 +298,95 @@ public class TimesheetService {
                 .build();
     }
 
-    // ── Daily missing-timesheet reminder (10:00 AM next morning) ─────────────
+    // ── Daily missing-timesheet audit job (10:00 AM) ─────────────────────────
 
-    @Scheduled(cron = "0 0 10 * * MON-FRI")
-    public void sendTimesheetMissingReminders() {
-        LocalDate yesterday = LocalDate.now().minusDays(1);
+    @Scheduled(cron = "0 0 10 * * *")
+    @Transactional
+    public void runMissingTimesheetAudit() {
+        // Resolve previous working day (skips weekends — handles Monday → Friday)
+        LocalDate auditDate = LocalDate.now().minusDays(1);
+        while (auditDate.getDayOfWeek() == DayOfWeek.SATURDAY
+                || auditDate.getDayOfWeek() == DayOfWeek.SUNDAY) {
+            auditDate = auditDate.minusDays(1);
+        }
 
-        // Skip if yesterday was a weekend (e.g. this runs Mon → checks Sun)
-        DayOfWeek dow = yesterday.getDayOfWeek();
-        if (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY) return;
-
-        log.info("Running missing-timesheet reminder check for {}", yesterday);
+        log.info("Running missing-timesheet audit for {}", auditDate);
+        int alerted = 0;
 
         for (EmployeeDetails emp : employeeDetailsRepository.findByActive(true)) {
             try {
                 if (emp.getUser() == null) continue;
 
-                // Admins are excluded — they may not track project hours
-                Role role = emp.getUser().getRole();
-                if (role == Role.ADMIN) continue;
+                // Exclude: approved leave of any type (regular, half-day, public holiday)
+                if (leaveRepository.hasLeaveOnDate(emp.getId(), auditDate, LeaveStatus.APPROVED)) continue;
 
-                // Skip employees who were on approved leave yesterday
-                if (leaveRepository.hasLeaveOnDate(emp.getId(), yesterday, LeaveStatus.APPROVED)) continue;
+                Timesheet ts = timesheetRepository
+                        .findByEmployeeIdAndWorkDate(emp.getId(), auditDate).orElse(null);
 
-                // Skip employees who already have at least one project entry for yesterday
-                if (timesheetEntryRepository.existsByEmployeeIdAndDate(emp.getId(), yesterday)) continue;
+                // Exclude: regularised / manually overridden attendance
+                if (ts != null && ts.isManualOverride()) continue;
 
-                String empEmail    = emp.getUser().getEmail();
-                String managerEmail = (emp.getManager() != null && emp.getManager().getUser() != null)
-                        ? emp.getManager().getUser().getEmail() : null;
+                // Exclude: already notified for this date — prevents duplicates on restart
+                if (ts != null && ts.isMissingAlertSent()) continue;
 
-                emailService.sendTimesheetMissingReminder(empEmail, emp.getFullName(), managerEmail, yesterday);
+                // Exclude: timesheet entries already submitted
+                if (timesheetEntryRepository.existsByEmployeeIdAndDate(emp.getId(), auditDate)) continue;
+
+                dispatchMissingTimesheetAlert(emp, auditDate);
+                alerted++;
+
+                // Persist flag so this date is never re-notified
+                if (ts == null) {
+                    ts = Timesheet.builder()
+                            .employee(emp).workDate(auditDate)
+                            .missingAlertSent(true).alertSent(false).build();
+                } else {
+                    ts.setMissingAlertSent(true);
+                }
+                timesheetRepository.save(ts);
 
             } catch (Exception e) {
-                log.warn("Timesheet reminder failed for {}: {}", emp.getFullName(), e.getMessage());
+                log.warn("Missing-timesheet audit failed for employee {}: {}", emp.getFullName(), e.getMessage());
             }
         }
+
+        log.info("Missing-timesheet audit completed for {} — {} alert(s) sent", auditDate, alerted);
+    }
+
+    private void dispatchMissingTimesheetAlert(EmployeeDetails emp, LocalDate date) {
+        // Primary recipient: reporting manager; fall back to first active admin
+        String managerEmail = (emp.getManager() != null && emp.getManager().getUser() != null)
+                ? emp.getManager().getUser().getEmail() : null;
+        if (managerEmail == null) {
+            managerEmail = userRepository.findByRole(Role.ADMIN).stream()
+                    .map(User::getEmail)
+                    .filter(e -> e != null && !e.isBlank())
+                    .findFirst().orElse(null);
+        }
+        if (managerEmail == null) {
+            log.warn("No manager or admin found for missing-timesheet alert — employee: {}", emp.getFullName());
+            return;
+        }
+
+        // CC: all HR + Admin (deduplicated, excluding the primary To recipient)
+        final String primaryTo = managerEmail;
+        String[] cc = Stream.concat(
+                userRepository.findByRole(Role.HR).stream(),
+                userRepository.findByRole(Role.ADMIN).stream()
+        )
+        .map(User::getEmail)
+        .filter(e -> e != null && !e.isBlank() && !e.equalsIgnoreCase(primaryTo))
+        .distinct()
+        .toArray(String[]::new);
+
+        emailService.sendMissingTimesheetManagerAlert(
+                managerEmail, cc,
+                emp.getFullName(),
+                emp.getEmployeeCode(),
+                emp.getDepartment(),
+                emp.getUser().getEmail(),
+                date
+        );
     }
 
     private TimesheetDTO toDTO(Timesheet t) {
@@ -348,6 +401,7 @@ public class TimesheetService {
                 .workingHours(t.getWorkingHours())
                 .notes(t.getNotes())
                 .alertSent(t.isAlertSent())
+                .missingAlertSent(t.isMissingAlertSent())
                 .build();
     }
 }

@@ -93,6 +93,41 @@ public class EmailService {
         }
     }
 
+    public void sendMissingTimesheetManagerAlert(String to, String[] cc,
+                                                 String employeeName, String employeeCode,
+                                                 String department, String employeeEmail,
+                                                 LocalDate missingDate) {
+        try {
+            String dateStr = missingDate.format(DateTimeFormatter.ofPattern("EEEE, dd MMMM yyyy"));
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            if (cc != null && cc.length > 0) message.setCc(cc);
+            message.setSubject("Missing Timesheet Alert – " + employeeName
+                    + " – " + missingDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy")));
+            message.setText(
+                "Missing Timesheet Notification\n\n" +
+                "The following employee has not submitted their timesheet for " + dateStr + ".\n\n" +
+                "Employee Details\n" +
+                "─────────────────────────────────────\n" +
+                "  Name          : " + employeeName + "\n" +
+                "  Employee ID   : " + (employeeCode != null ? employeeCode : "—") + "\n" +
+                "  Department    : " + (department != null ? department : "—") + "\n" +
+                "  Email         : " + employeeEmail + "\n\n" +
+                "Timesheet Details\n" +
+                "─────────────────────────────────────\n" +
+                "  Missing Date  : " + dateStr + "\n" +
+                "  Status        : Not Submitted\n\n" +
+                "Please follow up with the employee to ensure the timesheet is submitted at the earliest.\n\n" +
+                "EmpSAS Team"
+            );
+            mailSender.send(message);
+            log.info("Missing timesheet alert sent to {} (cc: {}) for employee {} on {}",
+                    to, Arrays.toString(cc), employeeName, missingDate);
+        } catch (Exception e) {
+            log.error("Failed to send missing timesheet alert for {} on {}: {}", employeeName, missingDate, e.getMessage());
+        }
+    }
+
     public void sendTimesheetMissingReminder(String employeeEmail, String employeeName,
                                               String managerEmail, LocalDate missingDate) {
         try {

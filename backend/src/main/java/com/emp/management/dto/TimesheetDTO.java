@@ -23,4 +23,5 @@ public class TimesheetDTO {
     private Double workingHours;
     private String notes;
     private boolean alertSent;
+    private boolean missingAlertSent;
 }
