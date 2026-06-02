@@ -41,6 +41,8 @@ const LeavesPage = () => {
   const [myLeaves, setMyLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
   const [applyOpen, setApplyOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [processingId, setProcessingId] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const tab    = parseInt(searchParams.get('tab') || '0', 10);
   const setTab = (v) => {
@@ -139,6 +141,7 @@ const LeavesPage = () => {
   };
 
   const handleApply = async () => {
+    setSubmitting(true);
     try {
       await leaveApi.apply(myEmployee.id, form);
       toast.success('Leave applied successfully!');
@@ -147,16 +150,21 @@ const LeavesPage = () => {
       await Promise.all([fetchLeaves(myEmployee), refreshMyLeaves()]);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to apply leave');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleProcess = async (leaveId, status) => {
+    setProcessingId(leaveId);
     try {
       await leaveApi.processLeave(leaveId, myEmployee.id, status, '');
       toast.success(`Leave ${status.toLowerCase()}`);
       await fetchLeaves(myEmployee);
     } catch {
       toast.error('Failed to process leave');
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -436,9 +444,15 @@ const LeavesPage = () => {
                     {tab === 1 && l.status === 'PENDING' && (
                       <>
                         <Button size="small" color="success" startIcon={<CheckIcon />}
-                          onClick={() => handleProcess(l.id, 'APPROVED')}>Approve</Button>
+                          disabled={processingId === l.id}
+                          onClick={() => handleProcess(l.id, 'APPROVED')}>
+                          {processingId === l.id ? 'Approving…' : 'Approve'}
+                        </Button>
                         <Button size="small" color="error" startIcon={<CloseIcon />}
-                          onClick={() => handleProcess(l.id, 'REJECTED')}>Reject</Button>
+                          disabled={processingId === l.id}
+                          onClick={() => handleProcess(l.id, 'REJECTED')}>
+                          {processingId === l.id ? 'Rejecting…' : 'Reject'}
+                        </Button>
                       </>
                     )}
                     {l.status !== 'PENDING' && <Typography variant="caption" color="text.secondary">—</Typography>}
@@ -479,7 +493,9 @@ const LeavesPage = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setApplyOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleApply}>Submit</Button>
+          <Button variant="contained" onClick={handleApply} disabled={submitting}>
+            {submitting ? 'Submitting…' : 'Submit'}
+          </Button>
         </DialogActions>
       </Dialog>
 
