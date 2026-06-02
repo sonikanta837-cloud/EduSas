@@ -1,5 +1,6 @@
 package com.emp.management.controller;
 
+import com.emp.management.dto.CourseLearnerDTO;
 import com.emp.management.dto.CourseDTO;
 import com.emp.management.repository.EmployeeDetailsRepository;
 import com.emp.management.service.AIQuizService;
@@ -113,6 +114,12 @@ public class CourseController {
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER','ASSISTANT_MANAGER')")
     public ResponseEntity<List<Long>> getEnrolledEmployeeIds(@PathVariable Long courseId) {
         return ResponseEntity.ok(courseService.getEnrolledEmployeeIds(courseId));
+    }
+
+    @GetMapping("/{id}/learners")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','ASSISTANT_MANAGER')")
+    public ResponseEntity<List<CourseLearnerDTO>> getLearners(@PathVariable Long id) {
+        return ResponseEntity.ok(courseService.getLearners(id));
     }
 
     @GetMapping("/{courseId}/exam-questions")

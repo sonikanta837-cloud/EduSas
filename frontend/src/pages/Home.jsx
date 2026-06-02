@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { Box, Typography, Button, Container, Grid, Card, CardContent, Stack, Divider } from '@mui/material';
@@ -148,7 +148,9 @@ const HomePage = () => {
   const navigate  = useNavigate();
   const { token } = useSelector((s) => s.auth);
 
-  if (token) { navigate('/dashboard', { replace: true }); return null; }
+  useEffect(() => {
+    if (token) navigate('/dashboard', { replace: true });
+  }, [token, navigate]);
 
   const goLogin    = () => navigate('/login');
   const scrollDown = () => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });

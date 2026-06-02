@@ -35,6 +35,9 @@ public class User {
 
     private String refreshToken;
 
+    @Column(columnDefinition = "TEXT")
+    private String allowedModules; // JSON array e.g. ["/employees","/leaves"]; null = default role-based access
+
     private String resetToken;
     private LocalDateTime resetTokenExpiry;
 

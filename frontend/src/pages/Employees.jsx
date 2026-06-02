@@ -8,7 +8,7 @@ import {
   DialogContent, DialogActions, MenuItem, Select, FormControl,
   InputLabel, CircularProgress, Tooltip, Stack, Tabs, Tab,
   Divider, List, ListItem, ListItemText, LinearProgress, TablePagination,
-  InputBase,
+  InputBase, Collapse,
 } from '@mui/material';
 import SearchIcon         from '@mui/icons-material/Search';
 import AddIcon            from '@mui/icons-material/Add';
@@ -29,8 +29,11 @@ import CheckCircleIcon    from '@mui/icons-material/CheckCircle';
 import PersonRemoveIcon   from '@mui/icons-material/PersonRemove';
 import AccountTreeIcon   from '@mui/icons-material/AccountTree';
 import ChevronRightIcon  from '@mui/icons-material/ChevronRight';
-import VisibilityIcon     from '@mui/icons-material/Visibility';
-import VisibilityOffIcon  from '@mui/icons-material/VisibilityOff';
+import VisibilityIcon        from '@mui/icons-material/Visibility';
+import VisibilityOffIcon     from '@mui/icons-material/VisibilityOff';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon   from '@mui/icons-material/KeyboardArrowUp';
+import DownloadIcon          from '@mui/icons-material/Download';
 import { employeeApi }    from '../api/employeeApi';
 import { resumeApi }      from '../api/resumeApi';
 import { timesheetApi }      from '../api/timesheetApi';
@@ -964,11 +967,14 @@ const PerformanceTab = ({ employees }) => {
 
 // ── CoursesTab ────────────────────────────────────────────────────────────────
 const CoursesTab = ({ user }) => {
-  const [courses,    setCourses]    = useState([]);
-  const [loading,    setLoading]    = useState(false);
-  const [loaded,     setLoaded]     = useState(false);
-  const [coursePage, setCoursePage] = useState(0);
-  const [courseRpp,  setCourseRpp]  = useState(10);
+  const [courses,        setCourses]        = useState([]);
+  const [loading,        setLoading]        = useState(false);
+  const [loaded,         setLoaded]         = useState(false);
+  const [coursePage,     setCoursePage]     = useState(0);
+  const [courseRpp,      setCourseRpp]      = useState(10);
+  const [expandedRows,   setExpandedRows]   = useState(new Set());
+  const [learnersMap,    setLearnersMap]    = useState({});
+  const [learnersLoading, setLearnersLoading] = useState({});
 
   const isAdminRole   = user?.role === 'ADMIN';
   const isManagerRole = user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER';
@@ -999,6 +1005,39 @@ const CoursesTab = ({ user }) => {
     window.addEventListener('employee-updated', handler);
     return () => window.removeEventListener('employee-updated', handler);
   }, []);
+
+  const toggleExpand = async (courseId) => {
+    const next = new Set(expandedRows);
+    if (next.has(courseId)) {
+      next.delete(courseId);
+    } else {
+      next.add(courseId);
+      if (!learnersMap[courseId]) {
+        setLearnersLoading(p => ({ ...p, [courseId]: true }));
+        try {
+          const data = await courseApi.getLearners(courseId);
+          setLearnersMap(p => ({ ...p, [courseId]: Array.isArray(data) ? data : [] }));
+        } catch {
+          setLearnersMap(p => ({ ...p, [courseId]: [] }));
+        } finally {
+          setLearnersLoading(p => ({ ...p, [courseId]: false }));
+        }
+      }
+    }
+    setExpandedRows(next);
+  };
+
+  const downloadCert = async (certNo, empName) => {
+    try {
+      const blob = await courseApi.downloadCertificatePdf(certNo);
+      const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Certificate_${(empName || '').replace(/\s+/g, '_')}.pdf`;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+    } catch { /* silent */ }
+  };
 
   const stats = useMemo(() => {
     const enrolled   = courses.reduce((s, c) => s + (c.enrollmentCount ?? 0), 0);
@@ -1031,6 +1070,7 @@ const CoursesTab = ({ user }) => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: '#f1f5f9' }}>
+                <TableCell sx={{ ...hdrCell, width: 40, p: '6px 8px' }} />
                 <TableCell sx={hdrCell}>#</TableCell>
                 <TableCell sx={hdrCell}>Course Title</TableCell>
                 <TableCell sx={hdrCell}>Duration</TableCell>
@@ -1040,12 +1080,13 @@ const CoursesTab = ({ user }) => {
                 <TableCell sx={hdrCell} align="center">Certificates</TableCell>
                 <TableCell sx={hdrCell}>Enrolled Employees</TableCell>
                 <TableCell sx={hdrCell}>Completion %</TableCell>
+                <TableCell sx={hdrCell} align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {courses.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                  <TableCell colSpan={11} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                     No courses found
                   </TableCell>
                 </TableRow>
@@ -1056,85 +1097,188 @@ const CoursesTab = ({ user }) => {
                 const pct       = enrolled > 0 ? Math.round((completed / enrolled) * 100) : 0;
                 const names     = course.enrolledEmployeeNames || [];
                 const SHOW_MAX  = 3;
+                const isExpanded = expandedRows.has(course.id);
+                const learners   = learnersMap[course.id] || [];
+                const lLoading   = learnersLoading[course.id];
+
+                const statusMeta = (s) => {
+                  if (s === 'COMPLETED')   return { label: 'Completed',   color: '#10b981', bg: '#dcfce7' };
+                  if (s === 'IN_PROGRESS') return { label: 'In Progress', color: '#f59e0b', bg: '#fef3c7' };
+                  if (s === 'FAILED')      return { label: 'Failed',      color: '#ef4444', bg: '#fee2e2' };
+                  return                          { label: 'Not Started', color: '#64748b', bg: '#f1f5f9' };
+                };
+
                 return (
-                  <TableRow key={course.id} hover sx={{ bgcolor: i % 2 === 0 ? 'white' : '#f8fafc' }}>
-                    <TableCell sx={{ ...cell, color: '#94a3b8' }}>{coursePage * courseRpp + i + 1}</TableCell>
-                    <TableCell sx={cell}>
-                      <Typography variant="body2" fontWeight={600} sx={{ fontSize: 12.5 }}>
-                        {course.title}
-                      </Typography>
-                      {course.description && (
-                        <Typography variant="caption" color="text.secondary" noWrap
-                          sx={{ fontSize: 11, display: 'block', maxWidth: 280 }}>
-                          {course.description}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell sx={cell}>
-                      {course.durationHours
-                        ? <Chip label={`${course.durationHours}h`} size="small" variant="outlined" sx={{ fontSize: 11 }} />
-                        : '—'}
-                    </TableCell>
-                    <TableCell align="center" sx={cell}>
-                      {enrolled > 0
-                        ? <Chip label={enrolled} size="small" color="primary" sx={{ fontSize: 11 }} />
-                        : <Typography variant="caption" color="text.secondary">0</Typography>}
-                    </TableCell>
-                    <TableCell align="center" sx={cell}>
-                      {inProg > 0
-                        ? <Chip label={inProg} size="small" color="warning" sx={{ fontSize: 11 }} />
-                        : <Typography variant="caption" color="text.secondary">0</Typography>}
-                    </TableCell>
-                    <TableCell align="center" sx={cell}>
-                      {completed > 0
-                        ? <Chip label={completed} size="small" color="success" sx={{ fontSize: 11 }} />
-                        : <Typography variant="caption" color="text.secondary">0</Typography>}
-                    </TableCell>
-                    <TableCell align="center" sx={cell}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'center' }}>
-                        <EmojiEventsIcon sx={{ fontSize: 14, color: '#f59e0b' }} />
-                        <Typography variant="body2" sx={{ fontSize: 12 }}>{completed}</Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell sx={{ ...cell, minWidth: 180 }}>
-                      {names.length === 0 ? (
-                        <Typography variant="caption" color="text.secondary">—</Typography>
-                      ) : (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {names.slice(0, SHOW_MAX).map((name, ni) => (
-                            <Chip
-                              key={ni}
-                              label={name}
-                              size="small"
-                              sx={{ fontSize: 10, height: 20, bgcolor: '#eff6ff', color: '#1d4ed8' }}
-                            />
-                          ))}
-                          {names.length > SHOW_MAX && (
-                            <Tooltip title={names.slice(SHOW_MAX).join(', ')}>
-                              <Chip
-                                label={`+${names.length - SHOW_MAX} more`}
-                                size="small"
-                                sx={{ fontSize: 10, height: 20, bgcolor: '#f1f5f9', color: '#64748b', cursor: 'pointer' }}
-                              />
-                            </Tooltip>
-                          )}
+                  <React.Fragment key={course.id}>
+                    {/* ── Main row ── */}
+                    <TableRow hover sx={{ bgcolor: i % 2 === 0 ? 'white' : '#f8fafc', cursor: 'pointer' }}>
+                      {/* Expand toggle */}
+                      <TableCell sx={{ p: '4px 8px', width: 40 }}>
+                        <IconButton size="small" onClick={() => toggleExpand(course.id)}
+                          sx={{ color: isExpanded ? '#6366f1' : '#94a3b8' }}>
+                          {isExpanded ? <KeyboardArrowUpIcon fontSize="small" /> : <KeyboardArrowDownIcon fontSize="small" />}
+                        </IconButton>
+                      </TableCell>
+                      <TableCell sx={{ ...cell, color: '#94a3b8' }}>{coursePage * courseRpp + i + 1}</TableCell>
+                      <TableCell sx={cell}>
+                        <Typography variant="body2" fontWeight={600} sx={{ fontSize: 12.5 }}>{course.title}</Typography>
+                        {course.description && (
+                          <Typography variant="caption" color="text.secondary" noWrap
+                            sx={{ fontSize: 11, display: 'block', maxWidth: 280 }}>{course.description}</Typography>
+                        )}
+                      </TableCell>
+                      <TableCell sx={cell}>
+                        {course.durationHours
+                          ? <Chip label={`${course.durationHours}h`} size="small" variant="outlined" sx={{ fontSize: 11 }} />
+                          : '—'}
+                      </TableCell>
+                      <TableCell align="center" sx={cell}>
+                        {enrolled > 0 ? <Chip label={enrolled} size="small" color="primary" sx={{ fontSize: 11 }} />
+                          : <Typography variant="caption" color="text.secondary">0</Typography>}
+                      </TableCell>
+                      <TableCell align="center" sx={cell}>
+                        {inProg > 0 ? <Chip label={inProg} size="small" color="warning" sx={{ fontSize: 11 }} />
+                          : <Typography variant="caption" color="text.secondary">0</Typography>}
+                      </TableCell>
+                      <TableCell align="center" sx={cell}>
+                        {completed > 0 ? <Chip label={completed} size="small" color="success" sx={{ fontSize: 11 }} />
+                          : <Typography variant="caption" color="text.secondary">0</Typography>}
+                      </TableCell>
+                      <TableCell align="center" sx={cell}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'center' }}>
+                          <EmojiEventsIcon sx={{ fontSize: 14, color: '#f59e0b' }} />
+                          <Typography variant="body2" sx={{ fontSize: 12 }}>{completed}</Typography>
                         </Box>
-                      )}
-                    </TableCell>
-                    <TableCell sx={{ ...cell, minWidth: 120 }}>
-                      <Box>
-                        <LinearProgress
-                          variant="determinate"
-                          value={pct}
-                          sx={{ height: 6, borderRadius: 3, bgcolor: '#e2e8f0',
-                            '& .MuiLinearProgress-bar': { bgcolor: pct >= 80 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#6366f1' } }}
-                        />
-                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
-                          {pct}%
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
+                      </TableCell>
+                      <TableCell sx={{ ...cell, minWidth: 180 }}>
+                        {names.length === 0 ? <Typography variant="caption" color="text.secondary">—</Typography> : (
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {names.slice(0, SHOW_MAX).map((name, ni) => (
+                              <Chip key={ni} label={name} size="small"
+                                sx={{ fontSize: 10, height: 20, bgcolor: '#eff6ff', color: '#1d4ed8' }} />
+                            ))}
+                            {names.length > SHOW_MAX && (
+                              <Tooltip title={names.slice(SHOW_MAX).join(', ')}>
+                                <Chip label={`+${names.length - SHOW_MAX} more`} size="small"
+                                  sx={{ fontSize: 10, height: 20, bgcolor: '#f1f5f9', color: '#64748b', cursor: 'pointer' }} />
+                              </Tooltip>
+                            )}
+                          </Box>
+                        )}
+                      </TableCell>
+                      <TableCell sx={{ ...cell, minWidth: 120 }}>
+                        <Box>
+                          <LinearProgress variant="determinate" value={pct}
+                            sx={{ height: 6, borderRadius: 3, bgcolor: '#e2e8f0',
+                              '& .MuiLinearProgress-bar': { bgcolor: pct >= 80 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#6366f1' } }} />
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>{pct}%</Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell align="center" sx={cell}>
+                        <Tooltip title="View Learners">
+                          <IconButton size="small" onClick={() => toggleExpand(course.id)}
+                            sx={{ color: '#6366f1', '&:hover': { bgcolor: '#eef2ff' } }}>
+                            <VisibilityIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+
+                    {/* ── Expanded learner detail row ── */}
+                    <TableRow>
+                      <TableCell colSpan={11} sx={{ p: 0, borderBottom: isExpanded ? '1px solid #e2e8f0' : 'none' }}>
+                        <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                          <Box sx={{ px: 3, py: 2, bgcolor: '#f8faff', borderLeft: '3px solid #6366f1' }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#3730a3', fontSize: 12.5 }}>
+                              Learner Progress — {course.title}
+                            </Typography>
+                            {lLoading ? (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                                <CircularProgress size={16} /> <Typography variant="caption">Loading...</Typography>
+                              </Box>
+                            ) : learners.length === 0 ? (
+                              <Typography variant="caption" color="text.secondary">No learners enrolled.</Typography>
+                            ) : (
+                              <Table size="small" sx={{ bgcolor: 'white', borderRadius: 1, overflow: 'hidden',
+                                '& .MuiTableCell-root': { fontSize: 12, py: '6px' } }}>
+                                <TableHead>
+                                  <TableRow sx={{ bgcolor: '#eef2ff' }}>
+                                    <TableCell sx={{ fontWeight: 700, color: '#3730a3', fontSize: 11.5 }}>#</TableCell>
+                                    <TableCell sx={{ fontWeight: 700, color: '#3730a3', fontSize: 11.5 }}>Employee</TableCell>
+                                    <TableCell sx={{ fontWeight: 700, color: '#3730a3', fontSize: 11.5 }}>Status</TableCell>
+                                    <TableCell sx={{ fontWeight: 700, color: '#3730a3', fontSize: 11.5, minWidth: 140 }}>Progress</TableCell>
+                                    <TableCell sx={{ fontWeight: 700, color: '#3730a3', fontSize: 11.5 }}>Completion Date</TableCell>
+                                    <TableCell sx={{ fontWeight: 700, color: '#3730a3', fontSize: 11.5 }} align="center">Certificate</TableCell>
+                                  </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                  {learners.map((l, idx) => {
+                                    const sm = statusMeta(l.status);
+                                    return (
+                                      <TableRow key={l.employeeId} hover>
+                                        <TableCell sx={{ color: '#94a3b8', fontSize: 11 }}>{idx + 1}</TableCell>
+                                        <TableCell>
+                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Avatar sx={{ width: 24, height: 24, fontSize: 10,
+                                              bgcolor: '#6366f1', color: 'white' }}>
+                                              {l.employeeName?.charAt(0)}
+                                            </Avatar>
+                                            <Box>
+                                              <Typography sx={{ fontSize: 12, fontWeight: 600, lineHeight: 1.2 }}>
+                                                {l.employeeName}
+                                              </Typography>
+                                              {l.employeeCode && (
+                                                <Typography sx={{ fontSize: 10, color: '#94a3b8' }}>{l.employeeCode}</Typography>
+                                              )}
+                                            </Box>
+                                          </Box>
+                                        </TableCell>
+                                        <TableCell>
+                                          <Chip label={sm.label} size="small"
+                                            sx={{ fontSize: 10, height: 20, fontWeight: 600,
+                                              bgcolor: sm.bg, color: sm.color, border: 'none' }} />
+                                        </TableCell>
+                                        <TableCell>
+                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <LinearProgress variant="determinate" value={l.progressPercent}
+                                              sx={{ flex: 1, height: 5, borderRadius: 3, bgcolor: '#e2e8f0',
+                                                '& .MuiLinearProgress-bar': {
+                                                  bgcolor: l.status === 'COMPLETED' ? '#10b981'
+                                                         : l.status === 'IN_PROGRESS' ? '#f59e0b' : '#cbd5e1'
+                                                }
+                                              }} />
+                                            <Typography sx={{ fontSize: 10.5, color: '#64748b', minWidth: 28 }}>
+                                              {l.progressPercent}%
+                                            </Typography>
+                                          </Box>
+                                        </TableCell>
+                                        <TableCell sx={{ color: '#64748b' }}>
+                                          {l.completionDate || '—'}
+                                        </TableCell>
+                                        <TableCell align="center">
+                                          {l.certificateNumber ? (
+                                            <Button size="small" variant="outlined" startIcon={<DownloadIcon sx={{ fontSize: 12 }} />}
+                                              onClick={() => downloadCert(l.certificateNumber, l.employeeName)}
+                                              sx={{ fontSize: 10, py: 0.25, px: 1, borderRadius: 1.5,
+                                                borderColor: '#10b981', color: '#10b981',
+                                                '&:hover': { bgcolor: '#f0fdf4', borderColor: '#10b981' } }}>
+                                              Certificate
+                                            </Button>
+                                          ) : (
+                                            <Typography variant="caption" color="text.disabled">—</Typography>
+                                          )}
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  })}
+                                </TableBody>
+                              </Table>
+                            )}
+                          </Box>
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  </React.Fragment>
                 );
               })}
             </TableBody>
@@ -1356,7 +1500,7 @@ const EmployeesPage = () => {
     const activeRequest = isManagerRole && user?.employeeId
       ? employeeApi.getTeam(user.employeeId)
       : employeeApi.getAll();
-    const exRequest = isAdmin ? employeeApi.getExEmployees() : Promise.resolve([]);
+    const exRequest = (isAdmin || (empPerms?.canExEmployees)) ? employeeApi.getExEmployees() : Promise.resolve([]);
     Promise.all([activeRequest, exRequest])
       .then(([active, ex]) => { setEmployees(active); setExEmployees(ex); })
       .catch(() => toast.error('Failed to load employees'))
@@ -1456,6 +1600,27 @@ const EmployeesPage = () => {
   const manageConfig = getManageConfig();
   const isAdmin = user?.role === 'ADMIN';
 
+  // ── Granular employee-action permissions ──────────────────────────────────
+  // If allowedModules is stored, use the explicit emp:* keys.
+  // Otherwise fall back to role-based defaults.
+  const empPerms = (() => {
+    if (!user?.allowedModules) return null;
+    try {
+      const list = JSON.parse(user.allowedModules);
+      return {
+        canAdd:         list.includes('emp:add'),
+        canUpload:      list.includes('emp:upload_resume'),
+        canViewDetail:  list.includes('emp:view_detail'),
+        canEdit:        list.includes('emp:edit_profile'),
+        canExEmployees: list.includes('emp:ex_employees'),
+      };
+    } catch { return null; }
+  })();
+
+  const canAddEmployee   = empPerms ? empPerms.canAdd         : isAdmin;
+  const canUploadResume  = empPerms ? empPerms.canUpload       : isAdmin;
+  const canExEmployees   = empPerms ? empPerms.canExEmployees  : isAdmin;
+
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -1467,29 +1632,35 @@ const EmployeesPage = () => {
           <Tab icon={<AccessTimeIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Timesheet"    sx={{ minHeight: 48, gap: 0.5, textTransform: 'none', fontWeight: 600 }} />
           <Tab icon={<TrendingUpIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Performance"  sx={{ minHeight: 48, gap: 0.5, textTransform: 'none', fontWeight: 600 }} />
           <Tab icon={<SchoolIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Courses"          sx={{ minHeight: 48, gap: 0.5, textTransform: 'none', fontWeight: 600 }} />
-          {isAdmin && <Tab icon={<PersonRemoveIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Ex-Employees" sx={{ minHeight: 48, gap: 0.5, textTransform: 'none', fontWeight: 600 }} />}
+          {canExEmployees && <Tab icon={<PersonRemoveIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Ex-Employees" sx={{ minHeight: 48, gap: 0.5, textTransform: 'none', fontWeight: 600 }} />}
         </Tabs>
-        {isAdmin && (
+        {(canAddEmployee || canUploadResume) && (
           <Stack direction="row" spacing={1.5} sx={{ flexShrink: 0, pb: 0.5 }}>
-            <input
-              id="resume-upload-input"
-              type="file" accept=".pdf,.docx"
-              style={{ display: 'none' }}
-              onChange={handleResumeUpload}
-            />
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={resumeParsing ? <CircularProgress size={14} /> : <UploadFileIcon />}
-              disabled={resumeParsing}
-              onClick={() => document.getElementById('resume-upload-input').click()}
-            >
-              {resumeParsing ? 'Reading…' : 'Upload Resume'}
-            </Button>
-            <Button variant="contained" size="small" startIcon={<AddIcon />}
-              onClick={() => { setForm(EMPTY_FORM); setAddOpen(true); }}>
-              Add Employee
-            </Button>
+            {canUploadResume && (
+              <>
+                <input
+                  id="resume-upload-input"
+                  type="file" accept=".pdf,.docx"
+                  style={{ display: 'none' }}
+                  onChange={handleResumeUpload}
+                />
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={resumeParsing ? <CircularProgress size={14} /> : <UploadFileIcon />}
+                  disabled={resumeParsing}
+                  onClick={() => document.getElementById('resume-upload-input').click()}
+                >
+                  {resumeParsing ? 'Reading…' : 'Upload Resume'}
+                </Button>
+              </>
+            )}
+            {canAddEmployee && (
+              <Button variant="contained" size="small" startIcon={<AddIcon />}
+                onClick={() => { setForm(EMPTY_FORM); setAddOpen(true); }}>
+                Add Employee
+              </Button>
+            )}
           </Stack>
         )}
       </Box>
@@ -1576,7 +1747,9 @@ const EmployeesPage = () => {
                     const viewerIsAdmin   = user?.role === 'ADMIN';
                     const viewerIsManager = user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER';
                     const isDirectReport  = emp.managerId === user?.employeeId;
-                    const canClick        = viewerIsAdmin || (viewerIsManager && isDirectReport);
+                    const canClick        = empPerms
+                      ? empPerms.canViewDetail
+                      : (viewerIsAdmin || (viewerIsManager && isDirectReport));
 
                     return (
                       <TableRow key={emp.id} hover

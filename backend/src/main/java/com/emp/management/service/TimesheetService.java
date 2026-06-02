@@ -30,6 +30,7 @@ public class TimesheetService {
     private final UserRepository userRepository;
     private final LeaveRepository leaveRepository;
     private final EmailService emailService;
+    private final TimesheetEntryRepository timesheetEntryRepository;
 
     // ── Auto record on app login / logout ────────────────────────────────────
 
@@ -280,6 +281,44 @@ public class TimesheetService {
                 .logoutTime(s.getLogoutTime())
                 .sessionHours(s.getSessionHours())
                 .build();
+    }
+
+    // ── Daily missing-timesheet reminder (10:00 AM next morning) ─────────────
+
+    @Scheduled(cron = "0 0 10 * * MON-FRI")
+    public void sendTimesheetMissingReminders() {
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+
+        // Skip if yesterday was a weekend (e.g. this runs Mon → checks Sun)
+        DayOfWeek dow = yesterday.getDayOfWeek();
+        if (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY) return;
+
+        log.info("Running missing-timesheet reminder check for {}", yesterday);
+
+        for (EmployeeDetails emp : employeeDetailsRepository.findByActive(true)) {
+            try {
+                if (emp.getUser() == null) continue;
+
+                // Admins are excluded — they may not track project hours
+                Role role = emp.getUser().getRole();
+                if (role == Role.ADMIN) continue;
+
+                // Skip employees who were on approved leave yesterday
+                if (leaveRepository.hasLeaveOnDate(emp.getId(), yesterday, LeaveStatus.APPROVED)) continue;
+
+                // Skip employees who already have at least one project entry for yesterday
+                if (timesheetEntryRepository.existsByEmployeeIdAndDate(emp.getId(), yesterday)) continue;
+
+                String empEmail    = emp.getUser().getEmail();
+                String managerEmail = (emp.getManager() != null && emp.getManager().getUser() != null)
+                        ? emp.getManager().getUser().getEmail() : null;
+
+                emailService.sendTimesheetMissingReminder(empEmail, emp.getFullName(), managerEmail, yesterday);
+
+            } catch (Exception e) {
+                log.warn("Timesheet reminder failed for {}: {}", emp.getFullName(), e.getMessage());
+            }
+        }
     }
 
     private TimesheetDTO toDTO(Timesheet t) {

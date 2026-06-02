@@ -1,6 +1,7 @@
 package com.emp.management.service;
 
 import com.emp.management.dto.TimesheetEntryDTO;
+import com.emp.management.dto.WorkReportDTO;
 import com.emp.management.entity.EmployeeDetails;
 import com.emp.management.entity.TimesheetEntry;
 import com.emp.management.exception.ResourceNotFoundException;
@@ -21,6 +22,27 @@ public class TimesheetEntryService {
 
     private final TimesheetEntryRepository repository;
     private final EmployeeDetailsRepository employeeDetailsRepository;
+
+    @Transactional(readOnly = true)
+    public List<WorkReportDTO> getWorkReport(LocalDate start, LocalDate end) {
+        return repository.findAllForWorkReport(start, end).stream().map(e -> {
+            var emp = e.getEmployee();
+            String mgr = (emp.getManager() != null) ? emp.getManager().getFullName() : "—";
+            return WorkReportDTO.builder()
+                    .entryId(e.getId())
+                    .employeeId(emp.getId())
+                    .employeeCode(emp.getEmployeeCode() != null ? emp.getEmployeeCode() : "—")
+                    .employeeName(emp.getFullName())
+                    .department(emp.getDepartment() != null ? emp.getDepartment() : "—")
+                    .location(emp.getSeatingLocation() != null ? emp.getSeatingLocation() : "—")
+                    .managerName(mgr)
+                    .date(e.getDate())
+                    .projectName(e.getProjectName())
+                    .taskName(e.getTaskName() != null ? e.getTaskName() : "—")
+                    .hours(e.getHours())
+                    .build();
+        }).toList();
+    }
 
     public List<TimesheetEntryDTO> getMonthlyEntries(Long empId, int year, int month) {
         LocalDate start = LocalDate.of(year, month, 1);

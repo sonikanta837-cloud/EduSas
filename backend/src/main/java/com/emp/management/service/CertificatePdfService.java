@@ -4,6 +4,7 @@ import com.emp.management.entity.Certificate;
 import com.emp.management.exception.ResourceNotFoundException;
 import com.emp.management.repository.CertificateRepository;
 import com.itextpdf.io.font.constants.StandardFonts;
+import com.itextpdf.io.image.ImageData;
 import com.itextpdf.io.image.ImageDataFactory;
 import com.itextpdf.kernel.colors.DeviceRgb;
 import com.itextpdf.kernel.font.PdfFont;
@@ -25,21 +26,36 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 
+/**
+ * Generates a professional Certificate of Completion PDF.
+ *
+ * Layout:
+ *   [HEADER IMAGE  — contains branding + CERTIFICATE OF COMPLETION + AWARDED TO]
+ *       {Employee Name}
+ *       For Successfully Completing The Course
+ *       {Course Name}
+ *       Date of Completion: {date}
+ *       Certificate No: {certNo}
+ *   [FOOTER IMAGE  — contains Director signature + company details]
+ *
+ * Nothing from the header/footer images is duplicated in the rendered text.
+ */
 @Service
 @RequiredArgsConstructor
 public class CertificatePdfService {
 
     private final CertificateRepository certificateRepository;
 
-    // Color palette matching SAS KPO logo aesthetic (dark navy + gold)
-    private static final DeviceRgb C_DARK     = new DeviceRgb(28,  28,  46);
-    private static final DeviceRgb C_GOLD     = new DeviceRgb(201, 168, 76);
-    private static final DeviceRgb C_GOLD_LT  = new DeviceRgb(232, 203, 122);
-    private static final DeviceRgb C_GOLD_DK  = new DeviceRgb(150, 118, 40);
-    private static final DeviceRgb C_WHITE     = new DeviceRgb(255, 255, 255);
-    private static final DeviceRgb C_OFF_WHITE = new DeviceRgb(250, 248, 242);
-    private static final DeviceRgb C_GRAY      = new DeviceRgb(110, 110, 110);
-    private static final DeviceRgb C_LT_GRAY   = new DeviceRgb(175, 175, 175);
+    // Brand palette — aligned with the gold/dark-navy certificate imagery
+    private static final DeviceRgb C_DARK    = new DeviceRgb( 24,  20,  38);
+    private static final DeviceRgb C_GOLD    = new DeviceRgb(202, 167,  99);
+    private static final DeviceRgb C_GOLD_DK = new DeviceRgb(150, 118,  40);
+    private static final DeviceRgb C_GOLD_LT = new DeviceRgb(232, 203, 122);
+    private static final DeviceRgb C_WHITE   = new DeviceRgb(255, 255, 255);
+    private static final DeviceRgb C_GRAY    = new DeviceRgb(100, 100, 100);
+    private static final DeviceRgb C_LT_GRAY = new DeviceRgb(160, 160, 160);
+
+    // ── Public entry points ────────────────────────────────────────────────
 
     public byte[] generateByCertNumber(String certNumber) throws IOException {
         Certificate cert = certificateRepository.findByCertificateNumber(certNumber)
@@ -53,220 +69,154 @@ public class CertificatePdfService {
         return generate(cert);
     }
 
+    // ── Internal pipeline ──────────────────────────────────────────────────
+
     private byte[] generate(Certificate cert) throws IOException {
         String empName = cert.getEmployee() != null
                 ? cert.getEmployee().getFirstName() + " " + cert.getEmployee().getLastName() : "—";
-        String course  = cert.getCourse() != null ? cert.getCourse().getTitle() : "—";
+        String course  = cert.getCourse()    != null ? cert.getCourse().getTitle() : "—";
         String certNo  = cert.getCertificateNumber();
-        String date    = cert.getIssuedAt() != null
+        String date    = cert.getIssuedAt()  != null
                 ? cert.getIssuedAt().format(DateTimeFormatter.ofPattern("MMMM dd, yyyy")) : "—";
         return buildPdf(empName, course, date, certNo);
     }
 
-    private byte[] buildPdf(String empName, String course, String date, String certNo) throws IOException {
+    private byte[] buildPdf(String empName, String course, String date, String certNo)
+            throws IOException {
+
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-        PageSize ps = PageSize.A4.rotate();   // Landscape A4
-        float W  = ps.getWidth();   // 841.89 pt
-        float H  = ps.getHeight();  // 595.28 pt
-        float CX = W / 2f;          // horizontal centre
+        // Landscape A4
+        PageSize ps = PageSize.A4.rotate();
+        float W  = ps.getWidth();    // 841.89 pt
+        float H  = ps.getHeight();   // 595.28 pt
+        float CX = W / 2f;
 
         try (PdfDocument pdf = new PdfDocument(new PdfWriter(out))) {
             pdf.setDefaultPageSize(ps);
             PdfPage page = pdf.addNewPage();
-            PdfCanvas cv  = new PdfCanvas(page);
+            PdfCanvas cv = new PdfCanvas(page);
 
-            PdfFont fHBold = PdfFontFactory.createFont(StandardFonts.HELVETICA_BOLD);
-            PdfFont fHReg  = PdfFontFactory.createFont(StandardFonts.HELVETICA);
-            PdfFont fTBold = PdfFontFactory.createFont(StandardFonts.TIMES_BOLD);
-            PdfFont fTItal = PdfFontFactory.createFont(StandardFonts.TIMES_ITALIC);
+            // Fonts
+            PdfFont fName   = PdfFontFactory.createFont(StandardFonts.TIMES_BOLDITALIC); // employee name
+            PdfFont fCourse = PdfFontFactory.createFont(StandardFonts.TIMES_BOLDITALIC);       // course name
+            PdfFont fBody   = PdfFontFactory.createFont(StandardFonts.HELVETICA);        // body labels
+            PdfFont fBodyBold = PdfFontFactory.createFont(StandardFonts.HELVETICA_BOLD); // semi-bold labels
 
-            // ── 1. WHITE BASE + WARM OFF-WHITE INNER ────────────────────────
+            // ── Step 1: white base ───────────────────────────────────────
             cv.setFillColor(C_WHITE).rectangle(0, 0, W, H).fill();
-            float bm = 10f;
-            cv.setFillColor(C_OFF_WHITE).rectangle(bm, bm, W - 2*bm, H - 2*bm).fill();
 
-            // ── 2. GOLD DOUBLE BORDER ─────────────────────────────────────
-            cv.setStrokeColor(C_GOLD).setLineWidth(2.5f)
-              .rectangle(bm, bm, W - 2*bm, H - 2*bm).stroke();
-            float ib = bm + 7f;
-            cv.setStrokeColor(C_GOLD_LT).setLineWidth(0.5f)
-              .rectangle(ib, ib, W - 2*ib, H - 2*ib).stroke();
+            // ── Step 2: header image (top, full-width) ────────────────────
+            //    Contains:  SAS KPO SERVICES branding
+            //               CERTIFICATE OF COMPLETION
+            //               AWARDED TO
+            float headerH = placeImage(cv, "static/header_cert.png", W, H, true,  H * 0.48f);
 
-            // ── 3. DARK HEADER BAR ────────────────────────────────────────
-            float hdrH = 120f;
-            float hdrY = H - bm - hdrH;
-            cv.setFillColor(C_DARK).rectangle(bm, hdrY, W - 2*bm, hdrH).fill();
+            // ── Step 3: footer image (bottom, full-width) ─────────────────
+            //    Contains:  Director signature
+            //               Director name + company title
+            //               Decorative branding elements
+            float footerH = placeImage(cv, "static/footer_new.png",  W, H, false, H * 0.28f);
 
-            // Gold accent stripes below header
-            cv.setFillColor(C_GOLD).rectangle(bm, hdrY - 0.5f, W - 2*bm, 4f).fill();
-            cv.setFillColor(C_GOLD_LT).rectangle(bm, hdrY - 4f, W - 2*bm, 1.5f).fill();
+            // ── Step 4: white fill for content zone ───────────────────────
+            float contentTop    = H - headerH;   // just below header image
+            float contentBottom = footerH;        // just above footer image
+            cv.setFillColor(C_WHITE)
+              .rectangle(0, contentBottom, W, contentTop - contentBottom)
+              .fill();
 
-            // ── 4. HEADER: LOGO + TEXT BLOCK (centred as a group) ────────
-            float hdrMid = hdrY + hdrH / 2f;
-            float logoSz = 72f;
-            float gap    = 6f;
-            // Approximate text block width so the group is centred
-            float textBlockW = 230f;
-            float groupW     = logoSz + gap + textBlockW;
-            float groupLeft  = CX - groupW / 2f;
+            // ── Step 5: dynamic certificate content ───────────────────────
+            //    Everything below is centred; positions are derived from
+            //    actual contentTop / contentBottom so the layout adapts
+            //    regardless of how the images scale.
 
-            // Logo
-            float logoX = groupLeft;
-            float logoY = hdrMid - logoSz / 2f + 10f;
-            try {
-                ClassPathResource res = new ClassPathResource("static/logo_with_white_background.png");
-                byte[] logoBytes = res.getInputStream().readAllBytes();
-                cv.addImageFittedIntoRectangle(
-                        ImageDataFactory.create(logoBytes),
-                        new Rectangle(logoX, logoY, logoSz, logoSz),
-                        false);
-            } catch (Exception ignored) {}
+            float span = contentTop - contentBottom;   // usable vertical space
 
-            // Text — centred within the text block
-            float textCX = groupLeft + logoSz + gap + textBlockW / 2f;
             Canvas mc = new Canvas(cv, new Rectangle(0, 0, W, H));
 
-            mc.showTextAligned(
-                    new Paragraph("SAS KPO SERVICES")
-                            .setFont(fHBold).setFontSize(26)
-                            .setFontColor(C_GOLD).setMargin(0),
-                    textCX, hdrMid + 9f, TextAlignment.CENTER);
-            mc.showTextAligned(
-                    new Paragraph("Partners in Business Extension")
-                            .setFont(fHReg).setFontSize(11)
-                            .setFontColor(C_LT_GRAY).setMargin(0),
-                    textCX, hdrMid - 12f, TextAlignment.CENTER);
-
-            // ── 7. CERTIFICATE TITLE ──────────────────────────────────────
-            float titleY = hdrY - 46f;
-            mc.showTextAligned(
-                    new Paragraph("CERTIFICATE OF COMPLETION")
-                            .setFont(fHBold).setFontSize(30)
-                            .setFontColor(C_DARK).setMargin(0),
-                    CX, titleY, TextAlignment.CENTER);
-
-            // Gold double underline below title
-            cv.setStrokeColor(C_GOLD).setLineWidth(2f)
-              .moveTo(CX - 205f, titleY - 8f).lineTo(CX + 205f, titleY - 8f).stroke();
-            cv.setStrokeColor(C_GOLD_LT).setLineWidth(0.5f)
-              .moveTo(CX - 205f, titleY - 12f).lineTo(CX + 205f, titleY - 12f).stroke();
-
-            // ── 8. "AWARDED TO" LABEL ────────────────────────────────────
-            float awardY = titleY - 52f;
-            mc.showTextAligned(
-                    new Paragraph("This certificate is proudly presented to")
-                            .setFont(fTItal).setFontSize(13)
-                            .setFontColor(C_GRAY).setMargin(0),
-                    CX, awardY, TextAlignment.CENTER);
-
-            // ── 9. EMPLOYEE NAME ─────────────────────────────────────────
-            float nameY = awardY - 62f;
+            // — Employee Name ————————————————————————————————————————————
+            float nameFontSize = empName.length() > 35 ? 30f
+                               : empName.length() > 22 ? 34f
+                               : 38f;
+            float nameY = contentTop - span * 0.35f;
             mc.showTextAligned(
                     new Paragraph(empName)
-                            .setFont(fTBold).setFontSize(42)
-                            .setFontColor(C_DARK).setMargin(0),
+                            .setFont(fName).setFontSize(nameFontSize)
+                            .setFontColor(C_GOLD).setMargin(0),
                     CX, nameY, TextAlignment.CENTER);
 
-            // Gold underline below name
-            cv.setStrokeColor(C_GOLD).setLineWidth(1.5f)
-              .moveTo(CX - 220f, nameY - 8f).lineTo(CX + 220f, nameY - 8f).stroke();
-
-            // ── 10. COMPLETION BODY TEXT ─────────────────────────────────
-            float forY = nameY - 52f;
+            // — "For Successfully Completing The Course" —————————————————
+            float forY = nameY - nameFontSize * 0.30f - 18f;
             mc.showTextAligned(
-                    new Paragraph("For successfully completing the course")
-                            .setFont(fHReg).setFontSize(13)
-                            .setFontColor(C_GRAY).setMargin(0),
+                    new Paragraph("For Successfully Completing The Course")
+                            .setFont(fBodyBold).setFontSize(14f)
+                            .setFontColor(C_DARK).setMargin(0),
                     CX, forY, TextAlignment.CENTER);
 
-            float courseY = forY - 34f;
+            // — Course Name ——————————————————————————————————————————————
+            float courseFontSize = course.length() > 50 ? 15f
+                                 : course.length() > 35 ? 18f
+                                 : 22f;
+            float courseY = forY - 32f;
             mc.showTextAligned(
-                    new Paragraph("\" " + course + " \"")
-                            .setFont(fTBold).setFontSize(17)
-                            .setFontColor(C_GOLD_DK).setMargin(0),
+                    new Paragraph(course)
+                            .setFont(fCourse).setFontSize(courseFontSize)
+                            .setFontColor(C_DARK).setMargin(0),
                     CX, courseY, TextAlignment.CENTER);
 
-            // ── 11. DATE ─────────────────────────────────────────────────
-            float dateY = courseY - 34f;
+            // Light separator below course
+            float sep2Y = courseY - 20f;
+            cv.setStrokeColor(C_GOLD_LT).setLineWidth(0.4f)
+              .moveTo(CX - 130f, sep2Y).lineTo(CX + 130f, sep2Y).stroke();
+
+            // — Date of Completion ————————————————————————————————————————
+            float dateY = sep2Y - 20f;
             mc.showTextAligned(
-                    new Paragraph("Completion Date:   " + date)
-                            .setFont(fHReg).setFontSize(12)
-                            .setFontColor(C_GRAY).setMargin(0),
+                    new Paragraph("Date of Completion:     " + date)
+                            .setFont(fBody).setFontSize(13f)
+                            .setFontColor(new DeviceRgb(0, 0, 0)).setMargin(0),
                     CX, dateY, TextAlignment.CENTER);
 
-            // ── 12. SHORT GOLD SEPARATOR ──────────────────────────────────
-            float sepY = dateY - 36f;
-            cv.setStrokeColor(C_GOLD_LT).setLineWidth(0.5f)
-              .moveTo(CX - 90f, sepY).lineTo(CX + 90f, sepY).stroke();
-
-            // ── 13. DIRECTOR NAME (centred, below date) ───────────────────
-            float dirNameY = sepY - 26f;
+            // — Certificate Number ————————————————————————————————————————
+            float certNoY = dateY - 22f;
             mc.showTextAligned(
-                    new Paragraph("Abhishek Soni")
-                            .setFont(fHBold).setFontSize(18)
-                            .setFontColor(C_DARK).setMargin(0),
-                    CX, dirNameY, TextAlignment.CENTER);
-            mc.showTextAligned(
-                    new Paragraph("Director, SAS KPO Services")
-                            .setFont(fHReg).setFontSize(13)
-                            .setFontColor(C_GRAY).setMargin(0),
-                    CX, dirNameY - 24f, TextAlignment.CENTER);
-
-            // ── 14. CERTIFICATE NUMBER (below director) ───────────────────
-            mc.showTextAligned(
-                    new Paragraph("Certificate No:  " + certNo)
-                            .setFont(fHReg).setFontSize(10)
-                            .setFontColor(C_LT_GRAY).setMargin(0),
-                    CX, dirNameY - 46f, TextAlignment.CENTER);
+                    new Paragraph("Certificate No:     " + certNo)
+                            .setFont(fBody).setFontSize(12f)
+                            .setFontColor(new DeviceRgb(0, 0, 0)).setMargin(0),
+                    CX, certNoY, TextAlignment.CENTER);
 
             mc.close();
-
-            // ── 15. CORNER ORNAMENTS ──────────────────────────────────────
-            float ornLen = 22f;
-            cv.setStrokeColor(C_GOLD).setLineWidth(2.2f);
-            // Top-left
-            cv.moveTo(ib, H - ib).lineTo(ib + ornLen, H - ib).stroke();
-            cv.moveTo(ib, H - ib).lineTo(ib, H - ib - ornLen).stroke();
-            // Top-right
-            cv.moveTo(W - ib, H - ib).lineTo(W - ib - ornLen, H - ib).stroke();
-            cv.moveTo(W - ib, H - ib).lineTo(W - ib, H - ib - ornLen).stroke();
-            // Bottom-left
-            cv.moveTo(ib, ib).lineTo(ib + ornLen, ib).stroke();
-            cv.moveTo(ib, ib).lineTo(ib, ib + ornLen).stroke();
-            // Bottom-right
-            cv.moveTo(W - ib, ib).lineTo(W - ib - ornLen, ib).stroke();
-            cv.moveTo(W - ib, ib).lineTo(W - ib, ib + ornLen).stroke();
-
-            // ── 16. CIRCULAR VERIFIED SEAL ───────────────────────────────
-            float sealX = bm + 108f, sealY = bm + 55f, sealR = 44f;
-            cv.setFillColor(C_OFF_WHITE).circle(sealX, sealY, sealR).fill();
-            cv.setStrokeColor(C_GOLD).setLineWidth(2f).circle(sealX, sealY, sealR).stroke();
-            cv.setStrokeColor(C_GOLD_LT).setLineWidth(0.75f).circle(sealX, sealY, sealR - 6f).stroke();
-
-            // Render seal text on main canvas to avoid clipping
-            mc.showTextAligned(
-                    new Paragraph("VERIFIED")
-                            .setFont(fHBold).setFontSize(9)
-                            .setFontColor(C_GOLD).setMargin(0),
-                    sealX, sealY + 14f, TextAlignment.CENTER);
-            mc.showTextAligned(
-                    new Paragraph("- - -")
-                            .setFont(fHBold).setFontSize(7)
-                            .setFontColor(C_GOLD_LT).setMargin(0),
-                    sealX, sealY + 3f, TextAlignment.CENTER);
-            mc.showTextAligned(
-                    new Paragraph("SAS KPO")
-                            .setFont(fHBold).setFontSize(8)
-                            .setFontColor(C_GOLD_DK).setMargin(0),
-                    sealX, sealY - 10f, TextAlignment.CENTER);
-            mc.showTextAligned(
-                    new Paragraph("SERVICES")
-                            .setFont(fHReg).setFontSize(6)
-                            .setFontColor(C_GOLD_DK).setMargin(0),
-                    sealX, sealY - 20f, TextAlignment.CENTER);
         }
 
         return out.toByteArray();
+    }
+
+    // ── Utility: load + place image, returns actual height used ───────────
+
+    /**
+     * Loads an image from the classpath and renders it full-width on the page.
+     *
+     * @param atTop  true  → image anchored to top   (y = H - imageH)
+     *               false → image anchored to bottom (y = 0)
+     * @param maxH   maximum height cap (prevents images from consuming too much space)
+     * @return actual rendered height in points
+     */
+    private float placeImage(PdfCanvas cv, String classpathResource,
+                              float W, float H, boolean atTop, float maxH) {
+        try {
+            byte[] bytes = new ClassPathResource(classpathResource)
+                    .getInputStream().readAllBytes();
+            ImageData img = ImageDataFactory.create(bytes);
+
+            // Maintain natural aspect ratio
+            float h = W * img.getHeight() / img.getWidth();
+            if (h > maxH) h = maxH;
+
+            float y = atTop ? H - h : 0f;
+            cv.addImageFittedIntoRectangle(img, new Rectangle(0, y, W, h), false);
+            return h;
+        } catch (Exception ignored) {
+            return 0f;   // image is optional — layout degrades gracefully
+        }
     }
 }

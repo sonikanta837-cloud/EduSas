@@ -7,4 +7,6 @@ export const timesheetEntryApi = {
   delete: (id) => api.delete(`/timesheets/entries/${id}`),
   deleteProject: (empId, projectName, taskName) =>
     api.delete('/timesheets/entries/project', { params: { empId, projectName, taskName } }),
+  getWorkReport: (start, end) =>
+    api.get('/timesheets/work-report', { params: { start, end } }),
 };

@@ -10,10 +10,11 @@ import DownloadIcon   from '@mui/icons-material/Download';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import SearchIcon     from '@mui/icons-material/Search';
-import { employeeApi }    from '../api/employeeApi';
-import { leaveApi }       from '../api/leaveApi';
-import { performanceApi } from '../api/performanceApi';
-import { toast }          from 'react-toastify';
+import { employeeApi }        from '../api/employeeApi';
+import { leaveApi }           from '../api/leaveApi';
+import { performanceApi }     from '../api/performanceApi';
+import { timesheetEntryApi }  from '../api/timesheetEntryApi';
+import { toast }              from 'react-toastify';
 
 // ── Month helpers ─────────────────────────────────────────────────────────────
 const MONTH_NAMES = [
@@ -139,6 +140,53 @@ function exportSummaryExcel(rows, monthLabel) {
   toast.success('Excel downloaded!');
 }
 
+// ── Excel export — daily work report ─────────────────────────────────────────
+function exportWorkReportExcel(rows, startDate, endDate) {
+  if (!rows.length) return;
+
+  // Sheet 1: Detail rows
+  const detail = rows.map((r, i) => ({
+    '#':               i + 1,
+    'Employee Code':   r.employeeCode,
+    'Employee Name':   r.employeeName,
+    'Department':      r.department,
+    'Location':        r.location,
+    'Manager':         r.managerName,
+    'Date':            r.date,
+    'Project':         r.projectName,
+    'Task':            r.taskName,
+    'Hours':           r.hours,
+  }));
+
+  // Sheet 2: Summary — total hours per employee per project
+  const summaryMap = {};
+  rows.forEach(r => {
+    const key = `${r.employeeName}||${r.projectName}`;
+    if (!summaryMap[key]) summaryMap[key] = { ...r, hours: 0 };
+    summaryMap[key].hours += r.hours || 0;
+  });
+  const summary = Object.values(summaryMap).map((r, i) => ({
+    '#':             i + 1,
+    'Employee Code': r.employeeCode,
+    'Employee Name': r.employeeName,
+    'Department':    r.department,
+    'Manager':       r.managerName,
+    'Project':       r.projectName,
+    'Total Hours':   +r.hours.toFixed(2),
+  }));
+
+  const wsDetail  = XLSX.utils.json_to_sheet(detail);
+  const wsSummary = XLSX.utils.json_to_sheet(summary);
+  wsDetail['!cols']  = [4,14,22,18,14,20,12,24,24,8].map(wch => ({ wch }));
+  wsSummary['!cols'] = [4,14,22,18,20,24,12].map(wch => ({ wch }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsDetail,  'Daily Work Detail');
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Project Summary');
+  XLSX.writeFile(wb, `Work_Report_${startDate}_to_${endDate}.xlsx`);
+  toast.success('Excel downloaded!');
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 const ReportsPage = () => {
   const [reportType, setReportType] = useState('employee-summary');
@@ -154,6 +202,17 @@ const ReportsPage = () => {
   const [filterMgr,      setFilterMgr]      = useState('ALL');
   const [filterLoc,      setFilterLoc]      = useState('ALL');
 
+  // Work Report state
+  const todayStr   = new Date().toISOString().slice(0, 10);
+  const weekAgoStr = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+  const [wrStartDate,  setWrStartDate]  = useState(weekAgoStr);
+  const [wrEndDate,    setWrEndDate]    = useState(todayStr);
+  const [wrData,       setWrData]       = useState([]);
+  const [wrLoading,    setWrLoading]    = useState(false);
+  const [wrDeptFilter, setWrDeptFilter] = useState('ALL');
+  const [wrEmpFilter,  setWrEmpFilter]  = useState('ALL');
+  const [wrProjFilter, setWrProjFilter] = useState('ALL');
+
   // Summary-specific filters
   const [sumDept,        setSumDept]        = useState('ALL');
   const [sumLoc,         setSumLoc]         = useState('ALL');
@@ -164,6 +223,7 @@ const ReportsPage = () => {
 
   // ── Load data ───────────────────────────────────────────────────────────────
   const loadReport = async (type) => {
+    if (type === 'daily-work-report') return; // loaded on demand
     setLoading(true);
     try {
       if (type === 'employee-summary') {
@@ -188,6 +248,20 @@ const ReportsPage = () => {
       toast.error('Failed to load report');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadWorkReport = async () => {
+    setWrLoading(true);
+    try {
+      const result = await timesheetEntryApi.getWorkReport(wrStartDate, wrEndDate);
+      setWrData(Array.isArray(result) ? result : []);
+      setWrDeptFilter('ALL'); setWrEmpFilter('ALL'); setWrProjFilter('ALL');
+      setPage(0);
+    } catch {
+      toast.error('Failed to load work report');
+    } finally {
+      setWrLoading(false);
     }
   };
 

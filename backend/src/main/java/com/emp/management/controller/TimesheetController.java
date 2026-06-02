@@ -3,6 +3,7 @@ package com.emp.management.controller;
 import com.emp.management.dto.AttendanceSessionDTO;
 import com.emp.management.dto.TimesheetDTO;
 import com.emp.management.dto.TimesheetEntryDTO;
+import com.emp.management.dto.WorkReportDTO;
 import com.emp.management.service.TimesheetEntryService;
 import com.emp.management.service.TimesheetService;
 import lombok.RequiredArgsConstructor;
@@ -128,5 +129,13 @@ public class TimesheetController {
             Authentication authentication) {
         timesheetEntryService.deleteProjectRows(empId, projectName, taskName, authentication.getName());
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/work-report")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<WorkReportDTO>> getWorkReport(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
+        return ResponseEntity.ok(timesheetEntryService.getWorkReport(start, end));
     }
 }

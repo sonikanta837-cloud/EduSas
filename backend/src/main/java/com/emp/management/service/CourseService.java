@@ -1,5 +1,6 @@
 package com.emp.management.service;
 
+import com.emp.management.dto.CourseLearnerDTO;
 import com.emp.management.dto.CourseDTO;
 import com.emp.management.entity.*;
 import com.emp.management.exception.BadRequestException;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,6 +34,31 @@ public class CourseService {
     private final EmployeeDetailsRepository employeeDetailsRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+
+    @Transactional(readOnly = true)
+    public List<CourseLearnerDTO> getLearners(Long courseId) {
+        return enrollmentRepository.findByCourseId(courseId).stream().map(e -> {
+            String certNo = certificateRepository
+                    .findByEmployeeIdAndCourseId(e.getEmployee().getId(), courseId)
+                    .map(Certificate::getCertificateNumber)
+                    .orElse(null);
+            int pct = switch (e.getStatus()) {
+                case COMPLETED   -> 100;
+                case IN_PROGRESS -> 60;
+                default          -> 0;
+            };
+            return CourseLearnerDTO.builder()
+                    .employeeId(e.getEmployee().getId())
+                    .employeeName(e.getEmployee().getFirstName() + " " + e.getEmployee().getLastName())
+                    .employeeCode(e.getEmployee().getEmployeeCode())
+                    .status(e.getStatus().name())
+                    .progressPercent(pct)
+                    .completionDate(e.getCompletionDate() != null
+                            ? e.getCompletionDate().format(DateTimeFormatter.ofPattern("MMM dd, yyyy")) : null)
+                    .certificateNumber(certNo)
+                    .build();
+        }).toList();
+    }
 
     @Transactional(readOnly = true)
     public List<CourseDTO> getAllCourses() {

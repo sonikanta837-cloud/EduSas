@@ -16,7 +16,8 @@ import AccountTreeIcon  from '@mui/icons-material/AccountTree';
 import FolderIcon       from '@mui/icons-material/Folder';
 import InventoryIcon    from '@mui/icons-material/Inventory';
 import PersonIcon       from '@mui/icons-material/Person';
-import FileUploadIcon   from '@mui/icons-material/FileUpload';
+import FileUploadIcon           from '@mui/icons-material/FileUpload';
+import AdminPanelSettingsIcon   from '@mui/icons-material/AdminPanelSettings';
 import { toggleSidebar } from '../../store/uiSlice';
 
 export const SIDEBAR_W_OPEN   = 240;
@@ -34,7 +35,8 @@ const allNavItems = [
   { label: 'Performance',  path: '/performance',  icon: <StarIcon />,         roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
   { label: 'Reports',      path: '/reports',      icon: <BarChartIcon />,     roles: ['ADMIN'] },
   { label: 'Resources',    path: '/resources',    icon: <InventoryIcon />,    roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'My Profile',   path: '/profile',      icon: <PersonIcon />,       roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'My Profile',   path: '/profile',           icon: <PersonIcon />,                roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Roles & Permissions', path: '/roles-permissions', icon: <AdminPanelSettingsIcon />, roles: ['ADMIN'] },
 ];
 
 const Sidebar = () => {
@@ -43,8 +45,20 @@ const Sidebar = () => {
   const location  = useLocation();
   const { user }        = useSelector((s) => s.auth);
   const { sidebarOpen } = useSelector((s) => s.ui);
-  const role     = user?.role || 'EMPLOYEE';
-  const navItems = allNavItems.filter((item) => item.roles.includes(role));
+  const role = user?.role || 'EMPLOYEE';
+
+  const allowedPaths = (() => {
+    if (!user?.allowedModules) return null;
+    try { return JSON.parse(user.allowedModules); } catch { return null; }
+  })();
+
+  const navItems = allNavItems.filter((item) => {
+    // Roles & Permissions is always ADMIN-only regardless of custom permissions
+    if (item.path === '/roles-permissions') return role === 'ADMIN';
+    // If admin has assigned custom modules, use those; otherwise fall back to role-based
+    if (allowedPaths) return allowedPaths.includes(item.path);
+    return item.roles.includes(role);
+  });
   const width    = sidebarOpen ? SIDEBAR_W_OPEN : SIDEBAR_W_CLOSED;
 
   return (

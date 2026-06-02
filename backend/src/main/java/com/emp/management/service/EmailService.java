@@ -88,6 +88,36 @@ public class EmailService {
         }
     }
 
+    public void sendTimesheetMissingReminder(String employeeEmail, String employeeName,
+                                              String managerEmail, LocalDate missingDate) {
+        try {
+            String dateStr = missingDate.format(DateTimeFormatter.ofPattern("EEEE, dd MMMM yyyy"));
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(employeeEmail);
+            if (managerEmail != null && !managerEmail.isBlank()) {
+                message.setCc(managerEmail);
+            }
+            message.setSubject("Reminder: Please Fill Your Timesheet — " + dateStr);
+            message.setText(
+                "Hi " + employeeName + ",\n\n" +
+                "This is a friendly reminder that your timesheet for " + dateStr + " appears to be incomplete.\n\n" +
+                "No project entries were recorded for that day. Please log in to EmpSAS and add your project work details as soon as possible.\n\n" +
+                "Steps to update your timesheet:\n" +
+                "  1. Log in to EmpSAS\n" +
+                "  2. Navigate to Timesheets\n" +
+                "  3. Select " + dateStr + "\n" +
+                "  4. Click 'Add Row' and fill in your project and hours\n\n" +
+                "If you were on leave or had a valid reason for not logging hours, please disregard this message.\n\n" +
+                "Regards,\n" +
+                "EmpSAS Team"
+            );
+            mailSender.send(message);
+            log.info("Timesheet reminder sent to {} for date {}", employeeEmail, missingDate);
+        } catch (Exception e) {
+            log.error("Failed to send timesheet reminder to {}: {}", employeeEmail, e.getMessage());
+        }
+    }
+
     public void sendUnderhoursAlert(String[] to, String[] cc, String employeeName,
                                     LocalDate date, double hours) {
         try {
