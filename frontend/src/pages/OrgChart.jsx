@@ -5,6 +5,9 @@ import {
   Box, Typography, CircularProgress, Tooltip, IconButton, Button,
   Divider, Tabs, Tab, Avatar, Chip, TextField,
   Popover, List, ListItemButton, ListItemIcon, ListItemText,
+  Menu, MenuItem, InputAdornment, OutlinedInput,
+  Select, FormControl, InputLabel,
+  Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import PersonIcon          from '@mui/icons-material/Person';
 import OpenInNewIcon       from '@mui/icons-material/OpenInNew';
@@ -22,6 +25,19 @@ import AddIcon             from '@mui/icons-material/Add';
 import DeleteIcon          from '@mui/icons-material/Delete';
 import SearchIcon          from '@mui/icons-material/Search';
 import CloseIcon           from '@mui/icons-material/Close';
+import MoreVertIcon        from '@mui/icons-material/MoreVert';
+import PushPinIcon         from '@mui/icons-material/PushPin';
+import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
+import EditOutlinedIcon    from '@mui/icons-material/EditOutlined';
+import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import PlaceOutlinedIcon    from '@mui/icons-material/PlaceOutlined';
+import CampaignIcon        from '@mui/icons-material/Campaign';
+import BeachAccessIcon     from '@mui/icons-material/BeachAccess';
+import MenuBookIcon        from '@mui/icons-material/MenuBook';
+import EmojiEventsIcon     from '@mui/icons-material/EmojiEvents';
+import GavelIcon           from '@mui/icons-material/Gavel';
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import StarBorderIcon      from '@mui/icons-material/StarBorder';
 import StarIcon            from '@mui/icons-material/Star';
 import PhoneIcon           from '@mui/icons-material/Phone';
@@ -183,10 +199,15 @@ const EmployeeTreeView = ({ nodes, childrenMap, rootIds, loadChildren, onOpen })
     const node = nodes.get(nodeId);
     if (!node || node.subordinateCount === 0) return;
     await ensureLoaded(nodeId);
-    setHistory((h) => [...h, currentId]);
+    setHistory((h) => {
+      const next = [...h, currentId];
+      // Also record the intermediate selected node so it appears in the breadcrumb
+      if (selectedChildId !== null) next.push(selectedChildId);
+      return next;
+    });
     setCurrentId(nodeId);
     setSelectedChildId(null);
-  }, [nodes, ensureLoaded, currentId]);
+  }, [nodes, ensureLoaded, currentId, selectedChildId]);
 
   if (!rootIds.length) return (
     <Typography color="text.secondary" textAlign="center" mt={4}>No employees found</Typography>
@@ -369,114 +390,778 @@ const OverviewTab = ({ employees }) => {
 };
 
 // ── Announcements Tab ─────────────────────────────────────────────────────────
-const AnnouncementsTab = ({ userRole }) => {
-  const [items,   setItems]   = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [open,    setOpen]    = useState(false);
-  const [saving,  setSaving]  = useState(false);
-  const [title,   setTitle]   = useState('');
-  const [body,    setBody]    = useState('');
 
+const ANN_CATEGORY = {
+  General:     { color: '#475569', bg: '#f1f5f9', border: '#e2e8f0', dot: '#94a3b8', IconComp: CampaignIcon         },
+  Holiday:     { color: '#ea580c', bg: '#fff7ed', border: '#fed7aa', dot: '#f97316', IconComp: BeachAccessIcon      },
+  Training:    { color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', dot: '#3b82f6', IconComp: MenuBookIcon         },
+  Recognition: { color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe', dot: '#8b5cf6', IconComp: EmojiEventsIcon     },
+  Policy:      { color: '#dc2626', bg: '#fef2f2', border: '#fecaca', dot: '#ef4444', IconComp: GavelIcon            },
+  Important:   { color: '#b45309', bg: '#fffbeb', border: '#fde68a', dot: '#f59e0b', IconComp: NotificationsActiveIcon },
+};
+const ANN_CAT_LABELS = Object.keys(ANN_CATEGORY);
+
+const ANN_PRIORITY = {
+  Normal: { color: '#64748b', bg: '#f8fafc' },
+  High:   { color: '#d97706', bg: '#fffbeb' },
+  Urgent: { color: '#dc2626', bg: '#fef2f2' },
+};
+
+const fmtAnn = (dt) => {
+  if (!dt) return '';
+  const d    = new Date(dt);
+  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (diff < 60)     return 'Just now';
+  if (diff < 3600)   return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400)  return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const AnnCard = ({ item, featured, canPost, onMenu, onViewers }) => {
+  const cc = ANN_CATEGORY[item.category || 'General'] || ANN_CATEGORY.General;
+  const pc = ANN_PRIORITY[item.priority || 'Normal']  || ANN_PRIORITY.Normal;
+  return (
+    <Box sx={{
+      bgcolor: '#fff', borderRadius: '16px',
+      border: `1px solid ${featured ? cc.border : '#f1f5f9'}`,
+      boxShadow: featured ? '0 4px 24px rgba(0,0,0,0.09)' : '0 1px 8px rgba(0,0,0,0.05)',
+      overflow: 'hidden',
+      transition: 'box-shadow .2s, transform .15s',
+      '&:hover': { boxShadow: '0 6px 28px rgba(0,0,0,0.10)', transform: 'translateY(-2px)' },
+    }}>
+      {featured && <Box sx={{ height: 3, bgcolor: cc.dot }} />}
+      <Box sx={{ p: 2.5 }}>
+
+        {/* ── Row 1: badges + menu ── */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: .75, flexWrap: 'wrap' }}>
+            {/* Category badge with icon */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: .5, px: 1.1, py: .3, borderRadius: '20px', bgcolor: cc.bg, border: `1px solid ${cc.border}` }}>
+              <cc.IconComp sx={{ fontSize: 11, color: cc.color, flexShrink: 0 }} />
+              <Typography sx={{ fontSize: 11, fontWeight: 700, color: cc.color, letterSpacing: '.3px' }}>
+                {item.category || 'General'}
+              </Typography>
+            </Box>
+            {/* Priority (only if not Normal) */}
+            {(item.priority || 'Normal') !== 'Normal' && (
+              <Box sx={{ px: 1.25, py: .3, borderRadius: '20px', bgcolor: pc.bg, border: `1px solid ${pc.color}33` }}>
+                <Typography sx={{ fontSize: 11, fontWeight: 700, color: pc.color }}>
+                  {item.priority === 'Urgent' ? '🔴 Urgent' : '⚠ High'}
+                </Typography>
+              </Box>
+            )}
+            {/* Pinned */}
+            {item.pinned && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: .4, px: 1, py: .3, borderRadius: '20px', bgcolor: '#eff6ff', border: '1px solid #bfdbfe' }}>
+                <PushPinIcon sx={{ fontSize: 10, color: '#2563eb' }} />
+                <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#2563eb' }}>Pinned</Typography>
+              </Box>
+            )}
+          </Box>
+          {canPost && (
+            <IconButton size="small" onClick={e => onMenu(e, item)}
+              sx={{ width: 28, height: 28, color: '#94a3b8', flexShrink: 0, '&:hover': { bgcolor: '#f1f5f9', color: '#374151' } }}>
+              <MoreVertIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          )}
+        </Box>
+
+        {/* ── Title with category icon ── */}
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25, mb: .75 }}>
+          <Box sx={{
+            width: 36, height: 36, borderRadius: '10px', flexShrink: 0,
+            bgcolor: cc.dot,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: `0 2px 8px ${cc.dot}55`,
+          }}>
+            <cc.IconComp sx={{ fontSize: 19, color: '#fff' }} />
+          </Box>
+          <Typography sx={{ fontSize: featured ? 15.5 : 14, fontWeight: 700, color: '#0f172a', lineHeight: 1.4, pt: .55, flex: 1 }}>
+            {item.title}
+          </Typography>
+        </Box>
+
+        {/* ── Body ── */}
+        {item.body && (
+          <Typography sx={{
+            fontSize: 13.5, color: '#64748b', lineHeight: 1.65, mb: 2,
+            display: '-webkit-box', WebkitLineClamp: featured ? 4 : 3,
+            WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          }}>
+            {item.body}
+          </Typography>
+        )}
+
+        {/* ── Location ── */}
+        {item.location && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: .6, mb: 1.5 }}>
+            <PlaceOutlinedIcon sx={{ fontSize: 14, color: '#94a3b8', flexShrink: 0 }} />
+            <Typography sx={{ fontSize: 12.5, color: '#64748b' }}>{item.location}</Typography>
+          </Box>
+        )}
+
+        {/* ── Footer: author + date + view count ── */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 1.5, borderTop: '1px solid #f8fafc' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Avatar sx={{ width: 28, height: 28, fontSize: '0.72rem', fontWeight: 700, bgcolor: '#14b8a6', color: '#fff' }}>
+              {(item.authorName || 'S').charAt(0).toUpperCase()}
+            </Avatar>
+            <Box>
+              <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: '#374151', lineHeight: 1.2 }}>
+                {item.authorName || 'System'}
+              </Typography>
+              <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>{fmtAnn(item.createdAt)}</Typography>
+            </Box>
+          </Box>
+          {/* Viewed by X/Y — admin / HR only */}
+          {canPost && (
+            <Box
+              onClick={() => onViewers(item)}
+              sx={{
+                display: 'flex', alignItems: 'center', gap: .6,
+                px: 1.25, py: .4, borderRadius: '20px',
+                bgcolor: '#f8fafc', border: '1px solid #e2e8f0',
+                cursor: 'pointer',
+                transition: 'background .15s, border-color .15s',
+                '&:hover': { bgcolor: '#eff6ff', borderColor: '#bfdbfe' },
+              }}
+            >
+              <VisibilityOutlinedIcon sx={{ fontSize: 13, color: '#64748b' }} />
+              <Typography sx={{ fontSize: 11.5, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
+                {item.viewedByCount ?? 0} / {item.totalActiveEmployees ?? 0} viewed
+              </Typography>
+            </Box>
+          )}
+        </Box>
+      </Box>
+    </Box>
+  );
+};
+
+const AnnouncementsTab = ({ userRole }) => {
   const canPost = userRole === 'ADMIN' || userRole === 'HR';
+
+  const [items,      setItems]      = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [searchText, setSearchText] = useState('');
+  const [catFilter,  setCatFilter]  = useState('');
+
+  const [locationOptions,  setLocationOptions]  = useState([]);
+  const [newLocInput,      setNewLocInput]      = useState('');
+  const [showNewLocField,  setShowNewLocField]  = useState(false);
+
+  const [postOpen, setPostOpen] = useState(false);
+  const [postForm, setPostForm] = useState({ title: '', body: '', location: '', category: 'General', priority: 'Normal', pinned: false });
+  const [saving,   setSaving]   = useState(false);
+
+  const [editOpen,   setEditOpen]   = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [editForm,   setEditForm]   = useState({});
+  const [updating,   setUpdating]   = useState(false);
+
+  const [menuAnchor,   setMenuAnchor]   = useState(null);
+  const [menuItem,     setMenuItem]     = useState(null);
+  const [viewersOpen,  setViewersOpen]  = useState(false);
+  const [viewersItem,  setViewersItem]  = useState(null);
+  const [viewersData,  setViewersData]  = useState(null);
+  const [viewersLoading, setViewersLoading] = useState(false);
+
+  // Fetch branch locations once on mount
+  useEffect(() => {
+    employeeApi.getLocations()
+      .then(data => setLocationOptions(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     announcementApi.getAll()
-      .then(setItems)
+      .then(data => {
+        const list = Array.isArray(data) ? data : [];
+        setItems(list);
+        // Mark all unread announcements as read silently
+        const unread = list.filter(i => !i.readByCurrentUser);
+        if (unread.length > 0) {
+          Promise.all(unread.map(i => announcementApi.markAsRead(i.id).catch(() => {})))
+            .then(() => {
+              // Update local state + notify Header to clear badge
+              setItems(prev => prev.map(i => ({ ...i, readByCurrentUser: true })));
+              window.dispatchEvent(new Event('announcements-read'));
+            });
+        }
+      })
       .catch(() => toast.error('Failed to load announcements'))
       .finally(() => setLoading(false));
   }, []);
 
   const post = async () => {
-    if (!title.trim()) return;
+    if (!postForm.title.trim()) return;
     setSaving(true);
     try {
-      const created = await announcementApi.create({ title, body, pinned: false });
-      setItems((prev) => [created, ...prev]);
-      setTitle(''); setBody(''); setOpen(false);
+      const created = await announcementApi.create(postForm);
+      setItems(prev => [created, ...prev]);
+      setPostOpen(false);
+      setShowNewLocField(false);
+      setPostForm({ title: '', body: '', location: '', category: 'General', priority: 'Normal', pinned: false });
       toast.success('Announcement posted');
-    } catch {
-      toast.error('Failed to post announcement');
-    } finally {
-      setSaving(false);
-    }
+    } catch { toast.error('Failed to post announcement'); }
+    finally  { setSaving(false); }
+  };
+
+  const doUpdate = async () => {
+    setUpdating(true);
+    try {
+      const updated = await announcementApi.update(editTarget.id, { ...editTarget, ...editForm });
+      setItems(prev => prev.map(i => i.id === editTarget.id ? { ...i, ...updated } : i));
+      setEditOpen(false); setEditTarget(null); setShowNewLocField(false);
+      toast.success('Announcement updated');
+    } catch { toast.error('Failed to update announcement'); }
+    finally  { setUpdating(false); }
   };
 
   const remove = async (id) => {
     try {
       await announcementApi.delete(id);
-      setItems((prev) => prev.filter((i) => i.id !== id));
-    } catch {
-      toast.error('Failed to delete announcement');
+      setItems(prev => prev.filter(i => i.id !== id));
+      toast.success('Deleted');
+    } catch { toast.error('Failed to delete announcement'); }
+  };
+
+  const togglePin = async (item) => {
+    try {
+      const updated = await announcementApi.update(item.id, { ...item, pinned: !item.pinned });
+      setItems(prev => {
+        const next = prev.map(i => i.id === item.id ? { ...i, ...updated } : i);
+        return [...next].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+      });
+      toast.success(item.pinned ? 'Unpinned' : 'Pinned to top');
+    } catch { toast.error('Failed to update announcement'); }
+  };
+
+  const archive = async (item) => {
+    try {
+      await announcementApi.update(item.id, { ...item, archived: true });
+      setItems(prev => prev.filter(i => i.id !== item.id));
+      toast.success('Archived');
+    } catch { toast.error('Failed to archive'); }
+  };
+
+  const openMenu  = (e, item) => { setMenuAnchor(e.currentTarget); setMenuItem(item); };
+  const closeMenu = ()         => { setMenuAnchor(null); setMenuItem(null); };
+
+  const openViewers = (item) => {
+    setViewersItem(item);
+    setViewersData(null);
+    setViewersOpen(true);
+    setViewersLoading(true);
+    announcementApi.getViewers(item.id)
+      .then(data => setViewersData(data))
+      .catch(() => toast.error('Failed to load viewer data'))
+      .finally(() => setViewersLoading(false));
+  };
+
+  const filtered = items.filter(item => {
+    if (catFilter && (item.category || 'General') !== catFilter) return false;
+    if (searchText) {
+      const q = searchText.toLowerCase();
+      return (item.title      || '').toLowerCase().includes(q) ||
+             (item.body       || '').toLowerCase().includes(q) ||
+             (item.authorName || '').toLowerCase().includes(q);
     }
-  };
+    return true;
+  });
 
-  const fmt = (dt) => {
-    if (!dt) return '';
-    const d = new Date(dt);
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  };
+  const pinned  = filtered.filter(i => i.pinned);
+  const regular = filtered.filter(i => !i.pinned);
 
-  if (loading) return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
+  const SectionRule = ({ label }) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+      <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.8px', whiteSpace: 'nowrap' }}>
+        {label}
+      </Typography>
+      <Box sx={{ flex: 1, height: '1px', bgcolor: '#f1f5f9' }} />
+    </Box>
   );
+
+  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress sx={{ color: '#14b8a6' }} /></Box>;
 
   return (
     <Box>
-      {canPost && (
-        <Box sx={{ mb: 2.5 }}>
-          {open ? (
-            <Box sx={{ p: 2.5, border: '1px solid #e2e8f0', borderRadius: 2, bgcolor: 'white' }}>
-              <Typography fontWeight={700} fontSize={14} mb={1.5}>New Announcement</Typography>
-              <TextField fullWidth size="small" label="Title" value={title} onChange={(e) => setTitle(e.target.value)} sx={{ mb: 1.5 }} />
-              <TextField fullWidth size="small" label="Message" multiline rows={3} value={body} onChange={(e) => setBody(e.target.value)} sx={{ mb: 1.5 }} />
-              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                <Button size="small" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
-                <Button size="small" variant="contained" onClick={post} disabled={saving || !title.trim()}>
-                  {saving ? 'Posting…' : 'Post'}
-                </Button>
-              </Box>
-            </Box>
-          ) : (
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)}>
-                Post Announcement
-              </Button>
-            </Box>
+
+      {/* ── Top bar ── */}
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2.5, gap: 1.5, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, flex: 1 }}>
+          {/* Search */}
+          <OutlinedInput
+            placeholder="Search announcements…"
+            value={searchText}
+            onChange={e => setSearchText(e.target.value)}
+            startAdornment={<InputAdornment position="start"><SearchIcon sx={{ fontSize: 17, color: '#94a3b8' }} /></InputAdornment>}
+            endAdornment={searchText ? (
+              <InputAdornment position="end">
+                <IconButton size="small" onClick={() => setSearchText('')}><CloseIcon sx={{ fontSize: 14 }} /></IconButton>
+              </InputAdornment>
+            ) : null}
+            sx={{
+              height: 38, fontSize: 13, borderRadius: '10px', maxWidth: 360, bgcolor: '#fff',
+              '& fieldset': { borderColor: '#e2e8f0' },
+              '&:hover fieldset': { borderColor: '#cbd5e1' },
+              '&.Mui-focused fieldset': { borderColor: '#14b8a6' },
+            }}
+          />
+          {/* Category filter chips */}
+          <Box sx={{ display: 'flex', gap: .75, flexWrap: 'wrap' }}>
+            {['All', ...ANN_CAT_LABELS].map(cat => {
+              const active = cat === 'All' ? catFilter === '' : catFilter === cat;
+              const cc     = cat !== 'All' ? ANN_CATEGORY[cat] : null;
+              return (
+                <Chip
+                  key={cat} label={cat} size="small"
+                  onClick={() => setCatFilter(cat === 'All' ? '' : (catFilter === cat ? '' : cat))}
+                  sx={{
+                    height: 26, fontSize: 11.5, fontWeight: active ? 700 : 500, cursor: 'pointer',
+                    bgcolor: active ? (cat === 'All' ? '#14b8a6' : cc.bg)    : '#f8fafc',
+                    color:   active ? (cat === 'All' ? '#fff'    : cc.color) : '#64748b',
+                    border: '1.5px solid',
+                    borderColor: active ? (cat === 'All' ? '#14b8a6' : cc.border) : 'transparent',
+                    '&:hover': { bgcolor: cat === 'All' ? (active ? '#0d9488' : '#f0fdfa') : (cc?.bg || '#f0fdfa') },
+                  }}
+                />
+              );
+            })}
+          </Box>
+        </Box>
+
+        {canPost && (
+          <Button
+            variant="contained" startIcon={<AddIcon />} onClick={() => setPostOpen(true)}
+            sx={{
+              bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' }, borderRadius: '10px',
+              fontWeight: 700, fontSize: 13.5, boxShadow: '0 4px 12px rgba(20,184,166,0.3)',
+              px: 2.5, height: 38, flexShrink: 0,
+            }}
+          >
+            Post Announcement
+          </Button>
+        )}
+      </Box>
+
+      {/* ── Featured / Pinned section ── */}
+      {pinned.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: .75, mb: 1.5 }}>
+            <PushPinIcon sx={{ fontSize: 13, color: '#2563eb' }} />
+            <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '.8px' }}>
+              Featured
+            </Typography>
+            <Box sx={{ flex: 1, height: '1px', bgcolor: '#dbeafe' }} />
+          </Box>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+            {pinned.map(item => <AnnCard key={item.id} item={item} featured canPost={canPost} onMenu={openMenu} onViewers={openViewers} />)}
+          </Box>
+        </Box>
+      )}
+
+      {/* ── Regular announcements ── */}
+      {regular.length > 0 && (
+        <Box>
+          {pinned.length > 0 && <SectionRule label="Latest Updates" />}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {regular.map(item => <AnnCard key={item.id} item={item} canPost={canPost} onMenu={openMenu} onViewers={openViewers} />)}
+          </Box>
+        </Box>
+      )}
+
+      {/* ── Empty state ── */}
+      {filtered.length === 0 && (
+        <Box sx={{ textAlign: 'center', py: 9, bgcolor: '#fff', borderRadius: '16px', border: '1px dashed #e2e8f0' }}>
+          <AnnouncementIcon sx={{ fontSize: 52, color: '#e2e8f0', display: 'block', mx: 'auto', mb: 1.5 }} />
+          <Typography sx={{ color: '#94a3b8', fontSize: 15, fontWeight: 600 }}>
+            {searchText || catFilter ? 'No announcements match your filters' : 'No announcements yet'}
+          </Typography>
+          {(searchText || catFilter) && (
+            <Button onClick={() => { setSearchText(''); setCatFilter(''); }}
+              sx={{ mt: 1.5, color: '#14b8a6', fontSize: 13, fontWeight: 600, textTransform: 'none' }}>
+              Clear filters
+            </Button>
           )}
         </Box>
       )}
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-        {items.map((item) => (
-          <Box key={item.id} sx={{
-            p: 2.5, borderRadius: 2, bgcolor: 'white',
-            border: '1px solid #e2e8f0',
-            borderLeft: item.pinned ? '4px solid #1976d2' : '1px solid #e2e8f0',
-          }}>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-                  {item.pinned && <Chip label="Pinned" size="small" color="primary" sx={{ height: 18, fontSize: 10 }} />}
-                  <Typography fontWeight={700} fontSize={14}>{item.title}</Typography>
+      {/* ── Three-dot action menu ── */}
+      <Menu
+        anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMenu}
+        PaperProps={{ sx: { borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', border: '1px solid #f1f5f9', minWidth: 172 } }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <MenuItem onClick={() => {
+          setEditForm({ title: menuItem.title, body: menuItem.body || '', location: menuItem.location || '', category: menuItem.category || 'General', priority: menuItem.priority || 'Normal', pinned: menuItem.pinned });
+          setEditTarget(menuItem); setEditOpen(true); closeMenu();
+        }} sx={{ fontSize: 13.5, gap: 1.25, py: 1.1, color: '#374151' }}>
+          <EditOutlinedIcon sx={{ fontSize: 17, color: '#64748b' }} /> Edit
+        </MenuItem>
+        <MenuItem onClick={() => { togglePin(menuItem); closeMenu(); }} sx={{ fontSize: 13.5, gap: 1.25, py: 1.1, color: '#374151' }}>
+          {menuItem?.pinned
+            ? <><PushPinIcon         sx={{ fontSize: 17, color: '#64748b' }} /> Unpin</>
+            : <><PushPinOutlinedIcon sx={{ fontSize: 17, color: '#64748b' }} /> Pin to top</>
+          }
+        </MenuItem>
+        <MenuItem onClick={() => { archive(menuItem); closeMenu(); }} sx={{ fontSize: 13.5, gap: 1.25, py: 1.1, color: '#374151' }}>
+          <ArchiveOutlinedIcon sx={{ fontSize: 17, color: '#64748b' }} /> Archive
+        </MenuItem>
+        <Divider sx={{ my: .5 }} />
+        <MenuItem onClick={() => { remove(menuItem.id); closeMenu(); }} sx={{ fontSize: 13.5, gap: 1.25, py: 1.1, color: '#dc2626' }}>
+          <DeleteIcon sx={{ fontSize: 17, color: '#dc2626' }} /> Delete
+        </MenuItem>
+      </Menu>
+
+      {/* ── Post Announcement Dialog ── */}
+      <Dialog open={postOpen} onClose={() => setPostOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '16px' } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 16.5, pb: 1 }}>New Announcement</DialogTitle>
+        <Divider />
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1 }}>
+            <TextField label="Title" required fullWidth value={postForm.title}
+              onChange={e => setPostForm(f => ({ ...f, title: e.target.value }))} />
+            <TextField label="Message" fullWidth multiline rows={4} value={postForm.body}
+              onChange={e => setPostForm(f => ({ ...f, body: e.target.value }))} />
+
+            {/* Location dropdown */}
+            <Box>
+              <FormControl fullWidth>
+                <InputLabel>Location (optional)</InputLabel>
+                <Select
+                  value={showNewLocField ? '__add_new__' : (postForm.location || '')}
+                  label="Location (optional)"
+                  onChange={e => {
+                    if (e.target.value === '__add_new__') {
+                      setShowNewLocField(true);
+                      setNewLocInput('');
+                    } else {
+                      setShowNewLocField(false);
+                      setPostForm(f => ({ ...f, location: e.target.value }));
+                    }
+                  }}
+                >
+                  <MenuItem value=""><em>All Locations</em></MenuItem>
+                  {locationOptions.map(loc => <MenuItem key={loc} value={loc}>{loc}</MenuItem>)}
+                  <Divider sx={{ my: .5 }} />
+                  <MenuItem value="__add_new__" sx={{ color: '#14b8a6', fontWeight: 600 }}>
+                    + Add New Location
+                  </MenuItem>
+                </Select>
+              </FormControl>
+              {showNewLocField && (
+                <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                  <TextField
+                    size="small" fullWidth autoFocus
+                    placeholder="Type new location name…"
+                    value={newLocInput}
+                    onChange={e => setNewLocInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && newLocInput.trim()) {
+                        const loc = newLocInput.trim();
+                        if (!locationOptions.includes(loc)) setLocationOptions(prev => [...prev, loc]);
+                        setPostForm(f => ({ ...f, location: loc }));
+                        setShowNewLocField(false);
+                        setNewLocInput('');
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="contained" size="small"
+                    disabled={!newLocInput.trim()}
+                    onClick={() => {
+                      const loc = newLocInput.trim();
+                      if (loc) {
+                        if (!locationOptions.includes(loc)) setLocationOptions(prev => [...prev, loc]);
+                        setPostForm(f => ({ ...f, location: loc }));
+                        setShowNewLocField(false);
+                        setNewLocInput('');
+                      }
+                    }}
+                    sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' }, whiteSpace: 'nowrap', textTransform: 'none', fontWeight: 600 }}
+                  >
+                    Add
+                  </Button>
+                  <Button size="small" onClick={() => { setShowNewLocField(false); setNewLocInput(''); }}
+                    sx={{ textTransform: 'none', color: '#64748b' }}>
+                    Cancel
+                  </Button>
                 </Box>
-                {item.body && <Typography fontSize={13} color="text.secondary" sx={{ mb: 1 }}>{item.body}</Typography>}
-                <Typography fontSize={11} color="text.disabled">{item.authorName} · {fmt(item.createdAt)}</Typography>
-              </Box>
-              {canPost && !item.pinned && (
-                <IconButton size="small" onClick={() => remove(item.id)}>
-                  <DeleteIcon sx={{ fontSize: 16 }} />
-                </IconButton>
               )}
             </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+              <FormControl fullWidth>
+                <InputLabel>Category</InputLabel>
+                <Select value={postForm.category} label="Category"
+                  onChange={e => setPostForm(f => ({ ...f, category: e.target.value }))}>
+                  {ANN_CAT_LABELS.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl fullWidth>
+                <InputLabel>Priority</InputLabel>
+                <Select value={postForm.priority} label="Priority"
+                  onChange={e => setPostForm(f => ({ ...f, priority: e.target.value }))}>
+                  <MenuItem value="Normal">Normal</MenuItem>
+                  <MenuItem value="High">⚠ High</MenuItem>
+                  <MenuItem value="Urgent">🔴 Urgent</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
           </Box>
-        ))}
-        {!items.length && (
-          <Box sx={{ textAlign: 'center', py: 7 }}>
-            <AnnouncementIcon sx={{ fontSize: 52, color: '#cbd5e1', mb: 1.5 }} />
-            <Typography color="text.secondary">No announcements yet</Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setPostOpen(false)} disabled={saving}
+            sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 600, color: '#64748b' }}>Cancel</Button>
+          <Button variant="contained" onClick={post} disabled={saving || !postForm.title.trim()}
+            sx={{ borderRadius: '10px', bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' }, textTransform: 'none', fontWeight: 700 }}>
+            {saving ? <CircularProgress size={16} sx={{ mr: 1, color: '#fff' }} /> : null}
+            Post
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Edit Announcement Dialog ── */}
+      <Dialog open={editOpen} onClose={() => { setEditOpen(false); setEditTarget(null); }} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '16px' } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 16.5, pb: 1 }}>Edit Announcement</DialogTitle>
+        <Divider />
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1 }}>
+            <TextField label="Title" required fullWidth value={editForm.title || ''}
+              onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} />
+            <TextField label="Message" fullWidth multiline rows={4} value={editForm.body || ''}
+              onChange={e => setEditForm(f => ({ ...f, body: e.target.value }))} />
+
+            {/* Location dropdown */}
+            <Box>
+              <FormControl fullWidth>
+                <InputLabel>Location (optional)</InputLabel>
+                <Select
+                  value={showNewLocField ? '__add_new__' : (editForm.location || '')}
+                  label="Location (optional)"
+                  onChange={e => {
+                    if (e.target.value === '__add_new__') {
+                      setShowNewLocField(true);
+                      setNewLocInput('');
+                    } else {
+                      setShowNewLocField(false);
+                      setEditForm(f => ({ ...f, location: e.target.value }));
+                    }
+                  }}
+                >
+                  <MenuItem value=""><em>All Locations</em></MenuItem>
+                  {locationOptions.map(loc => <MenuItem key={loc} value={loc}>{loc}</MenuItem>)}
+                  <Divider sx={{ my: .5 }} />
+                  <MenuItem value="__add_new__" sx={{ color: '#14b8a6', fontWeight: 600 }}>
+                    + Add New Location
+                  </MenuItem>
+                </Select>
+              </FormControl>
+              {showNewLocField && (
+                <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                  <TextField
+                    size="small" fullWidth autoFocus
+                    placeholder="Type new location name…"
+                    value={newLocInput}
+                    onChange={e => setNewLocInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && newLocInput.trim()) {
+                        const loc = newLocInput.trim();
+                        if (!locationOptions.includes(loc)) setLocationOptions(prev => [...prev, loc]);
+                        setEditForm(f => ({ ...f, location: loc }));
+                        setShowNewLocField(false);
+                        setNewLocInput('');
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="contained" size="small"
+                    disabled={!newLocInput.trim()}
+                    onClick={() => {
+                      const loc = newLocInput.trim();
+                      if (loc) {
+                        if (!locationOptions.includes(loc)) setLocationOptions(prev => [...prev, loc]);
+                        setEditForm(f => ({ ...f, location: loc }));
+                        setShowNewLocField(false);
+                        setNewLocInput('');
+                      }
+                    }}
+                    sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' }, whiteSpace: 'nowrap', textTransform: 'none', fontWeight: 600 }}
+                  >
+                    Add
+                  </Button>
+                  <Button size="small" onClick={() => { setShowNewLocField(false); setNewLocInput(''); }}
+                    sx={{ textTransform: 'none', color: '#64748b' }}>
+                    Cancel
+                  </Button>
+                </Box>
+              )}
+            </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+              <FormControl fullWidth>
+                <InputLabel>Category</InputLabel>
+                <Select value={editForm.category || 'General'} label="Category"
+                  onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}>
+                  {ANN_CAT_LABELS.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl fullWidth>
+                <InputLabel>Priority</InputLabel>
+                <Select value={editForm.priority || 'Normal'} label="Priority"
+                  onChange={e => setEditForm(f => ({ ...f, priority: e.target.value }))}>
+                  <MenuItem value="Normal">Normal</MenuItem>
+                  <MenuItem value="High">⚠ High</MenuItem>
+                  <MenuItem value="Urgent">🔴 Urgent</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
           </Box>
-        )}
-      </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => { setEditOpen(false); setEditTarget(null); }} disabled={updating}
+            sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 600, color: '#64748b' }}>Cancel</Button>
+          <Button variant="contained" onClick={doUpdate} disabled={updating || !(editForm.title || '').trim()}
+            sx={{ borderRadius: '10px', bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' }, textTransform: 'none', fontWeight: 700 }}>
+            {updating ? <CircularProgress size={16} sx={{ mr: 1, color: '#fff' }} /> : null}
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Viewer List Dialog (admin / HR only) ── */}
+      <Dialog
+        open={viewersOpen}
+        onClose={() => { setViewersOpen(false); setViewersItem(null); setViewersData(null); }}
+        maxWidth="sm" fullWidth
+        PaperProps={{ sx: { borderRadius: '16px' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 16.5, pb: 1 }}>
+          Announcement Reach
+          {viewersData && (
+            <Typography component="span" sx={{ fontSize: 13, fontWeight: 500, color: '#64748b', ml: 1.5 }}>
+              — "{viewersItem?.title}"
+            </Typography>
+          )}
+        </DialogTitle>
+        <Divider />
+        <DialogContent sx={{ p: 0 }}>
+          {viewersLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+              <CircularProgress sx={{ color: '#14b8a6' }} />
+            </Box>
+          ) : viewersData ? (
+            <Box>
+              {/* Summary bar */}
+              <Box sx={{ px: 3, py: 2, bgcolor: '#f8fafc', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 3 }}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography sx={{ fontSize: 24, fontWeight: 900, color: '#14b8a6', lineHeight: 1 }}>
+                    {viewersData.totalViewed}
+                  </Typography>
+                  <Typography sx={{ fontSize: 11.5, color: '#64748b', fontWeight: 600 }}>Viewed</Typography>
+                </Box>
+                <Box sx={{ flex: 1, height: 8, bgcolor: '#e2e8f0', borderRadius: 4, overflow: 'hidden' }}>
+                  <Box sx={{
+                    height: '100%', borderRadius: 4, bgcolor: '#14b8a6',
+                    width: viewersData.totalActive > 0
+                      ? `${Math.round((viewersData.totalViewed / viewersData.totalActive) * 100)}%`
+                      : '0%',
+                    transition: 'width .6s ease',
+                  }} />
+                </Box>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography sx={{ fontSize: 24, fontWeight: 900, color: '#94a3b8', lineHeight: 1 }}>
+                    {viewersData.totalActive - viewersData.totalViewed}
+                  </Typography>
+                  <Typography sx={{ fontSize: 11.5, color: '#64748b', fontWeight: 600 }}>Not Seen</Typography>
+                </Box>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography sx={{ fontSize: 24, fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
+                    {viewersData.totalActive > 0
+                      ? `${Math.round((viewersData.totalViewed / viewersData.totalActive) * 100)}%`
+                      : '0%'}
+                  </Typography>
+                  <Typography sx={{ fontSize: 11.5, color: '#64748b', fontWeight: 600 }}>Reach</Typography>
+                </Box>
+              </Box>
+
+              {/* Viewed list */}
+              {viewersData.viewed.length > 0 && (
+                <Box sx={{ px: 3, pt: 2, pb: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.25 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10b981' }} />
+                    <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#10b981', textTransform: 'uppercase', letterSpacing: '.6px' }}>
+                      Viewed ({viewersData.viewed.length})
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: .75 }}>
+                    {viewersData.viewed.map(v => (
+                      <Box key={v.employeeId} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: .75, px: 1.5, borderRadius: '10px', bgcolor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                          <Avatar sx={{ width: 30, height: 30, fontSize: '0.72rem', fontWeight: 700, bgcolor: '#14b8a6', color: '#fff' }}>
+                            {(v.employeeName || 'E').charAt(0).toUpperCase()}
+                          </Avatar>
+                          <Box>
+                            <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#0f172a', lineHeight: 1.2 }}>
+                              {v.employeeName}
+                            </Typography>
+                            {v.department && (
+                              <Typography sx={{ fontSize: 11, color: '#64748b' }}>{v.department}</Typography>
+                            )}
+                          </Box>
+                        </Box>
+                        <Typography sx={{ fontSize: 11, color: '#94a3b8', flexShrink: 0 }}>
+                          {v.viewedAt ? fmtAnn(v.viewedAt) : ''}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Not Viewed list */}
+              {viewersData.notViewed.length > 0 && (
+                <Box sx={{ px: 3, pt: 1.5, pb: 2.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.25 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#94a3b8' }} />
+                    <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.6px' }}>
+                      Not Viewed ({viewersData.notViewed.length})
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: .75 }}>
+                    {viewersData.notViewed.map(v => (
+                      <Box key={v.employeeId} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: .75, px: 1.5, borderRadius: '10px', bgcolor: '#f8fafc', border: '1px solid #f1f5f9' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                          <Avatar sx={{ width: 30, height: 30, fontSize: '0.72rem', fontWeight: 700, bgcolor: '#e2e8f0', color: '#94a3b8' }}>
+                            {(v.employeeName || 'E').charAt(0).toUpperCase()}
+                          </Avatar>
+                          <Box>
+                            <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#374151', lineHeight: 1.2 }}>
+                              {v.employeeName}
+                            </Typography>
+                            {v.department && (
+                              <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>{v.department}</Typography>
+                            )}
+                          </Box>
+                        </Box>
+                        <Typography sx={{ fontSize: 11, color: '#cbd5e1' }}>Not seen</Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+            </Box>
+          ) : null}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => { setViewersOpen(false); setViewersItem(null); setViewersData(null); }}
+            sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 600, color: '#64748b' }}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
     </Box>
   );
 };

@@ -18,6 +18,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -181,43 +182,53 @@ public class TimesheetService {
         return map;
     }
 
-    // ── Daily under-hours alert (10:00 AM) ───────────────────────────────────
+    // ── Daily attendance audit job (10:00 AM) ────────────────────────────────
 
     @Scheduled(cron = "0 0 10 * * *")
-    public void sendDailyUnderhoursAlerts() {
-        LocalDate yesterday = LocalDate.now().minusDays(1);
+    @Transactional
+    public void runDailyAttendanceAudit() {
+        LocalDate auditDate = LocalDate.now().minusDays(1);
 
-        // Skip weekends — no working-hours expectation on Sat/Sun
-        DayOfWeek dow = yesterday.getDayOfWeek();
-        if (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY) return;
+        DayOfWeek dow = auditDate.getDayOfWeek();
+        if (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY) {
+            log.info("Attendance audit skipped — {} is a weekend", auditDate);
+            return;
+        }
 
-        List<String> adminEmails = userRepository.findByRole(Role.ADMIN).stream()
-                .map(u -> u.getEmail())
-                .filter(e -> e != null && !e.isBlank())
-                .collect(Collectors.toList());
+        log.info("Running daily attendance audit for {}", auditDate);
+        int alerted = 0;
 
         for (EmployeeDetails emp : employeeDetailsRepository.findByActive(true)) {
             try {
                 if (emp.getUser() == null) continue;
 
-                // Skip employees on approved leave yesterday
-                if (leaveRepository.hasLeaveOnDate(emp.getId(), yesterday, LeaveStatus.APPROVED)) continue;
+                // Exclude: approved leave of any type
+                // (covers regular leave, half-day leave, and public holidays —
+                //  all stored as Leave records with status = APPROVED)
+                if (leaveRepository.hasLeaveOnDate(emp.getId(), auditDate, LeaveStatus.APPROVED)) continue;
 
                 Timesheet ts = timesheetRepository
-                        .findByEmployeeIdAndWorkDate(emp.getId(), yesterday).orElse(null);
+                        .findByEmployeeIdAndWorkDate(emp.getId(), auditDate).orElse(null);
 
-                // Already alerted for this day
+                // Exclude: regularised / manually overridden attendance
+                if (ts != null && ts.isManualOverride()) continue;
+
+                // Exclude: already notified for this date
                 if (ts != null && ts.isAlertSent()) continue;
 
-                double hours = (ts != null && ts.getWorkingHours() != null) ? ts.getWorkingHours() : 0.0;
-                if (hours >= 8.0) continue;
+                double worked   = (ts != null && ts.getWorkingHours() != null) ? ts.getWorkingHours() : 0.0;
+                double required = 8.0;
+                if (worked >= required) continue;
 
-                dispatchUnderhoursAlert(emp, yesterday, hours, adminEmails);
+                double deficit = Math.round((required - worked) * 100.0) / 100.0;
 
-                // Persist alert flag so we never send twice for the same day
+                dispatchAttendanceAuditAlert(emp, auditDate, worked, required, deficit);
+                alerted++;
+
+                // Mark notified — ensures this job never fires twice for the same date
                 if (ts == null) {
                     ts = Timesheet.builder()
-                            .employee(emp).workDate(yesterday)
+                            .employee(emp).workDate(auditDate)
                             .alertSent(true).build();
                 } else {
                     ts.setAlertSent(true);
@@ -225,44 +236,48 @@ public class TimesheetService {
                 timesheetRepository.save(ts);
 
             } catch (Exception e) {
-                log.warn("Underhours alert failed for {}: {}", emp.getFullName(), e.getMessage());
+                log.warn("Attendance audit failed for employee {}: {}", emp.getFullName(), e.getMessage());
             }
         }
+
+        log.info("Daily attendance audit completed for {} — {} alert(s) sent", auditDate, alerted);
     }
 
-    private void dispatchUnderhoursAlert(EmployeeDetails emp, LocalDate date,
-                                         double hours, List<String> adminEmails) {
-        String empEmail = emp.getUser().getEmail();
-        Role empRole   = emp.getUser().getRole();
+    private void dispatchAttendanceAuditAlert(EmployeeDetails emp, LocalDate date,
+                                              double worked, double required, double deficit) {
+        // Primary recipient: reporting manager; fall back to first active admin
         String managerEmail = (emp.getManager() != null && emp.getManager().getUser() != null)
                 ? emp.getManager().getUser().getEmail() : null;
-
-        List<String> toList = new ArrayList<>();
-
-        switch (empRole) {
-            case MANAGER:
-                // Only their manager; no manager → admin
-                if (managerEmail != null) {
-                    toList.add(managerEmail);
-                } else {
-                    adminEmails.stream().filter(e -> !e.equalsIgnoreCase(empEmail)).forEach(toList::add);
-                }
-                break;
-            default:
-                // ASSISTANT_MANAGER, EMPLOYEE, HR, ADMIN → manager + all admins
-                if (managerEmail != null) toList.add(managerEmail);
-                adminEmails.stream().filter(e -> !e.equalsIgnoreCase(empEmail)).forEach(toList::add);
-                break;
+        if (managerEmail == null) {
+            managerEmail = userRepository.findByRole(Role.ADMIN).stream()
+                    .map(User::getEmail)
+                    .filter(e -> e != null && !e.isBlank())
+                    .findFirst().orElse(null);
+        }
+        if (managerEmail == null) {
+            log.warn("No manager or admin found for attendance audit alert — employee: {}", emp.getFullName());
+            return;
         }
 
-        // Deduplicate
-        toList = toList.stream().distinct().filter(e -> !e.isBlank()).collect(Collectors.toList());
-        if (toList.isEmpty()) return;
+        // CC: all HR + Admin (deduplicated, excluding the primary To recipient)
+        final String primaryTo = managerEmail;
+        String[] cc = Stream.concat(
+                userRepository.findByRole(Role.HR).stream(),
+                userRepository.findByRole(Role.ADMIN).stream()
+        )
+        .map(User::getEmail)
+        .filter(e -> e != null && !e.isBlank() && !e.equalsIgnoreCase(primaryTo))
+        .distinct()
+        .toArray(String[]::new);
 
-        emailService.sendUnderhoursAlert(
-                toList.toArray(new String[0]),
-                new String[]{ empEmail },
-                emp.getFullName(), date, hours);
+        emailService.sendAttendanceAuditAlert(
+                managerEmail, cc,
+                emp.getFullName(),
+                emp.getEmployeeCode(),
+                emp.getDepartment(),
+                emp.getUser().getEmail(),
+                date, worked, required, deficit
+        );
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

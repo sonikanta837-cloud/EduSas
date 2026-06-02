@@ -6,5 +6,6 @@ export const performanceApi = {
   getByReviewer: (reviewerId) => api.get(`/performance/reviewer/${reviewerId}`),
   getAll: () => api.get('/performance'),
   getAverage: (empId) => api.get(`/performance/employee/${empId}/average`),
+  update: (id, data) => api.put(`/performance/${id}`, data),
   delete: (id) => api.delete(`/performance/${id}`),
 };

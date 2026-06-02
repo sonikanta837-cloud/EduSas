@@ -10,5 +10,6 @@ export const employeeApi = {
   create: (data) => api.post('/employees', data),
   update: (id, data) => api.put(`/employees/${id}`, data),
   toggleStatus: (id) => api.patch(`/employees/${id}/toggle-status`),
-  delete: (id) => api.delete(`/employees/${id}`),
+  delete:       (id)   => api.delete(`/employees/${id}`),
+  getLocations: ()     => api.get('/employees/locations'),
 };

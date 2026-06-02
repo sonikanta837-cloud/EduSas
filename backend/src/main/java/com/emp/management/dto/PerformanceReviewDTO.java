@@ -18,6 +18,7 @@ public class PerformanceReviewDTO {
     private String employeeName;
     private Long reviewerId;
     private String reviewerName;
+    private String reviewerRole;
     private Integer rating;
     private String comments;
     private String strengths;

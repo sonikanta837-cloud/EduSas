@@ -776,8 +776,8 @@ const TimesheetTab = ({ employees, user }) => {
 // ── PerformanceTab ────────────────────────────────────────────────────────────
 const scoreColor = (s) => (s >= 4 ? 'success' : s >= 3 ? 'warning' : 'error');
 
-// Build all quarter labels for the last 2 years up to current quarter
-const buildAllQuarters = () => {
+// Build base quarter labels for the last 2 years up to current quarter
+const buildBaseQuarters = () => {
   const now  = new Date();
   const yr   = now.getFullYear();
   const curQ = Math.ceil((now.getMonth() + 1) / 3);
@@ -789,14 +789,24 @@ const buildAllQuarters = () => {
   return list; // oldest → newest
 };
 
+const sortQuarters = (arr) =>
+  [...arr].sort((a, b) => {
+    const [qa, ya] = a.split(' ');
+    const [qb, yb] = b.split(' ');
+    const yd = parseInt(ya) - parseInt(yb);
+    return yd !== 0 ? yd : parseInt(qa.slice(1)) - parseInt(qb.slice(1));
+  });
+
 const PerformanceTab = ({ employees }) => {
-  const allQuarters = useMemo(() => buildAllQuarters(), []);
-  const [qIdx,     setQIdx]     = useState(allQuarters.length - 1); // default = current quarter
-  const [data,     setData]     = useState([]);
-  const [loading,  setLoading]  = useState(false);
-  const [loaded,   setLoaded]   = useState(false);
-  const [perfPage, setPerfPage] = useState(0);
-  const [perfRpp,  setPerfRpp]  = useState(10);
+  const baseQuarters = useMemo(() => buildBaseQuarters(), []);
+  const currentQ     = baseQuarters[baseQuarters.length - 1];
+
+  const [selectedQ, setSelectedQ] = useState(currentQ);
+  const [data,      setData]      = useState([]);
+  const [loading,   setLoading]   = useState(false);
+  const [loaded,    setLoaded]    = useState(false);
+  const [perfPage,  setPerfPage]  = useState(0);
+  const [perfRpp,   setPerfRpp]   = useState(10);
 
   useEffect(() => {
     if (loaded) return;
@@ -814,10 +824,23 @@ const PerformanceTab = ({ employees }) => {
     return () => window.removeEventListener('employee-updated', handler);
   }, []);
 
-  const selectedQ  = allQuarters[qIdx];
+  // Merge static range with any quarters that actually have reviews
+  const allQuarters = useMemo(() => {
+    const fromData = data.map(d => d.reviewPeriod).filter(Boolean);
+    return sortQuarters([...new Set([...baseQuarters, ...fromData])]);
+  }, [baseQuarters, data]);
+
+  // Keep selectedQ valid when allQuarters expands
+  useEffect(() => {
+    if (allQuarters.length > 0 && !allQuarters.includes(selectedQ)) {
+      setSelectedQ(allQuarters[allQuarters.length - 1]);
+    }
+  }, [allQuarters]); // eslint-disable-line
+
+  const qIdx       = allQuarters.indexOf(selectedQ);
   const activeEmps = useMemo(() => employees.filter((e) => e.active), [employees]);
 
-  useEffect(() => { setPerfPage(0); }, [qIdx]);
+  useEffect(() => { setPerfPage(0); }, [selectedQ]);
 
   // Count how many employees have a review for the selected quarter
   const reviewedCount = useMemo(
@@ -839,8 +862,8 @@ const PerformanceTab = ({ employees }) => {
           <Stack direction="row" spacing={1} alignItems="center">
             <Tooltip title="Previous quarter">
               <span>
-                <IconButton size="small" onClick={() => setQIdx((p) => p - 1)}
-                  disabled={qIdx === 0} sx={{ bgcolor: '#f1f5f9' }}>
+                <IconButton size="small" onClick={() => setSelectedQ(allQuarters[qIdx - 1])}
+                  disabled={qIdx <= 0} sx={{ bgcolor: '#f1f5f9' }}>
                   <NavigateBeforeIcon />
                 </IconButton>
               </span>
@@ -848,23 +871,23 @@ const PerformanceTab = ({ employees }) => {
 
             {/* Quarter pills */}
             <Stack direction="row" spacing={1} sx={{ flex: 1, justifyContent: 'center' }} flexWrap="wrap">
-              {allQuarters.map((q, i) => (
+              {allQuarters.map((q) => (
                 <Chip
                   key={q}
                   label={q}
                   size="small"
-                  onClick={() => setQIdx(i)}
-                  color={i === qIdx ? 'primary' : 'default'}
-                  variant={i === qIdx ? 'filled' : 'outlined'}
-                  sx={{ cursor: 'pointer', fontWeight: i === qIdx ? 700 : 400, fontSize: 12 }}
+                  onClick={() => setSelectedQ(q)}
+                  color={q === selectedQ ? 'primary' : 'default'}
+                  variant={q === selectedQ ? 'filled' : 'outlined'}
+                  sx={{ cursor: 'pointer', fontWeight: q === selectedQ ? 700 : 400, fontSize: 12 }}
                 />
               ))}
             </Stack>
 
             <Tooltip title="Next quarter">
               <span>
-                <IconButton size="small" onClick={() => setQIdx((p) => p + 1)}
-                  disabled={qIdx === allQuarters.length - 1} sx={{ bgcolor: '#f1f5f9' }}>
+                <IconButton size="small" onClick={() => setSelectedQ(allQuarters[qIdx + 1])}
+                  disabled={qIdx >= allQuarters.length - 1} sx={{ bgcolor: '#f1f5f9' }}>
                   <NavigateNextIcon />
                 </IconButton>
               </span>

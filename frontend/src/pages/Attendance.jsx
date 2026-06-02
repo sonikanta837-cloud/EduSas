@@ -133,12 +133,17 @@ const DayCard = ({ date, sessions, isToday, liveSec, storedHours, holidayName })
     statusChip = null;
   } else if (!isPresent) {
     statusChip = <Chip label="Absent" size="small" sx={{ bgcolor: '#fee2e2', color: '#dc2626', height: 20, fontSize: '0.65rem' }} />;
-  } else if (openSession) {
+  } else if (openSession && isToday) {
     statusChip = <Chip label="In Progress" size="small" color="success" sx={{ height: 20, fontSize: '0.65rem' }} />;
+  } else if (openSession) {
+    // Past date with a session that was never closed
+    statusChip = <Chip label="Pending Logout" size="small" sx={{ bgcolor: '#fff7ed', color: '#c2410c', height: 20, fontSize: '0.65rem', fontWeight: 600 }} />;
   } else {
     const hrs = totalHours || 0;
+    const isPast = !isToday && !isFuture;
+    const label = hrs > 8 ? 'Overtime' : isPast ? 'Completed' : 'Present';
     statusChip = (
-      <Chip label={hrs > 8 ? 'Overtime' : 'Present'} size="small"
+      <Chip label={label} size="small"
         sx={{ bgcolor: hrs > 8 ? '#fee2e2' : '#dcfce7', color: hrs > 8 ? '#dc2626' : '#16a34a', height: 20, fontSize: '0.65rem' }} />
     );
   }

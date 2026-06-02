@@ -64,6 +64,22 @@ public class PerformanceService {
     }
 
     @Transactional
+    public PerformanceReviewDTO updateReview(Long id, PerformanceReviewDTO dto) {
+        if (dto.getRating() < 1 || dto.getRating() > 5) {
+            throw new BadRequestException("Rating must be between 1 and 5");
+        }
+        PerformanceReview review = reviewRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("PerformanceReview", id));
+        review.setRating(dto.getRating());
+        review.setComments(dto.getComments());
+        review.setStrengths(dto.getStrengths());
+        review.setAreasOfImprovement(dto.getAreasOfImprovement());
+        review.setReviewDate(dto.getReviewDate());
+        review.setReviewPeriod(dto.getReviewPeriod());
+        return toDTO(reviewRepository.save(review));
+    }
+
+    @Transactional
     public void deleteReview(Long id) {
         PerformanceReview review = reviewRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("PerformanceReview", id));
@@ -82,6 +98,7 @@ public class PerformanceService {
                 .employeeName(r.getEmployee().getFullName())
                 .reviewerId(r.getReviewer().getId())
                 .reviewerName(r.getReviewer().getFullName())
+                .reviewerRole(r.getReviewer().getUser() != null ? r.getReviewer().getUser().getRole().name() : null)
                 .rating(r.getRating())
                 .comments(r.getComments())
                 .strengths(r.getStrengths())

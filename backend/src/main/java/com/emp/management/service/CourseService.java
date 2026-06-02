@@ -34,6 +34,7 @@ public class CourseService {
     private final EmployeeDetailsRepository employeeDetailsRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+    private final CourseNotificationService courseNotificationService;
 
     @Transactional(readOnly = true)
     public List<CourseLearnerDTO> getLearners(Long courseId) {
@@ -121,10 +122,14 @@ public class CourseService {
         Course course = findCourse(courseId);
         enrollmentRepository.save(Enrollment.builder()
                 .employee(employee).course(course).status(EnrollmentStatus.ENROLLED).build());
+        courseNotificationService.createNotification(employee, course);
     }
 
     @Transactional
     public void assignCourse(Long courseId, Long employeeId, boolean assignAll) {
+        if (!assignAll && employeeId == null) {
+            throw new BadRequestException("Employee ID is required when not assigning to all employees");
+        }
         Course course = findCourse(courseId);
         List<EmployeeDetails> targets = assignAll
                 ? employeeDetailsRepository.findByActive(true)
@@ -135,6 +140,7 @@ public class CourseService {
             if (!enrollmentRepository.existsByEmployeeIdAndCourseId(emp.getId(), courseId)) {
                 enrollmentRepository.save(Enrollment.builder()
                         .employee(emp).course(course).status(EnrollmentStatus.ENROLLED).build());
+                courseNotificationService.createNotification(emp, course);
             }
         }
     }

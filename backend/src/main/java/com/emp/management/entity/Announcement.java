@@ -30,6 +30,18 @@ public class Announcement {
     @Column(nullable = false)
     private boolean pinned;
 
+    private String location;
+
+    private String category;
+
+    private String priority;
+
+    @Column(nullable = false)
+    private int viewCount;
+
+    @Column(nullable = false)
+    private boolean archived;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;

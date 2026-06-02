@@ -23,6 +23,7 @@ public class EmployeeDTO {
     private String employeeCode;
     private String phone;
     private String personalEmail;
+    private String workEmail;
     private String department;
     private String position;
 

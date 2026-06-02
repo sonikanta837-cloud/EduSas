@@ -29,13 +29,12 @@ public class PerformanceController {
     }
 
     @GetMapping("/reviewer/{reviewerId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER')")
     public ResponseEntity<List<PerformanceReviewDTO>> getReviewsByReviewer(@PathVariable Long reviewerId) {
         return ResponseEntity.ok(performanceService.getReviewsByReviewer(reviewerId));
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER')")
     public ResponseEntity<List<PerformanceReviewDTO>> getAllReviews() {
         return ResponseEntity.ok(performanceService.getAllReviews());
     }
@@ -44,6 +43,12 @@ public class PerformanceController {
     public ResponseEntity<Map<String, Object>> getAverageRating(@PathVariable Long employeeId) {
         Double avg = performanceService.getAverageRating(employeeId);
         return ResponseEntity.ok(Map.of("employeeId", employeeId, "averageRating", avg != null ? avg : 0.0));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER')")
+    public ResponseEntity<PerformanceReviewDTO> updateReview(@PathVariable Long id, @RequestBody PerformanceReviewDTO dto) {
+        return ResponseEntity.ok(performanceService.updateReview(id, dto));
     }
 
     @DeleteMapping("/{id}")

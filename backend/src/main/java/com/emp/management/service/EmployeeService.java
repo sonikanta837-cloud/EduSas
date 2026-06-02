@@ -124,6 +124,7 @@ public class EmployeeService {
                 .employeeCode(empCode)
                 .phone(request.getPhone())
                 .personalEmail(request.getPersonalEmail())
+                .workEmail(request.getWorkEmail())
                 .department(request.getDepartment())
                 .position(request.getPosition())
                 .employmentType(request.getEmploymentType())
@@ -191,6 +192,13 @@ public class EmployeeService {
             }
             user.setEmail(dto.getEmail());
         }
+        if (dto.getWorkEmail() != null && !dto.getWorkEmail().isBlank()
+                && !dto.getWorkEmail().equalsIgnoreCase(user.getEmail())) {
+            if (userRepository.existsByEmail(dto.getWorkEmail())) {
+                throw new BadRequestException("Work email is already in use: " + dto.getWorkEmail());
+            }
+            user.setEmail(dto.getWorkEmail());
+        }
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
             user.setPassword(passwordEncoder.encode(dto.getPassword()));
         }
@@ -202,6 +210,7 @@ public class EmployeeService {
         emp.setEmployeeCode(dto.getEmployeeCode());
         emp.setPhone(dto.getPhone());
         emp.setPersonalEmail(dto.getPersonalEmail());
+        emp.setWorkEmail(dto.getWorkEmail());
         emp.setDepartment(dto.getDepartment());
         emp.setPosition(dto.getPosition());
         emp.setEmploymentType(dto.getEmploymentType());
@@ -363,6 +372,7 @@ public class EmployeeService {
                 .employeeCode(emp.getEmployeeCode())
                 .phone(emp.getPhone())
                 .personalEmail(emp.getPersonalEmail())
+                .workEmail(emp.getWorkEmail())
                 .department(emp.getDepartment())
                 .position(emp.getPosition())
                 .employmentType(emp.getEmploymentType())
@@ -398,5 +408,9 @@ public class EmployeeService {
                 .createdAt(emp.getCreatedAt())
                 .updatedAt(emp.getUpdatedAt())
                 .build();
+    }
+
+    public List<String> getDistinctLocations() {
+        return employeeDetailsRepository.findDistinctLocations();
     }
 }

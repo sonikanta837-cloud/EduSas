@@ -102,6 +102,7 @@ const CoursesPage = () => {
   const [assignTarget, setAssignTarget] = useState(null);
   const [assignAll, setAssignAll] = useState(false);
   const [enrolledIds, setEnrolledIds] = useState([]);
+  const [assigning, setAssigning] = useState(false);
 
   // Exam creation dialog
   const [examCreateCourse, setExamCreateCourse] = useState(null);
@@ -323,6 +324,7 @@ const CoursesPage = () => {
     setAssignCourse(course);
     setAssignTarget(null);
     setAssignAll(false);
+    setEnrolledIds([]);
     try {
       const ids = await courseApi.getEnrolledEmployeeIds(course.id);
       setEnrolledIds(ids);
@@ -332,6 +334,7 @@ const CoursesPage = () => {
   };
 
   const handleAssign = async () => {
+    setAssigning(true);
     try {
       await courseApi.assign(assignCourse.id, assignTarget?.id ?? null, assignAll);
       toast.success(assignAll ? 'Assigned to all employees!' : `Assigned to ${assignTarget?.firstName} ${assignTarget?.lastName}!`);
@@ -339,6 +342,8 @@ const CoursesPage = () => {
       await refresh();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to assign');
+    } finally {
+      setAssigning(false);
     }
   };
 
@@ -1067,9 +1072,9 @@ const CoursesPage = () => {
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setAssignCourse(null)}>Cancel</Button>
           <Button variant="contained" onClick={handleAssign}
-            disabled={!assignAll && !assignTarget}
+            disabled={assigning || (!assignAll && !assignTarget)}
             sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' } }}>
-            Assign
+            {assigning ? 'Assigning…' : 'Assign'}
           </Button>
         </DialogActions>
       </Dialog>

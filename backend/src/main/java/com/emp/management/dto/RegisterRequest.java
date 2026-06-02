@@ -24,6 +24,7 @@ public class RegisterRequest {
     private String employeeCode;
     private String phone;
     private String personalEmail;
+    private String workEmail;
     private String department;
     private String position;
     private String employmentType;

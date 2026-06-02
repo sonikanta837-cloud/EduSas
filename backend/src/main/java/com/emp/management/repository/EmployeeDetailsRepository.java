@@ -22,6 +22,9 @@ public interface EmployeeDetailsRepository extends JpaRepository<EmployeeDetails
     List<EmployeeDetails> findByDepartment(String department);
     List<EmployeeDetails> findByActive(boolean active);
 
+    @Query("SELECT DISTINCT e.seatingLocation FROM EmployeeDetails e WHERE e.seatingLocation IS NOT NULL AND e.seatingLocation != '' ORDER BY e.seatingLocation ASC")
+    List<String> findDistinctLocations();
+
     List<EmployeeDetails> findByManagerIsNullAndActiveTrue();
 
     @Query("SELECT e FROM EmployeeDetails e WHERE e.user.role = com.emp.management.entity.Role.ADMIN AND e.active = true ORDER BY e.id ASC")

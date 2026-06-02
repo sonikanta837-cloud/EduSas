@@ -534,6 +534,7 @@ const ProfilePage = () => {
                   <Grid container spacing={1}>
                     {[
                       ['Email', user?.email],
+                      ['Work Email', employee?.workEmail],
                       ['Phone', employee?.phone],
                       ['Date of Birth', employee?.dateOfBirth],
                       ['Location', employee?.location || employee?.address],

@@ -14,5 +14,12 @@ public class AnnouncementDTO {
     private String body;
     private String authorName;
     private boolean pinned;
+    private String location;
+    private String category;
+    private String priority;
+    private boolean archived;
+    private boolean readByCurrentUser;
+    private int viewedByCount;
+    private int totalActiveEmployees;
     private LocalDateTime createdAt;
 }

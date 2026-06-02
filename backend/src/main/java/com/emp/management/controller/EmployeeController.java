@@ -84,6 +84,11 @@ public class EmployeeController {
         return ResponseEntity.ok("Manager cleared");
     }
 
+    @GetMapping("/locations")
+    public ResponseEntity<List<String>> getLocations() {
+        return ResponseEntity.ok(employeeService.getDistinctLocations());
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> deleteEmployee(@PathVariable Long id) {

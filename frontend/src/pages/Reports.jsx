@@ -202,16 +202,11 @@ const ReportsPage = () => {
   const [filterMgr,      setFilterMgr]      = useState('ALL');
   const [filterLoc,      setFilterLoc]      = useState('ALL');
 
-  // Work Report state
-  const todayStr   = new Date().toISOString().slice(0, 10);
-  const weekAgoStr = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
-  const [wrStartDate,  setWrStartDate]  = useState(weekAgoStr);
-  const [wrEndDate,    setWrEndDate]    = useState(todayStr);
+  // Work Report state — always shows TODAY, no date picker
   const [wrData,       setWrData]       = useState([]);
   const [wrLoading,    setWrLoading]    = useState(false);
   const [wrDeptFilter, setWrDeptFilter] = useState('ALL');
-  const [wrEmpFilter,  setWrEmpFilter]  = useState('ALL');
-  const [wrProjFilter, setWrProjFilter] = useState('ALL');
+  const [wrLocFilter,  setWrLocFilter]  = useState('ALL');
 
   // Summary-specific filters
   const [sumDept,        setSumDept]        = useState('ALL');
@@ -223,7 +218,18 @@ const ReportsPage = () => {
 
   // ── Load data ───────────────────────────────────────────────────────────────
   const loadReport = async (type) => {
-    if (type === 'daily-work-report') return; // loaded on demand
+    if (type === 'daily-work-report') {
+      // Auto-load today's data immediately
+      const today = new Date().toISOString().slice(0, 10);
+      setWrLoading(true);
+      try {
+        const result = await timesheetEntryApi.getWorkReport(today, today);
+        setWrData(Array.isArray(result) ? result : []);
+        setWrDeptFilter('ALL'); setWrLocFilter('ALL'); setPage(0);
+      } catch { toast.error('Failed to load work report'); }
+      finally { setWrLoading(false); }
+      return;
+    }
     setLoading(true);
     try {
       if (type === 'employee-summary') {
@@ -251,19 +257,6 @@ const ReportsPage = () => {
     }
   };
 
-  const loadWorkReport = async () => {
-    setWrLoading(true);
-    try {
-      const result = await timesheetEntryApi.getWorkReport(wrStartDate, wrEndDate);
-      setWrData(Array.isArray(result) ? result : []);
-      setWrDeptFilter('ALL'); setWrEmpFilter('ALL'); setWrProjFilter('ALL');
-      setPage(0);
-    } catch {
-      toast.error('Failed to load work report');
-    } finally {
-      setWrLoading(false);
-    }
-  };
 
   useEffect(() => { loadReport(reportType); setPage(0); }, [reportType]); // eslint-disable-line
 
@@ -361,8 +354,26 @@ const ReportsPage = () => {
     return true;
   }), [summaryRows, sumDept, sumLoc, sumStatus, sumSearch]);
 
-  const displayRows = reportType === 'monthly-leaves'   ? monthlyLeaves
-                    : reportType === 'employee-summary' ? filteredSummary
+  // ── Work Report filtered data ────────────────────────────────────────────────
+  const wrDeptOptions = useMemo(() =>
+    ['ALL', ...new Set(wrData.map(r => r.department).filter(Boolean))], [wrData]);
+  const wrLocOptions  = useMemo(() =>
+    ['ALL', ...new Set(wrData.map(r => r.location).filter(Boolean))], [wrData]);
+
+  const filteredWrData = useMemo(() => wrData.filter(r => {
+    if (wrDeptFilter !== 'ALL' && r.department !== wrDeptFilter) return false;
+    if (wrLocFilter  !== 'ALL' && r.location   !== wrLocFilter)  return false;
+    return true;
+  }), [wrData, wrDeptFilter, wrLocFilter]);
+
+  // Total hours summary for work report
+  const wrTotalHours = useMemo(() =>
+    filteredWrData.reduce((s, r) => s + (r.hours || 0), 0).toFixed(1),
+    [filteredWrData]);
+
+  const displayRows = reportType === 'monthly-leaves'    ? monthlyLeaves
+                    : reportType === 'employee-summary'  ? filteredSummary
+                    : reportType === 'daily-work-report' ? filteredWrData
                     : data;
 
   const pageRows = displayRows.slice(page * rpp, (page + 1) * rpp);
@@ -592,27 +603,83 @@ const ReportsPage = () => {
     </Table>
   );
 
+  const renderWorkReport = () => (
+    <Table size="small">
+      <TableHead>
+        <TableRow>
+          {['#','Employee','Department','Manager','Date','Project','Task','Hours'].map(h => (
+            <TableCell key={h} sx={hdr}>{h}</TableCell>
+          ))}
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {wrLoading ? (
+          <TableRow>
+            <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+              <CircularProgress size={24} />
+            </TableCell>
+          </TableRow>
+        ) : pageRows.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+              {wrData.length === 0
+                ? 'No timesheet entries found for today'
+                : 'No entries match the selected filters'}
+            </TableCell>
+          </TableRow>
+        ) : pageRows.map((r, i) => (
+          <TableRow key={r.entryId} hover sx={{ bgcolor: (page * rpp + i) % 2 === 0 ? 'white' : '#f8fafc' }}>
+            <TableCell sx={{ ...cell, color: '#94a3b8', fontSize: 11 }}>{page * rpp + i + 1}</TableCell>
+            <TableCell sx={cell}>
+              <Typography sx={{ fontSize: 13, fontWeight: 600, lineHeight: 1.2 }}>{r.employeeName}</Typography>
+              <Typography sx={{ fontSize: 10.5, color: '#94a3b8' }}>{r.employeeCode}</Typography>
+            </TableCell>
+            <TableCell sx={cell}>{r.department}</TableCell>
+            <TableCell sx={cell}>{r.managerName}</TableCell>
+            <TableCell sx={{ ...cell, whiteSpace: 'nowrap' }}>{r.date}</TableCell>
+            <TableCell sx={cell}>
+              <Chip label={r.projectName} size="small"
+                sx={{ fontSize: 11, bgcolor: '#eff6ff', color: '#1d4ed8', fontWeight: 600 }} />
+            </TableCell>
+            <TableCell sx={{ ...cell, color: '#64748b' }}>{r.taskName}</TableCell>
+            <TableCell sx={cell}>
+              <Box sx={{ display: 'inline-flex', px: 1.2, py: 0.3, borderRadius: 1,
+                bgcolor: r.hours >= 8 ? '#d1fae5' : r.hours >= 4 ? '#fef9c3' : '#fee2e2',
+                color:  r.hours >= 8 ? '#065f46' : r.hours >= 4 ? '#92400e' : '#991b1b',
+                fontWeight: 700, fontSize: 12 }}>
+                {r.hours}h
+              </Box>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+
   const renderTable = () => {
     switch (reportType) {
-      case 'employee-summary': return renderEmployeeSummary();
-      case 'monthly-leaves':   return renderMonthlyLeaves();
-      case 'employees':        return renderEmployees();
-      case 'leaves':           return renderLeaves();
-      case 'performance':      return renderPerformance();
-      default:                 return null;
+      case 'employee-summary':  return renderEmployeeSummary();
+      case 'monthly-leaves':    return renderMonthlyLeaves();
+      case 'employees':         return renderEmployees();
+      case 'leaves':            return renderLeaves();
+      case 'performance':       return renderPerformance();
+      case 'daily-work-report': return renderWorkReport();
+      default:                  return null;
     }
   };
 
   const reportLabel = {
-    'employee-summary': 'Monthly Leave Report',
-    'monthly-leaves':   'Monthly Leave Report',
-    'employees':        'Employee Report',
-    'leaves':           'All Leave Report',
-    'performance':      'Performance Report',
+    'employee-summary':  'Monthly Employee Summary',
+    'monthly-leaves':    'Monthly Leave Report',
+    'employees':         'Employee Report',
+    'leaves':            'All Leave Report',
+    'performance':       'Performance Report',
+    'daily-work-report': 'Daily Work Report',
   }[reportType];
 
-  const isSummary = reportType === 'employee-summary';
-  const isLeave   = reportType === 'monthly-leaves';
+  const isSummary    = reportType === 'employee-summary';
+  const isLeave      = reportType === 'monthly-leaves';
+  const isWorkReport = reportType === 'daily-work-report';
 
   return (
     <Box>
@@ -623,16 +690,22 @@ const ReportsPage = () => {
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5 }}>
           <Button variant="contained" startIcon={<TableChartIcon />}
-            onClick={() => isSummary ? exportSummaryExcel(summaryRows, selLabel) : exportLeaveExcel(monthlyLeaves, selLabel)}
+            onClick={() => {
+              if (isWorkReport) exportWorkReportExcel(filteredWrData, new Date().toISOString().slice(0,10), new Date().toISOString().slice(0,10));
+              else if (isSummary) exportSummaryExcel(summaryRows, selLabel);
+              else exportLeaveExcel(monthlyLeaves, selLabel);
+            }}
             disabled={!displayRows.length}
             sx={{ borderRadius: '10px', fontWeight: 600, fontSize: 13 }}>
             Export Excel
           </Button>
-          <Button variant="outlined" startIcon={<DownloadIcon />}
-            onClick={() => window.print()}
-            sx={{ borderRadius: '10px', fontWeight: 600, fontSize: 13 }}>
-            Download PDF
-          </Button>
+          {!isWorkReport && (
+            <Button variant="outlined" startIcon={<DownloadIcon />}
+              onClick={() => window.print()}
+              sx={{ borderRadius: '10px', fontWeight: 600, fontSize: 13 }}>
+              Download PDF
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -641,7 +714,49 @@ const ReportsPage = () => {
         <CardContent>
           <Grid container spacing={2} alignItems="center">
 
+            {/* Report type selector */}
+            <Grid item xs={12} sm={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Report Type</InputLabel>
+                <Select value={reportType} label="Report Type"
+                  onChange={(e) => { setReportType(e.target.value); setPage(0); }}>
+                  <MenuItem value="employee-summary">Monthly Employee Summary</MenuItem>
+                  <MenuItem value="monthly-leaves">Monthly Leave Report</MenuItem>
+                  <MenuItem value="employees">All Employees</MenuItem>
+                  <MenuItem value="leaves">All Leave Report</MenuItem>
+                  <MenuItem value="performance">Performance Report</MenuItem>
+                  <MenuItem value="daily-work-report">Daily Work Report</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
 
+            {/* Work Report filters — Department + Location only, auto-loads today */}
+            {isWorkReport && (
+              <>
+                <Grid item xs={12} sm={2}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Department</InputLabel>
+                    <Select value={wrDeptFilter} label="Department"
+                      onChange={(e) => { setWrDeptFilter(e.target.value); setPage(0); }}>
+                      {wrDeptOptions.map(d => (
+                        <MenuItem key={d} value={d}>{d === 'ALL' ? 'All Departments' : d}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={2}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Location</InputLabel>
+                    <Select value={wrLocFilter} label="Location"
+                      onChange={(e) => { setWrLocFilter(e.target.value); setPage(0); }}>
+                      {wrLocOptions.map(l => (
+                        <MenuItem key={l} value={l}>{l === 'ALL' ? 'All Locations' : l}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </>
+            )}
 
             {/* Month picker (summary + monthly-leaves) */}
             {(isSummary || isLeave) && (
@@ -749,7 +864,7 @@ const ReportsPage = () => {
               </>
             )}
 
-            {!isSummary && !isLeave && (
+            {!isSummary && !isLeave && !isWorkReport && (
               <Grid item sx={{ ml: 'auto' }}>
                 <Button variant="outlined" startIcon={<DownloadIcon />}
                   onClick={exportCSV} disabled={displayRows.length === 0}>
@@ -777,6 +892,23 @@ const ReportsPage = () => {
                     </Box>
                   )}
                 </Typography>
+              )}
+              {isWorkReport && (
+                <Box sx={{ display: 'flex', gap: 2, mt: 0.5, alignItems: 'center' }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+                  </Typography>
+                  {wrLoading
+                    ? <CircularProgress size={14} />
+                    : <>
+                        <Chip label={`${filteredWrData.length} entries`} size="small" color="primary" variant="outlined" />
+                        <Chip label={`${wrTotalHours} total hrs`} size="small"
+                          sx={{ bgcolor: '#d1fae5', color: '#065f46', fontWeight: 700 }} />
+                        <Chip label={`${new Set(filteredWrData.map(r => r.projectName)).size} projects`} size="small"
+                          sx={{ bgcolor: '#eff6ff', color: '#1d4ed8', fontWeight: 700 }} />
+                      </>
+                  }
+                </Box>
               )}
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>

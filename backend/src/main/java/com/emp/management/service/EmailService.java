@@ -38,12 +38,14 @@ public class EmailService {
         }
     }
 
-    public void sendLeaveRequestEmail(String to, String employeeEmail, String employeeName,
-                                      String leaveType, LocalDate startDate, LocalDate endDate,
+    public void sendLeaveRequestEmail(String to, String[] cc, String employeeEmail,
+                                      String employeeName, String leaveType,
+                                      LocalDate startDate, LocalDate endDate,
                                       int totalDays, String reason) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(to);
+            if (cc != null && cc.length > 0) message.setCc(cc);
             message.setSubject("Leave Request - " + employeeName);
             message.setText(
                 "New Leave Request\n\n" +
@@ -57,22 +59,25 @@ public class EmailService {
                 "EmpSAS Team"
             );
             mailSender.send(message);
-            log.info("Leave request email sent to {} for employee {}", to, employeeName);
+            log.info("Leave request email sent to {} (cc: {}) for employee {}", to, Arrays.toString(cc), employeeName);
         } catch (Exception e) {
             log.error("Failed to send leave request email to {}: {}", to, e.getMessage());
         }
     }
 
-    public void sendLeaveDecisionEmail(String to, String employeeName, String status,
-                                       String leaveType, LocalDate startDate, LocalDate endDate,
+    public void sendLeaveDecisionEmail(String to, String[] cc, String employeeName,
+                                       String status, String leaveType,
+                                       LocalDate startDate, LocalDate endDate,
                                        String managerName, String comment) {
         try {
             boolean approved = "APPROVED".equalsIgnoreCase(status);
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(to);
+            if (cc != null && cc.length > 0) message.setCc(cc);
             message.setSubject("Leave Request " + (approved ? "Approved" : "Rejected") + " - EmpSAS");
             message.setText(
                 "Leave Request Update\n\n" +
+                "Dear " + employeeName + ",\n\n" +
                 "Your leave request has been " + status + ".\n\n" +
                 "Leave Type: " + leaveType + "\n" +
                 "From      : " + startDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy")) + "\n" +
@@ -82,7 +87,7 @@ public class EmailService {
                 "\nEmpSAS Team"
             );
             mailSender.send(message);
-            log.info("Leave decision email sent to {} — status: {}", to, status);
+            log.info("Leave decision email sent to {} (cc: {}) — status: {}", to, Arrays.toString(cc), status);
         } catch (Exception e) {
             log.error("Failed to send leave decision email to {}: {}", to, e.getMessage());
         }
@@ -115,6 +120,44 @@ public class EmailService {
             log.info("Timesheet reminder sent to {} for date {}", employeeEmail, missingDate);
         } catch (Exception e) {
             log.error("Failed to send timesheet reminder to {}: {}", employeeEmail, e.getMessage());
+        }
+    }
+
+    public void sendAttendanceAuditAlert(String to, String[] cc,
+                                         String employeeName, String employeeCode,
+                                         String department, String employeeEmail,
+                                         LocalDate date, double workedHours,
+                                         double requiredHours, double deficitHours) {
+        try {
+            String dateStr = date.format(DateTimeFormatter.ofPattern("EEEE, dd MMMM yyyy"));
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(to);
+            if (cc != null && cc.length > 0) message.setCc(cc);
+            message.setSubject("Attendance Audit Alert – " + employeeName
+                    + " – " + date.format(DateTimeFormatter.ofPattern("dd MMM yyyy")));
+            message.setText(
+                "Attendance Audit Notification\n\n" +
+                "The following employee worked below the required hours on " + dateStr + ".\n\n" +
+                "Employee Details\n" +
+                "─────────────────────────────────────\n" +
+                "  Name          : " + employeeName + "\n" +
+                "  Employee Code : " + (employeeCode != null ? employeeCode : "—") + "\n" +
+                "  Department    : " + (department != null ? department : "—") + "\n" +
+                "  Email         : " + employeeEmail + "\n\n" +
+                "Attendance Summary\n" +
+                "─────────────────────────────────────\n" +
+                "  Date           : " + dateStr + "\n" +
+                String.format("  Worked Hours   : %.2f hrs%n", workedHours) +
+                String.format("  Required Hours : %.2f hrs%n", requiredHours) +
+                String.format("  Deficit        : %.2f hrs%n%n", deficitHours) +
+                "Please review and take appropriate action if required.\n\n" +
+                "EmpSAS Team"
+            );
+            mailSender.send(message);
+            log.info("Attendance audit alert sent to {} (cc: {}) for {} on {}",
+                    to, Arrays.toString(cc), employeeName, date);
+        } catch (Exception e) {
+            log.error("Failed to send attendance audit alert for {} on {}: {}", employeeName, date, e.getMessage());
         }
     }
 

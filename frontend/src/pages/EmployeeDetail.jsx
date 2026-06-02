@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { setUser } from '../store/authSlice';
+import { setUser, logout } from '../store/authSlice';
 import {
   Box, Typography, Avatar, Chip, Button, CircularProgress,
   Tab, Tabs, Grid, Divider, TextField, Card, IconButton,
@@ -200,7 +200,7 @@ const EmployeeDetailPage = () => {
     setLoading(true);
     setAccessDenied(false);
     employeeApi.getById(id)
-      .then((emp) => { setEmployee(emp); setForm(emp); })
+      .then((emp) => { setEmployee(emp); setForm({ ...emp, workEmail: emp.workEmail || emp.email }); })
       .catch((err) => {
         if (err.response?.status === 403) {
           setAccessDenied(true);
@@ -275,11 +275,18 @@ const EmployeeDetailPage = () => {
 
       // If the saved employee is the logged-in user, sync Redux + localStorage
       if (user && updated.userId === user.userId) {
+        if (updated.email !== user.email) {
+          // Login email changed — JWT is now invalid, must re-authenticate
+          toast.info('Work email updated. Please log in again with your new email.', { autoClose: 5000 });
+          dispatch(logout());
+          navigate('/login');
+          return;
+        }
         const updatedUser = {
           ...user,
-          fullName:  updated.fullName,
-          email:     updated.email,
-          role:      updated.role,
+          fullName: updated.fullName,
+          email:    updated.email,
+          role:     updated.role,
         };
         dispatch(setUser(updatedUser));
         localStorage.setItem('user', JSON.stringify(updatedUser));
@@ -452,7 +459,7 @@ const EmployeeDetailPage = () => {
               {editing ? (
                 <>
                   <Button size="small" startIcon={<CancelIcon />}
-                    onClick={() => { setEditing(false); setForm(employee); }}
+                    onClick={() => { setEditing(false); setForm({ ...employee, workEmail: employee.workEmail || employee.email }); }}
                     sx={{ textTransform: 'none' }}>
                     Cancel
                   </Button>
@@ -524,7 +531,7 @@ const EmployeeDetailPage = () => {
                   {[
                     ['employeeCode','Employee ID / Code'], ['firstName','First Name'],
                     ['lastName','Last Name'], ['phone','Phone'],
-                    ['personalEmail','Personal Email'],
+                    ['workEmail','Work Email'], ['personalEmail','Personal Email'],
                   ].map(([f, l]) => (
                     <Grid item xs={12} sm={6} key={f}>
                       <TextField fullWidth size="small" label={l} value={form[f] || ''}
@@ -716,11 +723,11 @@ const EmployeeDetailPage = () => {
                   </Box>
                   <Grid container spacing={2}>
                     <Grid item xs={12} sm={6} md={4}>
-                      <InfoCard icon={<EmailIcon />}    label="Work Email" value={employee.email} />
+                      <InfoCard icon={<EmailIcon />} label="Work Email" value={employee.workEmail || employee.email} />
                     </Grid>
                     {employee.personalEmail && (
                       <Grid item xs={12} sm={6} md={4}>
-                        <InfoCard icon={<EmailIcon />}  label="Personal Email" value={employee.personalEmail} />
+                        <InfoCard icon={<EmailIcon />} label="Personal Email" value={employee.personalEmail} />
                       </Grid>
                     )}
                     <Grid item xs={12} sm={6} md={4}>

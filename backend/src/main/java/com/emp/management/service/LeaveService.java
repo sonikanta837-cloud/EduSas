@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.Arrays;
 
 @Service
@@ -72,11 +73,12 @@ public class LeaveService {
 
         createTimesheetLeaveEntries(employee, dto.getStartDate(), dto.getEndDate(), dto.getLeaveType());
 
-        // Notify manager (fall back to any admin if no manager assigned)
+        // Notify manager (To) + HR and Admin (CC)
         String managerEmail = resolveManagerEmail(employee);
         if (managerEmail != null) {
+            String[] cc = collectHrAdminEmails(managerEmail);
             emailService.sendLeaveRequestEmail(
-                managerEmail,
+                managerEmail, cc,
                 employee.getUser().getEmail(),
                 employee.getFullName(),
                 dto.getLeaveType(),
@@ -115,10 +117,11 @@ public class LeaveService {
 
         Leave saved = leaveRepository.save(leave);
 
-        // Notify employee of the decision
+        // Notify employee (To) of the decision; CC HR and Admin
         String employeeEmail = leave.getEmployee().getUser().getEmail();
+        String[] cc = collectHrAdminEmails(employeeEmail);
         emailService.sendLeaveDecisionEmail(
-            employeeEmail,
+            employeeEmail, cc,
             leave.getEmployee().getFullName(),
             status.name(),
             leave.getLeaveType(),
@@ -239,6 +242,17 @@ public class LeaveService {
             }
             current = current.plusDays(1);
         }
+    }
+
+    private String[] collectHrAdminEmails(String excludeEmail) {
+        return Stream.concat(
+                userRepository.findByRole(Role.HR).stream(),
+                userRepository.findByRole(Role.ADMIN).stream()
+        )
+        .map(User::getEmail)
+        .filter(e -> e != null && !e.equalsIgnoreCase(excludeEmail))
+        .distinct()
+        .toArray(String[]::new);
     }
 
     private String resolveManagerEmail(EmployeeDetails employee) {

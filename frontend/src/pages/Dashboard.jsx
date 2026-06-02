@@ -798,6 +798,7 @@ const HRDashboard = ({ stats, leaves, employees, navigate }) => {
    EMPLOYEE DASHBOARD
 ════════════════════════════════════════════════════ */
 const EmployeeDashboard = ({ empData, navigate }) => {
+  if (!empData) return null;
   const { leaves, courses, todayHours, certificates } = empData;
   const approved = leaves.filter(l => l.status === 'APPROVED').length;
   const pending  = leaves.filter(l => l.status === 'PENDING').length;
