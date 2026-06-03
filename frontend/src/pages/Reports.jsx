@@ -685,8 +685,8 @@ const ReportsPage = () => {
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography variant="h4" fontWeight={700}>Leave Reports</Typography>
-          <Typography variant="body2" color="text.secondary" mt={0.5}>Attendance and leave summary by month</Typography>
+          <Typography variant="h4" fontWeight={700}>Reports</Typography>
+          <Typography variant="body2" color="text.secondary" mt={0.5}>Employee Performance, Attendance, and Productivity Reports</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5 }}>
           <Button variant="contained" startIcon={<TableChartIcon />}

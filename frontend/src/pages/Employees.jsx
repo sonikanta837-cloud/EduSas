@@ -231,9 +231,9 @@ const ManageListDialog = ({ open, onClose, title, items, onAdd, onEdit, onDelete
 };
 
 // ── ManagedSelect ─────────────────────────────────────────────────────────────
-const ManagedSelect = ({ label, fieldKey, value, options, setter, onManage }) => (
+const ManagedSelect = ({ label, fieldKey, value, options, setter, onManage, highlightSx }) => (
   <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'flex-start' }}>
-    <FormControl size="small" fullWidth>
+    <FormControl size="small" fullWidth sx={highlightSx}>
       <InputLabel>{label}</InputLabel>
       <Select
         value={value || ''}
@@ -253,36 +253,72 @@ const ManagedSelect = ({ label, fieldKey, value, options, setter, onManage }) =>
   </Box>
 );
 
+// ── Field label map for the confidence banner ─────────────────────────────────
+const PARSE_FIELD_LABELS = {
+  firstName: 'First Name', lastName: 'Last Name', email: 'Work Email',
+  phone: 'Phone', personalEmail: 'Personal Email', position: 'Position',
+  totalExperience: 'Total Exp.', currentExperience: 'Current Exp.',
+  skills: 'Skills', experience: 'Work History', summary: 'Summary',
+  seatingLocation: 'Location', presentAddress: 'Address',
+  dateOfBirth: 'Date of Birth', gender: 'Gender', maritalStatus: 'Marital Status',
+  password: 'Password',
+};
+
 // ── EmployeeForm ──────────────────────────────────────────────────────────────
 const EmployeeForm = ({ values, setter, isEdit, employees,
-                        departments, positions, locations, onManage }) => {
+                        departments, positions, locations, onManage, parseResult }) => {
   const [tab,          setTab]          = useState(0);
   const [showPassword, setShowPassword] = useState(false);
 
-  const field = (key, label, opts = {}) => (
-    <TextField
-      label={label}
-      value={values[key] ?? ''}
-      size="small"
-      onChange={(e) => setter((f) => ({ ...f, [key]: e.target.value }))}
-      {...opts}
-    />
-  );
+  // Sets derived from parseResult for O(1) lookup
+  const parsedFieldsSet = useMemo(() => new Set(parseResult?.parsedFields || []), [parseResult]);
+  const reviewFieldsSet = useMemo(() => new Set(parseResult?.reviewFields  || []), [parseResult]);
 
-  const dateField = (key, label, opts = {}) => (
-    <TextField
-      label={label}
-      type="date"
-      value={fmtDate(values[key])}
-      size="small"
-      InputLabelProps={{ shrink: true }}
-      onChange={(e) => setter((f) => ({ ...f, [key]: e.target.value || null }))}
-      {...opts}
-    />
-  );
+  // Returns sx to apply a coloured border to a field based on parse outcome
+  const hSx = useCallback((key) => {
+    if (parsedFieldsSet.has(key)) return {
+      '& .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline': { borderColor: '#22c55e', borderWidth: 2 },
+      '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#16a34a' },
+    };
+    if (reviewFieldsSet.has(key)) return {
+      '& .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline': { borderColor: '#f59e0b', borderWidth: 2 },
+      '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#d97706' },
+    };
+    return {};
+  }, [parsedFieldsSet, reviewFieldsSet]);
+
+  const field = (key, label, opts = {}) => {
+    const { sx: optSx, ...rest } = opts;
+    return (
+      <TextField
+        label={label}
+        value={values[key] ?? ''}
+        size="small"
+        onChange={(e) => setter((f) => ({ ...f, [key]: e.target.value }))}
+        sx={{ ...hSx(key), ...optSx }}
+        {...rest}
+      />
+    );
+  };
+
+  const dateField = (key, label, opts = {}) => {
+    const { sx: optSx, ...rest } = opts;
+    return (
+      <TextField
+        label={label}
+        type="date"
+        value={fmtDate(values[key])}
+        size="small"
+        InputLabelProps={{ shrink: true }}
+        onChange={(e) => setter((f) => ({ ...f, [key]: e.target.value || null }))}
+        sx={{ ...hSx(key), ...optSx }}
+        {...rest}
+      />
+    );
+  };
 
   const selectField = (key, label, options) => (
-    <FormControl size="small" fullWidth>
+    <FormControl size="small" fullWidth sx={hSx(key)}>
       <InputLabel>{label}</InputLabel>
       <Select value={values[key] || ''} label={label}
         onChange={(e) => setter((f) => ({ ...f, [key]: e.target.value }))}>
@@ -293,9 +329,83 @@ const EmployeeForm = ({ values, setter, isEdit, employees,
   );
 
   const grid2 = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 1 };
+  const score = parseResult?.confidenceScore ?? 0;
+  const scoreColor  = score >= 70 ? '#166534' : score >= 40 ? '#92400e' : '#9f1239';
+  const scoreBg     = score >= 70 ? '#f0fdf4' : score >= 40 ? '#fffbeb' : '#fff1f2';
+  const scoreBorder = score >= 70 ? '#bbf7d0' : score >= 40 ? '#fde68a' : '#fecdd3';
+  const barColor    = score >= 70 ? '#22c55e' : score >= 40 ? '#f59e0b' : '#ef4444';
+  const scoreLabel  = score >= 70 ? 'High confidence' : score >= 40 ? 'Medium confidence' : 'Low confidence';
 
   return (
     <Box>
+      {/* ── Confidence banner (shown only after resume parse) ── */}
+      {parseResult && !isEdit && (
+        <Box sx={{ mb: 2, p: 2, borderRadius: 2, bgcolor: scoreBg, border: `1px solid ${scoreBorder}` }}>
+          {/* Header row */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.75 }}>
+            <Typography fontWeight={700} fontSize={13.5} color={scoreColor}>
+              Resume parsed — {score}% confidence
+            </Typography>
+            <Chip label={scoreLabel} size="small"
+              sx={{ bgcolor: scoreBorder, color: scoreColor, fontWeight: 700, fontSize: 11 }} />
+          </Box>
+
+          {/* Progress bar */}
+          <LinearProgress variant="determinate" value={score}
+            sx={{ height: 6, borderRadius: 3, bgcolor: scoreBorder,
+              '& .MuiLinearProgress-bar': { bgcolor: barColor, borderRadius: 3 } }} />
+
+          {/* Auto-filled chips */}
+          {parseResult.parsedFields?.length > 0 && (
+            <Box sx={{ mt: 1.25, display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
+              <Typography fontSize={11} color="text.secondary" fontWeight={600} sx={{ mr: 0.25 }}>
+                Auto-filled:
+              </Typography>
+              {parseResult.parsedFields.slice(0, 10).map((f) => (
+                <Chip key={f} label={PARSE_FIELD_LABELS[f] || f} size="small"
+                  sx={{ bgcolor: '#dcfce7', color: '#166534', fontSize: 10, height: 20,
+                    border: '1px solid #bbf7d0', fontWeight: 600 }} />
+              ))}
+              {parseResult.parsedFields.length > 10 && (
+                <Typography fontSize={10} color="text.secondary">
+                  +{parseResult.parsedFields.length - 10} more
+                </Typography>
+              )}
+            </Box>
+          )}
+
+          {/* Review messages */}
+          {parseResult.reviewMessages?.length > 0 && (
+            <Box sx={{ mt: 1.25, p: 1.25, borderRadius: 1.5,
+              bgcolor: '#fffbeb', border: '1px solid #fde68a' }}>
+              <Typography fontSize={11.5} fontWeight={700} color="#92400e" mb={0.5}>
+                Needs manual review:
+              </Typography>
+              {parseResult.reviewMessages.map((msg, i) => (
+                <Typography key={i} fontSize={11} color="#b45309"
+                  sx={{ display: 'flex', gap: 0.5, mb: 0.25 }}>
+                  · {msg}
+                </Typography>
+              ))}
+            </Box>
+          )}
+
+          {/* Legend */}
+          <Box sx={{ mt: 1, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            {[
+              { color: '#22c55e', label: 'Auto-filled from resume' },
+              { color: '#f59e0b', label: 'Requires manual entry' },
+            ].map(({ color, label }) => (
+              <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Box sx={{ width: 10, height: 10, borderRadius: '3px',
+                  border: `2px solid ${color}`, flexShrink: 0 }} />
+                <Typography fontSize={10} color="text.secondary">{label}</Typography>
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      )}
+
       <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto"
         sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
         <Tab label="Basic Info" />
@@ -308,12 +418,11 @@ const EmployeeForm = ({ values, setter, isEdit, employees,
 
       {tab === 0 && (
         <Box sx={grid2}>
-          {/* Hidden dummy inputs stop browsers from autofilling the real fields */}
-          <input type="text" style={{ display: 'none' }} autoComplete="username" readOnly />
+          <input type="text"     style={{ display: 'none' }} autoComplete="username"     readOnly />
           <input type="password" style={{ display: 'none' }} autoComplete="new-password" readOnly />
           {isEdit && field('employeeCode', 'Employee ID / Code', { sx: { gridColumn: 'span 2' } })}
           {field('firstName', 'First Name *')}
-          {field('lastName', 'Last Name *')}
+          {field('lastName',  'Last Name *')}
           {field('email', 'Work Email *', { sx: { gridColumn: 'span 2' }, inputProps: { autoComplete: 'off' } })}
           {!isEdit && (
             <TextField
@@ -322,6 +431,7 @@ const EmployeeForm = ({ values, setter, isEdit, employees,
               size="small"
               type={showPassword ? 'text' : 'password'}
               inputProps={{ autoComplete: 'new-password' }}
+              sx={hSx('password')}
               onChange={(e) => setter((f) => ({ ...f, password: e.target.value }))}
               InputProps={{
                 endAdornment: (
@@ -338,9 +448,9 @@ const EmployeeForm = ({ values, setter, isEdit, employees,
           {field('personalEmail', 'Personal Email')}
           {dateField('dateOfBirth', 'Date of Birth')}
           {isEdit && values.dateOfBirth && (
-            <TextField label="Age" size="small" value={
-              Math.floor((new Date() - new Date(values.dateOfBirth)) / (365.25 * 24 * 3600 * 1000))
-            } InputProps={{ readOnly: true }} />
+            <TextField label="Age" size="small"
+              value={Math.floor((new Date() - new Date(values.dateOfBirth)) / (365.25 * 24 * 3600 * 1000))}
+              InputProps={{ readOnly: true }} />
           )}
           {selectField('gender', 'Gender', GENDERS)}
           {selectField('maritalStatus', 'Marital Status', MARITAL_STATUSES)}
@@ -353,11 +463,13 @@ const EmployeeForm = ({ values, setter, isEdit, employees,
             label="Department" fieldKey="department"
             value={values.department} options={departments}
             setter={setter} onManage={() => onManage('dept')}
+            highlightSx={hSx('department')}
           />
           <ManagedSelect
             label="Position" fieldKey="position"
             value={values.position} options={positions}
             setter={setter} onManage={() => onManage('pos')}
+            highlightSx={hSx('position')}
           />
           {selectField('employmentType', 'Employment Type', EMPLOYMENT_TYPES)}
           {selectField('sourceOfHire',   'Source of Hire',  SOURCE_OF_HIRE)}
@@ -380,11 +492,10 @@ const EmployeeForm = ({ values, setter, isEdit, employees,
               onChange={(e) => setter((f) => ({ ...f, managerId: e.target.value }))}>
               <MenuItem value="">None</MenuItem>
               {employees
-                .filter((e) => e.active !== false && (e.role === 'MANAGER' || e.role === 'ASSISTANT_MANAGER' || e.role === 'ADMIN'))
+                .filter((e) => e.active !== false &&
+                  (e.role === 'MANAGER' || e.role === 'ASSISTANT_MANAGER' || e.role === 'ADMIN'))
                 .map((e) => (
-                  <MenuItem key={e.id} value={e.id}>
-                    {e.fullName} ({e.role})
-                  </MenuItem>
+                  <MenuItem key={e.id} value={e.id}>{e.fullName} ({e.role})</MenuItem>
                 ))}
             </Select>
           </FormControl>
@@ -400,10 +511,11 @@ const EmployeeForm = ({ values, setter, isEdit, employees,
               label="Location" fieldKey="seatingLocation"
               value={values.seatingLocation} options={locations}
               setter={setter} onManage={() => onManage('loc')}
+              highlightSx={hSx('seatingLocation')}
             />
           </Box>
           {field('skills',     'Skills',             { multiline: true, rows: 3, sx: { gridColumn: 'span 2' } })}
-          {field('experience', 'Experience Summary', { multiline: true, rows: 3, sx: { gridColumn: 'span 2' } })}
+          {field('experience', 'Experience Summary', { multiline: true, rows: 4, sx: { gridColumn: 'span 2' } })}
         </Box>
       )}
 
@@ -1491,6 +1603,7 @@ const EmployeesPage = () => {
   const [form,          setForm]          = useState(EMPTY_FORM);
   const [toggleTarget,  setToggleTarget]  = useState(null);
   const [resumeParsing, setResumeParsing] = useState(false);
+  const [parsedData,    setParsedData]    = useState(null);
   const [saving,        setSaving]        = useState(false);
 
   // ── Pagination ────────────────────────────────────────────────────────────
@@ -1568,12 +1681,17 @@ const EmployeesPage = () => {
 
   // ── Add ───────────────────────────────────────────────────────────────────
   const handleAdd = async () => {
+    if (!form.firstName?.trim()) { toast.error('First name is required'); return; }
+    if (!form.lastName?.trim())  { toast.error('Last name is required');  return; }
+    if (!form.email?.trim())     { toast.error('Work email is required'); return; }
+    if (!form.password?.trim())  { toast.error('Password is required — please set a login password'); return; }
     setSaving(true);
     try {
       await employeeApi.create({ ...form, managerId: form.managerId || null });
       toast.success('Employee added successfully');
       setAddOpen(false);
       setForm(EMPTY_FORM);
+      setParsedData(null);
       fetchEmployees();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to add employee');
@@ -1602,19 +1720,37 @@ const EmployeesPage = () => {
     setResumeParsing(true);
     try {
       const parsed = await resumeApi.parse(file);
+      // Password is never in a resume — always flag it for manual entry
+      setParsedData({
+        ...parsed,
+        reviewFields:   [...(parsed.reviewFields  || []), 'password'],
+        reviewMessages: [...(parsed.reviewMessages || []),
+          'Password is required — set a login password in Basic Info tab'],
+      });
       setForm({
         ...EMPTY_FORM,
-        firstName:  parsed.firstName  || '',
-        lastName:   parsed.lastName   || '',
-        email:      parsed.email      || '',
-        phone:      parsed.phone      || '',
-        skills:     parsed.skills     || '',
-        experience: parsed.experience || '',
+        firstName:         parsed.firstName         || '',
+        lastName:          parsed.lastName          || '',
+        email:             parsed.email             || '',
+        phone:             parsed.phone             || '',
+        personalEmail:     parsed.personalEmail     || '',
+        position:          parsed.position          || '',
+        totalExperience:   parsed.totalExperience   || '',
+        currentExperience: parsed.currentExperience || '',
+        skills:            parsed.skills            || '',
+        experience:        parsed.experience        || '',
+        seatingLocation:   parsed.seatingLocation   || '',
+        presentAddress:    parsed.presentAddress    || '',
+        dateOfBirth:       parsed.dateOfBirth       || '',
+        gender:            parsed.gender            || '',
+        maritalStatus:     parsed.maritalStatus     || '',
       });
       setAddOpen(true);
-      toast.success('Resume parsed — please review and complete the form');
+      const score = parsed.confidenceScore ?? 0;
+      const level = score >= 70 ? 'High' : score >= 40 ? 'Medium' : 'Low';
+      toast.success(`Resume parsed — ${score}% confidence (${level}). Review highlighted fields before saving.`);
     } catch {
-      toast.error('Failed to parse resume');
+      toast.error('Failed to parse resume. Check the file format and try again.');
     } finally {
       setResumeParsing(false);
     }
@@ -1925,7 +2061,7 @@ const EmployeesPage = () => {
       )}
 
       {/* ── Add Employee dialog ── */}
-      <Dialog open={addOpen} onClose={() => setAddOpen(false)} maxWidth="md" fullWidth
+      <Dialog open={addOpen} onClose={() => { setAddOpen(false); setParsedData(null); }} maxWidth="md" fullWidth
         PaperProps={{ sx: { maxHeight: '90vh' } }}>
         <DialogTitle fontWeight={700}>Add New Employee</DialogTitle>
         <Divider />
@@ -1935,6 +2071,7 @@ const EmployeesPage = () => {
             employees={employees}
             departments={departments} positions={positions} locations={locations}
             onManage={(k) => setManageOpen(k)}
+            parseResult={parsedData}
           />
         </DialogContent>
         <Divider />

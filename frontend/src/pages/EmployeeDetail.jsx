@@ -7,7 +7,7 @@ import {
   Tab, Tabs, Grid, Divider, TextField, Card, IconButton,
   Table, TableBody, TableCell, TableHead, TableRow, Alert,
   FormControl, InputLabel, Select, MenuItem, List, ListItem, ListItemText, Tooltip,
-  Dialog, DialogTitle, DialogContent, DialogActions,
+  Dialog, DialogTitle, DialogContent, DialogActions, InputAdornment,
 } from '@mui/material';
 import ArrowBackIcon        from '@mui/icons-material/ArrowBack';
 import BlockIcon            from '@mui/icons-material/Block';
@@ -31,6 +31,8 @@ import StarIcon             from '@mui/icons-material/Star';
 import SchoolIcon           from '@mui/icons-material/School';
 import CalendarTodayIcon    from '@mui/icons-material/CalendarToday';
 import AccessTimeIcon       from '@mui/icons-material/AccessTime';
+import VisibilityIcon      from '@mui/icons-material/Visibility';
+import VisibilityOffIcon   from '@mui/icons-material/VisibilityOff';
 import { employeeApi }      from '../api/employeeApi';
 import { performanceApi }   from '../api/performanceApi';
 import { leaveApi }         from '../api/leaveApi';
@@ -260,6 +262,7 @@ const EmployeeDetailPage = () => {
   }, [id]);
 
   const [confirmToggle, setConfirmToggle] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
 
   const handleSave = async () => {
     try {
@@ -529,12 +532,13 @@ const EmployeeDetailPage = () => {
                 <Grid container spacing={2}>
                   {/* Basic */}
                   {[
-                    ['employeeCode','Employee ID / Code'], ['firstName','First Name'],
+                    ['employeeCode','Employee ID / Code', true], ['firstName','First Name'],
                     ['lastName','Last Name'], ['phone','Phone'],
                     ['workEmail','Work Email'], ['personalEmail','Personal Email'],
-                  ].map(([f, l]) => (
+                  ].map(([f, l, disabled]) => (
                     <Grid item xs={12} sm={6} key={f}>
                       <TextField fullWidth size="small" label={l} value={form[f] || ''}
+                        disabled={!!disabled}
                         onChange={(e) => setForm({ ...form, [f]: e.target.value })} />
                     </Grid>
                   ))}
@@ -543,6 +547,26 @@ const EmployeeDetailPage = () => {
                       InputLabelProps={{ shrink: true }}
                       value={form.dateOfBirth ? String(form.dateOfBirth).slice(0, 10) : ''}
                       onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value || null })} />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <FormControl size="small" fullWidth>
+                      <InputLabel>Gender</InputLabel>
+                      <Select value={form.gender || ''} label="Gender"
+                        onChange={(e) => setForm({ ...form, gender: e.target.value })}>
+                        <MenuItem value=""><em>None</em></MenuItem>
+                        {['Male','Female','Other'].map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <FormControl size="small" fullWidth>
+                      <InputLabel>Marital Status</InputLabel>
+                      <Select value={form.maritalStatus || ''} label="Marital Status"
+                        onChange={(e) => setForm({ ...form, maritalStatus: e.target.value })}>
+                        <MenuItem value=""><em>None</em></MenuItem>
+                        {['Single','Married','Divorced','Widowed'].map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+                      </Select>
+                    </FormControl>
                   </Grid>
                   {/* Employment */}
                   <Grid item xs={12} sm={6}>
@@ -706,6 +730,34 @@ const EmployeeDetailPage = () => {
                       value={form.permanentAddress || ''}
                       onChange={(e) => setForm({ ...form, permanentAddress: e.target.value })} />
                   </Grid>
+                  {/* Identity & Access */}
+                  <Grid item xs={12}>
+                    <Divider sx={{ mt: 1 }}><Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, px: 1 }}>Identity & Access</Typography></Divider>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth size="small" label="New Password"
+                      placeholder="Leave blank to keep current"
+                      type={showEditPassword ? 'text' : 'password'}
+                      value={form.password || ''}
+                      onChange={(e) => setForm({ ...form, password: e.target.value })}
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton size="small" onClick={() => setShowEditPassword((p) => !p)} edge="end">
+                              {showEditPassword ? <VisibilityOffIcon sx={{ fontSize: 18 }} /> : <VisibilityIcon sx={{ fontSize: 18 }} />}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Grid>
+                  {[['aadharNumber','Aadhar Number'],['panNumber','PAN Number'],['uanNumber','UAN Number']].map(([f, l]) => (
+                    <Grid item xs={12} sm={6} key={f}>
+                      <TextField fullWidth size="small" label={l} value={form[f] || ''}
+                        onChange={(e) => setForm({ ...form, [f]: e.target.value })} />
+                    </Grid>
+                  ))}
                 </Grid>
               </Card>
             ) : (
@@ -774,7 +826,8 @@ const EmployeeDetailPage = () => {
                 </Card>
 
                 {/* ── Personal info ── */}
-                {(employee.dateOfBirth || employee.gender || employee.maritalStatus || employee.age) && (
+                {(employee.dateOfBirth || employee.gender || employee.maritalStatus || employee.age ||
+                  (canViewFull && (employee.aadharNumber || employee.panNumber || employee.uanNumber))) && (
                   <Card sx={{ p: 3, borderRadius: 2, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                     <Typography fontWeight={700} fontSize={15} mb={2}>Personal Details</Typography>
                     <Grid container spacing={2}>
@@ -796,6 +849,21 @@ const EmployeeDetailPage = () => {
                       {employee.maritalStatus && (
                         <Grid item xs={12} sm={6} md={4}>
                           <InfoCard icon={<PersonIcon />} label="Marital Status" value={employee.maritalStatus} />
+                        </Grid>
+                      )}
+                      {canViewFull && employee.aadharNumber && (
+                        <Grid item xs={12} sm={6} md={4}>
+                          <InfoCard icon={<BadgeIcon />} label="Aadhar Number" value={employee.aadharNumber} />
+                        </Grid>
+                      )}
+                      {canViewFull && employee.panNumber && (
+                        <Grid item xs={12} sm={6} md={4}>
+                          <InfoCard icon={<BadgeIcon />} label="PAN Number" value={employee.panNumber} />
+                        </Grid>
+                      )}
+                      {canViewFull && employee.uanNumber && (
+                        <Grid item xs={12} sm={6} md={4}>
+                          <InfoCard icon={<BadgeIcon />} label="UAN Number" value={employee.uanNumber} />
                         </Grid>
                       )}
                     </Grid>

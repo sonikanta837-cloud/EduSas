@@ -36,7 +36,7 @@ const pageTitles = {
   '/leaves':      'Leave Management',
   '/leave-upload':'Holiday Management',
   '/performance': 'Performance',
-  '/reports':     'Leave Reports',
+  '/reports':     'Reports',
   '/resources':   'Resource Management',
   '/profile':            'My Profile',
   '/roles-permissions':  'Roles & Permissions',
