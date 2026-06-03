@@ -128,7 +128,8 @@ describe('PerformancePage — header', () => {
 
   it('renders subtitle text', async () => {
     renderPage();
-    expect(await screen.findByText(/Track and manage employee performance reviews/i)).toBeInTheDocument();
+    // The subtitle for ADMIN is "Track and manage all employee performance reviews."
+    expect(await screen.findByText(/Track and manage/i)).toBeInTheDocument();
   });
 });
 
@@ -159,7 +160,8 @@ describe('PerformancePage — filter bar', () => {
 
     renderPage('EMPLOYEE');
 
-    await screen.findByText('Performance Reviews');
+    // For EMPLOYEE role, the heading is "My Performance Reviews"
+    await screen.findByText(/performance reviews/i);
     expect(screen.queryByRole('button', { name: /new review/i })).not.toBeInTheDocument();
   });
 });
@@ -552,7 +554,8 @@ describe('PerformancePage — role-gated actions', () => {
 
     renderPage('EMPLOYEE');
 
-    await screen.findByText('Performance Reviews');
+    // For EMPLOYEE, the title is "My Performance Reviews"
+    await screen.findByText(/performance reviews/i);
     // Wait for load to complete
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: /new review/i })).not.toBeInTheDocument();

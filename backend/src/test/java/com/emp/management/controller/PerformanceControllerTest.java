@@ -189,9 +189,10 @@ class PerformanceControllerTest {
 
     @Test
     @WithMockUser(roles = "MANAGER")
-    void getAllReviews_asManager_returns403() throws Exception {
+    void getAllReviews_asManager_returns200() throws Exception {
+        when(performanceService.getAllReviews()).thenReturn(List.of(sampleReview));
         mockMvc.perform(get("/api/performance"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
     }
 
     // ── GET /api/performance/employee/{employeeId} ───────────────────────────

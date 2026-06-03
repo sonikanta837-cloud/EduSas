@@ -78,7 +78,7 @@ class LeaveServiceTest {
         when(leaveRepository.save(any())).thenReturn(pendingLeave);
         when(timesheetEntryRepository.existsByEmployeeIdAndProjectNameAndDate(anyLong(), anyString(), any())).thenReturn(false);
         when(timesheetEntryRepository.save(any())).thenReturn(null);
-        doNothing().when(emailService).sendLeaveRequestEmail(anyString(), anyString(), anyString(), anyString(), any(), any(), anyInt(), anyString());
+        doNothing().when(emailService).sendLeaveRequestEmail(anyString(), any(String[].class), anyString(), anyString(), anyString(), any(), any(), anyInt(), anyString());
 
         LeaveDTO result = leaveService.applyLeave(2L, dto);
 
@@ -132,11 +132,11 @@ class LeaveServiceTest {
         when(timesheetEntryRepository.existsByEmployeeIdAndProjectNameAndDate(anyLong(), anyString(), any())).thenReturn(false);
         when(timesheetEntryRepository.save(any())).thenReturn(null);
         when(userRepository.findByRole(Role.ADMIN)).thenReturn(List.of(adminUser));
-        doNothing().when(emailService).sendLeaveRequestEmail(anyString(), anyString(), anyString(), anyString(), any(), any(), anyInt(), anyString());
+        doNothing().when(emailService).sendLeaveRequestEmail(anyString(), any(String[].class), anyString(), anyString(), anyString(), any(), any(), anyInt(), anyString());
 
         leaveService.applyLeave(2L, dto);
 
-        verify(emailService).sendLeaveRequestEmail(eq("admin@company.com"), anyString(), anyString(), anyString(), any(), any(), anyInt(), anyString());
+        verify(emailService).sendLeaveRequestEmail(eq("admin@company.com"), any(String[].class), anyString(), anyString(), anyString(), any(), any(), anyInt(), anyString());
     }
 
     // ── Update Leave Status ──────────────────────────────────────────────────
@@ -146,7 +146,7 @@ class LeaveServiceTest {
         when(leaveRepository.findById(10L)).thenReturn(Optional.of(pendingLeave));
         when(employeeDetailsRepository.findById(1L)).thenReturn(Optional.of(manager));
         when(leaveRepository.save(any())).thenReturn(pendingLeave);
-        doNothing().when(emailService).sendLeaveDecisionEmail(anyString(), anyString(), anyString(), anyString(), any(), any(), anyString(), anyString());
+        doNothing().when(emailService).sendLeaveDecisionEmail(anyString(), any(String[].class), anyString(), anyString(), anyString(), any(), any(), anyString(), anyString());
 
         LeaveDTO result = leaveService.updateLeaveStatus(10L, 1L, LeaveStatus.APPROVED, "Approved");
 
@@ -160,7 +160,7 @@ class LeaveServiceTest {
         when(employeeDetailsRepository.findById(1L)).thenReturn(Optional.of(manager));
         when(leaveRepository.save(any())).thenReturn(pendingLeave);
         doNothing().when(timesheetEntryRepository).deleteByEmployeeIdAndProjectNameAndDateBetween(anyLong(), anyString(), any(), any());
-        doNothing().when(emailService).sendLeaveDecisionEmail(anyString(), anyString(), anyString(), anyString(), any(), any(), anyString(), anyString());
+        doNothing().when(emailService).sendLeaveDecisionEmail(anyString(), any(String[].class), anyString(), anyString(), anyString(), any(), any(), anyString(), anyString());
 
         leaveService.updateLeaveStatus(10L, 1L, LeaveStatus.REJECTED, "Not approved");
 

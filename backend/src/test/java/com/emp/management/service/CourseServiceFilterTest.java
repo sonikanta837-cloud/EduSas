@@ -28,6 +28,7 @@ class CourseServiceFilterTest {
     @Mock private EmployeeDetailsRepository employeeDetailsRepository;
     @Mock private UserRepository userRepository;
     @Mock private ObjectMapper objectMapper;
+    @Mock private CourseNotificationService courseNotificationService;
 
     @InjectMocks private CourseService courseService;
 
@@ -302,6 +303,7 @@ class CourseServiceFilterTest {
         when(employeeDetailsRepository.findById(10L)).thenReturn(Optional.of(activeEmp1));
         when(courseRepository.findById(5L)).thenReturn(Optional.of(course));
         when(enrollmentRepository.save(any())).thenReturn(enrollmentActive1);
+        doNothing().when(courseNotificationService).createNotification(any(), any());
 
         courseService.enrollEmployee(5L, 10L);
 

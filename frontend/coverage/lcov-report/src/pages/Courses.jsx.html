@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/408</span>
+                <span class='fraction'>0/412</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/387</span>
+                <span class='fraction'>0/390</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/358</span>
+                <span class='fraction'>0/362</span>
             </div>
         
             
@@ -1480,7 +1480,12 @@
 <a name='L1415'></a><a href='#L1415'>1415</a>
 <a name='L1416'></a><a href='#L1416'>1416</a>
 <a name='L1417'></a><a href='#L1417'>1417</a>
-<a name='L1418'></a><a href='#L1418'>1418</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L1418'></a><a href='#L1418'>1418</a>
+<a name='L1419'></a><a href='#L1419'>1419</a>
+<a name='L1420'></a><a href='#L1420'>1420</a>
+<a name='L1421'></a><a href='#L1421'>1421</a>
+<a name='L1422'></a><a href='#L1422'>1422</a>
+<a name='L1423'></a><a href='#L1423'>1423</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1584,6 +1589,7 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1801,6 +1807,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1818,6 +1825,9 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -3001,6 +3011,7 @@ const CoursesPage = <span class="cstat-no" title="statement not covered" ><span 
   const [assignTarget, setAssignTarget] = <span class="cstat-no" title="statement not covered" >useState(null);</span>
   const [assignAll, setAssignAll] = <span class="cstat-no" title="statement not covered" >useState(false);</span>
   const [enrolledIds, setEnrolledIds] = <span class="cstat-no" title="statement not covered" >useState([]);</span>
+  const [assigning, setAssigning] = <span class="cstat-no" title="statement not covered" >useState(false);</span>
 &nbsp;
   // Exam creation dialog
   const [examCreateCourse, setExamCreateCourse] = <span class="cstat-no" title="statement not covered" >useState(null);</span>
@@ -3222,6 +3233,7 @@ const CoursesPage = <span class="cstat-no" title="statement not covered" ><span 
 <span class="cstat-no" title="statement not covered" >    setAssignCourse(course);</span>
 <span class="cstat-no" title="statement not covered" >    setAssignTarget(null);</span>
 <span class="cstat-no" title="statement not covered" >    setAssignAll(false);</span>
+<span class="cstat-no" title="statement not covered" >    setEnrolledIds([]);</span>
 <span class="cstat-no" title="statement not covered" >    try {</span>
       const ids = <span class="cstat-no" title="statement not covered" >await courseApi.getEnrolledEmployeeIds(course.id);</span>
 <span class="cstat-no" title="statement not covered" >      setEnrolledIds(ids);</span>
@@ -3231,6 +3243,7 @@ const CoursesPage = <span class="cstat-no" title="statement not covered" ><span 
   };
 &nbsp;
   const handleAssign = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >as</span>ync () =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    setAssigning(true);</span>
 <span class="cstat-no" title="statement not covered" >    try {</span>
 <span class="cstat-no" title="statement not covered" >      await courseApi.assign(assignCourse.id, assignTarget?.id ?? null, assignAll);</span>
 <span class="cstat-no" title="statement not covered" >      toast.success(assignAll ? 'Assigned to all employees!' : `Assigned to ${assignTarget?.firstName} ${assignTarget?.lastName}!`);</span>
@@ -3238,6 +3251,8 @@ const CoursesPage = <span class="cstat-no" title="statement not covered" ><span 
 <span class="cstat-no" title="statement not covered" >      await refresh();</span>
     } catch (err) {
 <span class="cstat-no" title="statement not covered" >      toast.error(err.response?.data?.message || 'Failed to assign');</span>
+    } finally {
+<span class="cstat-no" title="statement not covered" >      setAssigning(false);</span>
     }
   };
 &nbsp;
@@ -3966,9 +3981,9 @@ const CoursesPage = <span class="cstat-no" title="statement not covered" ><span 
         &lt;DialogActions sx={{ px: 3, pb: 2 }}&gt;
           &lt;Button onClick={<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >setAssignCourse(null)}</span>&gt;Cancel&lt;/Button&gt;
           &lt;Button variant="contained" onClick={handleAssign}
-            disabled={!assignAll &amp;&amp; !assignTarget}
+            disabled={assigning || (!assignAll &amp;&amp; !assignTarget)}
             sx={{ bgcolor: '#1e3a5f', '&amp;:hover': { bgcolor: '#0f172a' } }}&gt;
-            Assign
+            {assigning ? 'Assigning…' : 'Assign'}
           &lt;/Button&gt;
         &lt;/DialogActions&gt;
       &lt;/Dialog&gt;
@@ -4321,7 +4336,7 @@ export default CoursesPage;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-26T12:46:11.874Z
+                at 2026-06-03T18:16:56.035Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

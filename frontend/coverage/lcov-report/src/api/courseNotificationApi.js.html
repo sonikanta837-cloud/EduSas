@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for src/store/uiSlice.js</title>
+    <title>Code coverage report for src/api/courseNotificationApi.js</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../prettify.css" />
     <link rel="stylesheet" href="../../base.css" />
@@ -19,13 +19,13 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/store</a> uiSlice.js</h1>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/api</a> courseNotificationApi.js</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/4</span>
+                <span class='fraction'>0/5</span>
             </div>
         
             
@@ -39,14 +39,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>0/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/4</span>
+                <span class='fraction'>0/5</span>
             </div>
         
             
@@ -71,43 +71,22 @@
 <a name='L6'></a><a href='#L6'>6</a>
 <a name='L7'></a><a href='#L7'>7</a>
 <a name='L8'></a><a href='#L8'>8</a>
-<a name='L9'></a><a href='#L9'>9</a>
-<a name='L10'></a><a href='#L10'>10</a>
-<a name='L11'></a><a href='#L11'>11</a>
-<a name='L12'></a><a href='#L12'>12</a>
-<a name='L13'></a><a href='#L13'>13</a>
-<a name='L14'></a><a href='#L14'>14</a>
-<a name='L15'></a><a href='#L15'>15</a>
-<a name='L16'></a><a href='#L16'>16</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L9'></a><a href='#L9'>9</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { createSlice } from '@reduxjs/toolkit';
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import api from './axios';
 &nbsp;
-const uiSlice = <span class="cstat-no" title="statement not covered" >createSlice({</span>
-  name: 'ui',
-  initialState: {
-    sidebarOpen: true,
-  },
-  reducers: {
-    toggleSidebar: <span class="fstat-no" title="function not covered" >(s</span>tate) =&gt; { <span class="cstat-no" title="statement not covered" >state.sidebarOpen = !state.sidebarOpen; </span>},
-    setSidebarOpen: <span class="fstat-no" title="function not covered" >(s</span>tate, action) =&gt; { <span class="cstat-no" title="statement not covered" >state.sidebarOpen = action.payload; </span>},
-  },
-});
-&nbsp;
-export const { toggleSidebar, setSidebarOpen } = <span class="cstat-no" title="statement not covered" >uiSlice.actions;</span>
-export default uiSlice.reducer;
+export const courseNotificationApi = <span class="cstat-no" title="statement not covered" >{</span>
+  getUnread:      <span class="fstat-no" title="function not covered" >()</span>   =&gt; <span class="cstat-no" title="statement not covered" >api.get('/course-notifications/unread'),</span>
+  getUnreadCount: <span class="fstat-no" title="function not covered" >()</span>   =&gt; <span class="cstat-no" title="statement not covered" >api.get('/course-notifications/unread-count'),</span>
+  markAsRead:     <span class="fstat-no" title="function not covered" >(i</span>d) =&gt; <span class="cstat-no" title="statement not covered" >api.post(`/course-notifications/${id}/read`),</span>
+  markAllRead:    <span class="fstat-no" title="function not covered" >()</span>   =&gt; <span class="cstat-no" title="statement not covered" >api.post('/course-notifications/read-all'),</span>
+};
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->

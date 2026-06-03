@@ -25,28 +25,28 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/21</span>
+                <span class='fraction'>0/31</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/57</span>
+                <span class='fraction'>0/63</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/7</span>
+                <span class='fraction'>0/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/18</span>
+                <span class='fraction'>0/24</span>
             </div>
         
             
@@ -278,7 +278,19 @@
 <a name='L213'></a><a href='#L213'>213</a>
 <a name='L214'></a><a href='#L214'>214</a>
 <a name='L215'></a><a href='#L215'>215</a>
-<a name='L216'></a><a href='#L216'>216</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L216'></a><a href='#L216'>216</a>
+<a name='L217'></a><a href='#L217'>217</a>
+<a name='L218'></a><a href='#L218'>218</a>
+<a name='L219'></a><a href='#L219'>219</a>
+<a name='L220'></a><a href='#L220'>220</a>
+<a name='L221'></a><a href='#L221'>221</a>
+<a name='L222'></a><a href='#L222'>222</a>
+<a name='L223'></a><a href='#L223'>223</a>
+<a name='L224'></a><a href='#L224'>224</a>
+<a name='L225'></a><a href='#L225'>225</a>
+<a name='L226'></a><a href='#L226'>226</a>
+<a name='L227'></a><a href='#L227'>227</a>
+<a name='L228'></a><a href='#L228'>228</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -326,7 +338,19 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -511,8 +535,8 @@ import AccountTreeIcon  from '@mui/icons-material/AccountTree';
 import FolderIcon       from '@mui/icons-material/Folder';
 import InventoryIcon    from '@mui/icons-material/Inventory';
 import PersonIcon       from '@mui/icons-material/Person';
-import FileUploadIcon   from '@mui/icons-material/FileUpload';
-import InfoIcon         from '@mui/icons-material/Info';
+import FileUploadIcon           from '@mui/icons-material/FileUpload';
+import AdminPanelSettingsIcon   from '@mui/icons-material/AdminPanelSettings';
 import { toggleSidebar } from '../../store/uiSlice';
 &nbsp;
 export const SIDEBAR_W_OPEN   = <span class="cstat-no" title="statement not covered" >240;</span>
@@ -530,8 +554,8 @@ const allNavItems = <span class="cstat-no" title="statement not covered" >[</spa
   { label: 'Performance',  path: '/performance',  icon: &lt;StarIcon /&gt;,         roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
   { label: 'Reports',      path: '/reports',      icon: &lt;BarChartIcon /&gt;,     roles: ['ADMIN'] },
   { label: 'Resources',    path: '/resources',    icon: &lt;InventoryIcon /&gt;,    roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'My Profile',   path: '/profile',      icon: &lt;PersonIcon /&gt;,       roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'About Us',     path: '/about',        icon: &lt;InfoIcon /&gt;,         roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'My Profile',   path: '/profile',           icon: &lt;PersonIcon /&gt;,                roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Roles &amp; Permissions', path: '/roles-permissions', icon: &lt;AdminPanelSettingsIcon /&gt;, roles: ['ADMIN'] },
 ];
 &nbsp;
 const Sidebar = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
@@ -540,8 +564,20 @@ const Sidebar = <span class="cstat-no" title="statement not covered" ><span clas
   const location  = <span class="cstat-no" title="statement not covered" >useLocation();</span>
   const { user }        = <span class="cstat-no" title="statement not covered" >useSelector(<span class="fstat-no" title="function not covered" >(s</span>) =&gt; <span class="cstat-no" title="statement not covered" >s.auth)</span>;</span>
   const { sidebarOpen } = <span class="cstat-no" title="statement not covered" >useSelector(<span class="fstat-no" title="function not covered" >(s</span>) =&gt; <span class="cstat-no" title="statement not covered" >s.ui)</span>;</span>
-  const role     = <span class="cstat-no" title="statement not covered" >user?.role || 'EMPLOYEE';</span>
-  const navItems = <span class="cstat-no" title="statement not covered" >allNavItems.filter(<span class="fstat-no" title="function not covered" >(i</span>tem) =&gt; <span class="cstat-no" title="statement not covered" >item.roles.includes(role))</span>;</span>
+  const role = <span class="cstat-no" title="statement not covered" >user?.role || 'EMPLOYEE';</span>
+&nbsp;
+  const allowedPaths = <span class="cstat-no" title="statement not covered" >(<span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    if (!user?.allowedModules) <span class="cstat-no" title="statement not covered" >return null;</span></span>
+<span class="cstat-no" title="statement not covered" >    try { <span class="cstat-no" title="statement not covered" >return JSON.parse(user.allowedModules); </span>} catch { <span class="cstat-no" title="statement not covered" >return null; </span>}</span>
+  })();
+&nbsp;
+  const navItems = <span class="cstat-no" title="statement not covered" >allNavItems.filter(<span class="fstat-no" title="function not covered" >(i</span>tem) =&gt; {</span>
+    // Roles &amp; Permissions is always ADMIN-only regardless of custom permissions
+<span class="cstat-no" title="statement not covered" >    if (item.path === '/roles-permissions') <span class="cstat-no" title="statement not covered" >return role === 'ADMIN';</span></span>
+    // If admin has assigned custom modules, use those; otherwise fall back to role-based
+<span class="cstat-no" title="statement not covered" >    if (allowedPaths) <span class="cstat-no" title="statement not covered" >return allowedPaths.includes(item.path);</span></span>
+<span class="cstat-no" title="statement not covered" >    return item.roles.includes(role);</span>
+  });
   const width    = <span class="cstat-no" title="statement not covered" >sidebarOpen ? SIDEBAR_W_OPEN : SIDEBAR_W_CLOSED;</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  return (</span>
@@ -715,7 +751,7 @@ export default Sidebar;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-05-26T12:46:11.874Z
+                at 2026-06-03T18:16:56.035Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
