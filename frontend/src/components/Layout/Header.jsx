@@ -37,7 +37,7 @@ const pageTitles = {
   '/leave-upload':'Holiday Management',
   '/performance': 'Performance',
   '/reports':     'Reports',
-  '/resources':   'Resource Management',
+  '/resources':   'Resources',
   '/profile':            'My Profile',
   '/roles-permissions':  'Roles & Permissions',
 };

@@ -599,7 +599,7 @@ const TimesheetsPage = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setAddOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleAddRow}>Add Row</Button>
+          <Button variant="contained" onClick={handleAddRow}>Submit</Button>
         </DialogActions>
       </Dialog>
     </Box>

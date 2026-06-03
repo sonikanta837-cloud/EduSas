@@ -3,6 +3,7 @@ package com.emp.management.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -19,6 +20,9 @@ public class Resource {
     private Long id;
 
     @Column(nullable = false)
+    private String title;
+
+    @Column(nullable = false)
     private String fileName;
 
     private String originalFileName;
@@ -31,6 +35,15 @@ public class Resource {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    // "POLICY" | "FORM_TEMPLATE" | "GENERAL"
+    private String category;
+
+    // sub-category within a section, e.g. "HR Policy", "IT Policy"
+    private String subCategory;
+
+    @Builder.Default
+    private boolean active = true;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "uploaded_by", nullable = false)
     @ToString.Exclude
@@ -39,4 +52,7 @@ public class Resource {
 
     @CreationTimestamp
     private LocalDateTime uploadedAt;
+
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
 }
