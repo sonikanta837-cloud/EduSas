@@ -185,7 +185,7 @@ function AssetFormDialog({ open, onClose, title, form, onChange, onSubmit, savin
         <Button variant="outlined" onClick={onClose} sx={{ borderColor: '#e2e8f0', color: '#64748b' }}>Cancel</Button>
         <Button variant="contained" onClick={onSubmit} disabled={saving}
           startIcon={saving ? <CircularProgress size={14} color="inherit" /> : (isEdit ? <EditIcon /> : <AddIcon />)}
-          sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' } }}>
+          sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' } }}>
           {isEdit ? 'Save Changes' : 'Add Asset'}
         </Button>
       </DialogActions>
@@ -366,7 +366,7 @@ export default function ResourcesPage() {
           </Button>
           {isAdmin && (
             <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}
-              sx={{ bgcolor:'#14b8a6', '&:hover':{ bgcolor:'#0d9488' } }}>
+              sx={{ bgcolor:'#1e3a5f', '&:hover':{ bgcolor:'#152d4a' } }}>
               Add Asset
             </Button>
           )}

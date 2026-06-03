@@ -28,6 +28,7 @@ const INPUT_BG  = '#152942';
 const darkField = {
   '& .MuiOutlinedInput-root': {
     borderRadius: 1.5,
+    overflow: 'hidden',
     backgroundColor: '#ffffff',
     color: '#111827',
     '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
@@ -231,7 +232,7 @@ const LoginPage = () => {
       <Dialog open={forgotOpen} onClose={closeForgot} maxWidth="xs" fullWidth
         PaperProps={{ sx: { borderRadius: 3, bgcolor: CARD_BG, border: '1px solid rgba(255,255,255,0.08)' } }}>
         <DialogTitle fontWeight={700} sx={{ color: 'white' }}>Reset Password</DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ px: 3, pb: 1 }}>
           {forgotSuccess ? (
             <Box sx={{ textAlign: 'center', py: 1 }}>
               <CheckCircleIcon sx={{ fontSize: 48, color: 'success.main', mb: 1.5 }} />
@@ -247,13 +248,18 @@ const LoginPage = () => {
                 Enter your email and we'll send you a link to reset your password.
               </Typography>
               {forgotError && <Alert severity="error" sx={{ mb: 2 }}>{forgotError}</Alert>}
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', display: 'block', mb: 0.75 }}>
+                Email Address
+              </Typography>
               <TextField
-                fullWidth label="Email Address" type="email" autoFocus
+                fullWidth type="email" autoFocus
+                placeholder="Enter your email"
                 value={forgotEmail}
                 onChange={(e) => setForgotEmail(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleForgotSubmit()}
                 sx={darkField}
                 InputProps={{
+                  notched: false,
                   startAdornment: <InputAdornment position="start"><EmailIcon sx={{ color: 'rgba(255,255,255,0.4)', fontSize: 18 }} /></InputAdornment>
                 }}
               />

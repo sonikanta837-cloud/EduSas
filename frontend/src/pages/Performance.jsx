@@ -183,7 +183,7 @@ const ReviewCard = ({ r, isAdmin, isManager, myEmployeeId, onViewDetails, onEdit
           <Button
             size="small" variant="outlined"
             onClick={() => onViewDetails(r)}
-            sx={{ fontSize: 12, py: .45, px: 1.5, borderRadius: '8px', borderColor: '#14b8a6', color: '#14b8a6', fontWeight: 600, '&:hover': { bgcolor: '#f0fdfa', borderColor: '#0d9488' } }}
+            sx={{ fontSize: 12, py: .45, px: 1.5, borderRadius: '8px', borderColor: '#1e3a5f', color: '#1e3a5f', fontWeight: 600, '&:hover': { bgcolor: 'rgba(30,58,95,0.06)', borderColor: '#152d4a' } }}
           >
             View Details
           </Button>
@@ -584,9 +584,9 @@ const PerformancePage = () => {
             variant="contained" onClick={openDialog}
             startIcon={<AddIcon />}
             sx={{
-              height: 40, borderRadius: '10px', bgcolor: '#14b8a6',
-              '&:hover': { bgcolor: '#0d9488' }, fontSize: 13.5, fontWeight: 700, px: 2.5,
-              boxShadow: '0 4px 12px rgba(20,184,166,0.3)', ml: 'auto',
+              height: 40, borderRadius: '10px', bgcolor: '#1e3a5f',
+              '&:hover': { bgcolor: '#152d4a' }, fontSize: 13.5, fontWeight: 700, px: 2.5,
+              boxShadow: '0 4px 12px rgba(30,58,95,0.3)', ml: 'auto',
             }}
           >
             New Review
@@ -845,8 +845,8 @@ const PerformancePage = () => {
                       </IconButton>
                       {Array.from({ length: totalPages }, (_, i) => (
                         <IconButton key={i} size="small" onClick={() => setPage(i)}
-                          sx={{ width: 32, height: 32, borderRadius: '8px', bgcolor: page === i ? '#14b8a6' : '#fff',
-                            color: page === i ? '#fff' : '#374151', border: '1px solid', borderColor: page === i ? '#14b8a6' : '#e2e8f0' }}>
+                          sx={{ width: 32, height: 32, borderRadius: '8px', bgcolor: page === i ? '#1e3a5f' : '#fff',
+                            color: page === i ? '#fff' : '#374151', border: '1px solid', borderColor: page === i ? '#1e3a5f' : '#e2e8f0' }}>
                           <Typography sx={{ fontSize: 13, fontWeight: page === i ? 700 : 500, color: 'inherit', lineHeight: 1 }}>{i + 1}</Typography>
                         </IconButton>
                       ))}
@@ -1101,7 +1101,7 @@ const PerformancePage = () => {
           <Button onClick={() => { setEditOpen(false); setEditTarget(null); }} disabled={updating} sx={{ borderRadius: '10px', fontSize: 13.5, fontWeight: 600, textTransform: 'none' }}>Cancel</Button>
           <Button
             variant="contained" onClick={handleUpdate} disabled={updating}
-            sx={{ borderRadius: '10px', bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' }, fontSize: 13.5, fontWeight: 700, textTransform: 'none' }}
+            sx={{ borderRadius: '10px', bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' }, fontSize: 13.5, fontWeight: 700, textTransform: 'none' }}
           >
             {updating ? <CircularProgress size={18} sx={{ mr: 1, color: '#fff' }} /> : null}
             Save Changes
@@ -1234,7 +1234,7 @@ const PerformancePage = () => {
           <Button onClick={() => setAddOpen(false)} disabled={submitting} sx={{ borderRadius: '10px', fontSize: 13.5, fontWeight: 600, textTransform: 'none' }}>Cancel</Button>
           <Button
             variant="contained" onClick={handleCreate} disabled={submitting}
-            sx={{ borderRadius: '10px', bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' }, fontSize: 13.5, fontWeight: 700, textTransform: 'none' }}
+            sx={{ borderRadius: '10px', bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' }, fontSize: 13.5, fontWeight: 700, textTransform: 'none' }}
           >
             {submitting ? <CircularProgress size={18} sx={{ mr: 1, color: '#fff' }} /> : null}
             Submit Review

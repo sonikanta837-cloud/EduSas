@@ -195,7 +195,7 @@ const LeaveUploadPage = () => {
             Download Template
           </Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={openAddHoliday}
-            sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' } }}>
+            sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' } }}>
             Add Holiday
           </Button>
         </Box>
@@ -270,7 +270,7 @@ const LeaveUploadPage = () => {
                   autoFocus
                 />
                 <IconButton size="small" onClick={confirmUploadLocation} disabled={!newUploadLocName.trim()}
-                  sx={{ bgcolor: '#14b8a6', color: 'white', borderRadius: 1.5, '&:hover': { bgcolor: '#0d9488' }, '&:disabled': { bgcolor: '#e2e8f0' } }}>
+                  sx={{ bgcolor: '#1e3a5f', color: 'white', borderRadius: 1.5, '&:hover': { bgcolor: '#152d4a' }, '&:disabled': { bgcolor: '#8fa8c8' } }}>
                   <CheckIcon sx={{ fontSize: 16 }} />
                 </IconButton>
                 <IconButton size="small" onClick={() => { setShowUploadLocInput(false); setNewUploadLocName(''); }}
@@ -659,7 +659,7 @@ const LeaveUploadPage = () => {
                   <IconButton
                     onClick={confirmNewLocation}
                     disabled={!newLocName.trim()}
-                    sx={{ bgcolor: '#14b8a6', color: 'white', borderRadius: 2, '&:hover': { bgcolor: '#0d9488' }, '&:disabled': { bgcolor: '#e2e8f0' } }}
+                    sx={{ bgcolor: '#1e3a5f', color: 'white', borderRadius: 2, '&:hover': { bgcolor: '#152d4a' }, '&:disabled': { bgcolor: '#8fa8c8' } }}
                   >
                     <CheckIcon sx={{ fontSize: 18 }} />
                   </IconButton>
@@ -686,7 +686,7 @@ const LeaveUploadPage = () => {
             sx={{ borderColor: '#e2e8f0', color: '#64748b' }}>Cancel</Button>
           <Button variant="contained" onClick={handleAddHoliday} disabled={addSaving}
             startIcon={addSaving ? <CircularProgress size={14} color="inherit" /> : <AddIcon />}
-            sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' } }}>
+            sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' } }}>
             Add Holiday
           </Button>
         </DialogActions>

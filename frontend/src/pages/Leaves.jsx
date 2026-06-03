@@ -203,9 +203,11 @@ const LeavesPage = () => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" fontWeight={700}>Leave Management</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setApplyOpen(true)}>
-          Apply Leave
-        </Button>
+        {tab === 0 && (
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setApplyOpen(true)}>
+            Apply Leave
+          </Button>
+        )}
       </Box>
 
       {/* ── Leave Balance Cards ── */}

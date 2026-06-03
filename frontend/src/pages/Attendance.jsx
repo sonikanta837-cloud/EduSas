@@ -511,7 +511,7 @@ const AttendancePage = () => {
               <ChevronRightIcon />
             </IconButton>
             <Button size="small" variant="outlined" onClick={() => setWeekStart(dayjs().startOf('week'))}
-              sx={{ borderColor: '#14b8a6', color: '#14b8a6' }}>
+              sx={{ borderColor: '#1e3a5f', color: '#1e3a5f', bgcolor: '#ffffff', fontWeight: 600, '&:hover': { bgcolor: 'rgba(30,58,95,0.06)', borderColor: '#152d4a' } }}>
               This Week
             </Button>
           </Box>

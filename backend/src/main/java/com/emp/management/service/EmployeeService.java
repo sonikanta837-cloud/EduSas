@@ -73,7 +73,7 @@ public class EmployeeService {
                     && target.getManager() != null
                     && target.getManager().getId().equals(requester.getId());
 
-            if (!isAdmin && !isManagerRole && !isOwnProfile && !isDirectReport) {
+            if (!isAdmin && !isOwnProfile && !isDirectReport) {
                 throw new AccessDeniedException("You do not have permission to view this employee's profile");
             }
         }

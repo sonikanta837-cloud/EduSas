@@ -458,14 +458,14 @@ const EmployeeDetailPage = () => {
             <Box sx={{ pb: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               {editing ? (
                 <>
-                  <Button size="small" startIcon={<CancelIcon />}
+                  <Button size="small" variant="outlined" startIcon={<CancelIcon />}
                     onClick={() => { setEditing(false); setForm({ ...employee, workEmail: employee.workEmail || employee.email }); }}
-                    sx={{ textTransform: 'none' }}>
+                    sx={{ textTransform: 'none', bgcolor: '#ffffff', color: '#dc2626', borderColor: '#dc2626', '&:hover': { bgcolor: '#fff5f5', borderColor: '#b91c1c' } }}>
                     Cancel
                   </Button>
-                  <Button size="small" variant="contained" startIcon={<SaveIcon />}
+                  <Button size="small" variant="outlined" startIcon={<SaveIcon />}
                     onClick={handleSave}
-                    sx={{ textTransform: 'none', bgcolor: '#0f172a', '&:hover': { bgcolor: '#1e293b' } }}>
+                    sx={{ textTransform: 'none', bgcolor: '#ffffff', color: '#1e3a5f', borderColor: '#1e3a5f', fontWeight: 600, borderRadius: '8px', '&:hover': { bgcolor: 'rgba(30,58,95,0.06)', borderColor: '#152d4a' } }}>
                     Save Changes
                   </Button>
                 </>

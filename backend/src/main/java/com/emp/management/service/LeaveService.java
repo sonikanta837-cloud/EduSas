@@ -59,6 +59,10 @@ public class LeaveService {
 
         int totalDays = (int) ChronoUnit.DAYS.between(dto.getStartDate(), dto.getEndDate()) + 1;
 
+        // Directors (ADMIN role) are auto-approved — no manual review required
+        boolean isDirector = employee.getUser() != null
+                && Role.ADMIN == employee.getUser().getRole();
+
         Leave leave = Leave.builder()
                 .employee(employee)
                 .leaveType(dto.getLeaveType())
@@ -66,27 +70,32 @@ public class LeaveService {
                 .endDate(dto.getEndDate())
                 .totalDays(totalDays)
                 .reason(dto.getReason())
-                .status(LeaveStatus.PENDING)
+                .status(isDirector ? LeaveStatus.APPROVED : LeaveStatus.PENDING)
+                .approvedBy(isDirector ? employee : null)
+                .managerComment(isDirector ? "Auto-approved" : null)
+                .actionDate(isDirector ? LocalDateTime.now() : null)
                 .build();
 
         Leave saved = leaveRepository.save(leave);
 
         createTimesheetLeaveEntries(employee, dto.getStartDate(), dto.getEndDate(), dto.getLeaveType());
 
-        // Notify manager (To) + HR and Admin (CC)
-        String managerEmail = resolveManagerEmail(employee);
-        if (managerEmail != null) {
-            String[] cc = collectHrAdminEmails(managerEmail);
-            emailService.sendLeaveRequestEmail(
-                managerEmail, cc,
-                employee.getUser().getEmail(),
-                employee.getFullName(),
-                dto.getLeaveType(),
-                dto.getStartDate(),
-                dto.getEndDate(),
-                totalDays,
-                dto.getReason()
-            );
+        if (!isDirector) {
+            // Notify manager (To) + HR and Admin (CC)
+            String managerEmail = resolveManagerEmail(employee);
+            if (managerEmail != null) {
+                String[] cc = collectHrAdminEmails(managerEmail);
+                emailService.sendLeaveRequestEmail(
+                    managerEmail, cc,
+                    employee.getUser().getEmail(),
+                    employee.getFullName(),
+                    dto.getLeaveType(),
+                    dto.getStartDate(),
+                    dto.getEndDate(),
+                    totalDays,
+                    dto.getReason()
+                );
+            }
         }
 
         return toDTO(saved);

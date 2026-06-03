@@ -23,7 +23,7 @@ import RolesPermissionsPage from './pages/RolesPermissions';
 
 const theme = createTheme({
   palette: {
-    primary: { main: '#14b8a6', contrastText: '#ffffff' },
+    primary: { main: '#1e3a5f', light: '#2d5492', dark: '#152d4a', contrastText: '#ffffff' },
     secondary: { main: '#6366f1' },
     background: { default: '#f8fafc' },
   },
@@ -40,8 +40,24 @@ const theme = createTheme({
       },
     },
     MuiButton: {
+      defaultProps: { disableElevation: true },
       styleOverrides: {
         root: { borderRadius: 8, textTransform: 'none', fontWeight: 600 },
+        containedPrimary: {
+          backgroundColor: '#1e3a5f',
+          color: '#ffffff',
+          '&:hover': { backgroundColor: '#152d4a' },
+          '&.Mui-disabled': { backgroundColor: '#8fa8c8', color: '#ffffff' },
+        },
+        outlinedPrimary: {
+          borderColor: '#1e3a5f',
+          color: '#1e3a5f',
+          '&:hover': { backgroundColor: 'rgba(30,58,95,0.06)', borderColor: '#152d4a' },
+        },
+        textPrimary: {
+          color: '#1e3a5f',
+          '&:hover': { backgroundColor: 'rgba(30,58,95,0.06)' },
+        },
       },
     },
     MuiPaper: {

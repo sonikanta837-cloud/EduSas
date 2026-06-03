@@ -736,8 +736,8 @@ const AnnouncementsTab = ({ userRole }) => {
           <Button
             variant="contained" startIcon={<AddIcon />} onClick={() => setPostOpen(true)}
             sx={{
-              bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' }, borderRadius: '10px',
-              fontWeight: 700, fontSize: 13.5, boxShadow: '0 4px 12px rgba(20,184,166,0.3)',
+              bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' }, borderRadius: '10px',
+              fontWeight: 700, fontSize: 13.5, boxShadow: '0 4px 12px rgba(30,58,95,0.3)',
               px: 2.5, height: 38, flexShrink: 0,
             }}
           >
@@ -881,7 +881,7 @@ const AnnouncementsTab = ({ userRole }) => {
                         setNewLocInput('');
                       }
                     }}
-                    sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' }, whiteSpace: 'nowrap', textTransform: 'none', fontWeight: 600 }}
+                    sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' }, whiteSpace: 'nowrap', textTransform: 'none', fontWeight: 600 }}
                   >
                     Add
                   </Button>
@@ -916,7 +916,7 @@ const AnnouncementsTab = ({ userRole }) => {
           <Button onClick={() => setPostOpen(false)} disabled={saving}
             sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 600, color: '#64748b' }}>Cancel</Button>
           <Button variant="contained" onClick={post} disabled={saving || !postForm.title.trim()}
-            sx={{ borderRadius: '10px', bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' }, textTransform: 'none', fontWeight: 700 }}>
+            sx={{ borderRadius: '10px', bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' }, textTransform: 'none', fontWeight: 700 }}>
             {saving ? <CircularProgress size={16} sx={{ mr: 1, color: '#fff' }} /> : null}
             Post
           </Button>
@@ -988,7 +988,7 @@ const AnnouncementsTab = ({ userRole }) => {
                         setNewLocInput('');
                       }
                     }}
-                    sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' }, whiteSpace: 'nowrap', textTransform: 'none', fontWeight: 600 }}
+                    sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' }, whiteSpace: 'nowrap', textTransform: 'none', fontWeight: 600 }}
                   >
                     Add
                   </Button>
@@ -1023,7 +1023,7 @@ const AnnouncementsTab = ({ userRole }) => {
           <Button onClick={() => { setEditOpen(false); setEditTarget(null); }} disabled={updating}
             sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 600, color: '#64748b' }}>Cancel</Button>
           <Button variant="contained" onClick={doUpdate} disabled={updating || !(editForm.title || '').trim()}
-            sx={{ borderRadius: '10px', bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' }, textTransform: 'none', fontWeight: 700 }}>
+            sx={{ borderRadius: '10px', bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' }, textTransform: 'none', fontWeight: 700 }}>
             {updating ? <CircularProgress size={16} sx={{ mr: 1, color: '#fff' }} /> : null}
             Save Changes
           </Button>

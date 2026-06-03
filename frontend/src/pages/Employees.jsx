@@ -1657,7 +1657,7 @@ const EmployeesPage = () => {
           <Tab icon={<SchoolIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Courses"          sx={{ minHeight: 48, gap: 0.5, textTransform: 'none', fontWeight: 600 }} />
           {canExEmployees && <Tab icon={<PersonRemoveIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Ex-Employees" sx={{ minHeight: 48, gap: 0.5, textTransform: 'none', fontWeight: 600 }} />}
         </Tabs>
-        {(canAddEmployee || canUploadResume) && (
+        {activeTab === 0 && (canAddEmployee || canUploadResume) && (
           <Stack direction="row" spacing={1.5} sx={{ flexShrink: 0, pb: 0.5 }}>
             {canUploadResume && (
               <>
@@ -1771,7 +1771,7 @@ const EmployeesPage = () => {
                     const viewerIsManager = user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER';
                     const isDirectReport  = emp.managerId === user?.employeeId;
                     const canClick        = empPerms
-                      ? empPerms.canViewDetail
+                      ? (empPerms.canViewDetail || viewerIsAdmin || (viewerIsManager && isDirectReport))
                       : (viewerIsAdmin || (viewerIsManager && isDirectReport));
 
                     return (
