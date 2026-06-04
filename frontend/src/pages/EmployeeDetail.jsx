@@ -33,6 +33,7 @@ import CalendarTodayIcon    from '@mui/icons-material/CalendarToday';
 import AccessTimeIcon       from '@mui/icons-material/AccessTime';
 import VisibilityIcon      from '@mui/icons-material/Visibility';
 import VisibilityOffIcon   from '@mui/icons-material/VisibilityOff';
+import SupportAgentIcon    from '@mui/icons-material/SupportAgent';
 import { employeeApi }      from '../api/employeeApi';
 import { performanceApi }   from '../api/performanceApi';
 import { leaveApi }         from '../api/leaveApi';
@@ -157,6 +158,7 @@ const EmployeeDetailPage = () => {
   const [locOptions,   setLocOptions]   = useState(['Mandsaur','Ahmedabad','Jamnagar']);
   const [manageOpen,   setManageOpen]   = useState(null);
   const [allEmployees, setAllEmployees] = useState([]);
+  const [hrEmployees,  setHrEmployees]  = useState([]);
 
   const MANAGE_CFG = {
     dept: { label: 'Departments', items: deptOptions, setItems: setDeptOptions },
@@ -190,10 +192,11 @@ const EmployeeDetailPage = () => {
     }
   }, [user?.userId]);
 
-  // Load all employees for manager dropdown (admin + HR)
+  // Load all employees for manager dropdown (admin only)
   useEffect(() => {
-    if (user?.role === 'ADMIN' || user?.role === 'HR') {
+    if (user?.role === 'ADMIN') {
       employeeApi.getAll().then(setAllEmployees).catch(() => {});
+      employeeApi.getHrUsers().then(setHrEmployees).catch(() => {});
     }
   }, [user?.role]);
 
@@ -647,8 +650,8 @@ const EmployeeDetailPage = () => {
                       </Tooltip>
                     </Box>
                   </Grid>
-                  {/* Role — admin/HR only */}
-                  {(isAdmin || isHR) && (
+                  {/* Role — admin only */}
+                  {isAdmin && (
                     <Grid item xs={12} sm={6}>
                       <FormControl size="small" fullWidth>
                         <InputLabel>Role</InputLabel>
@@ -666,8 +669,8 @@ const EmployeeDetailPage = () => {
                       </FormControl>
                     </Grid>
                   )}
-                  {/* Manager — admin/HR only */}
-                  {(isAdmin || isHR) && (
+                  {/* Manager — admin only */}
+                  {isAdmin && (
                     <Grid item xs={12} sm={6}>
                       <FormControl size="small" fullWidth>
                         <InputLabel>Manager</InputLabel>
@@ -684,6 +687,26 @@ const EmployeeDetailPage = () => {
                                 {e.fullName} ({e.role})
                               </MenuItem>
                             ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  )}
+                  {/* Assigned HR — admin only */}
+                  {isAdmin && (
+                    <Grid item xs={12} sm={6}>
+                      <FormControl size="small" fullWidth>
+                        <InputLabel>Assigned HR</InputLabel>
+                        <Select
+                          value={form.assignedHrId || ''}
+                          label="Assigned HR"
+                          onChange={(e) => setForm({ ...form, assignedHrId: e.target.value || null })}
+                        >
+                          <MenuItem value="">None</MenuItem>
+                          {hrEmployees.map((e) => (
+                            <MenuItem key={e.id} value={e.id}>
+                              {e.fullName}
+                            </MenuItem>
+                          ))}
                         </Select>
                       </FormControl>
                     </Grid>
@@ -796,6 +819,9 @@ const EmployeeDetailPage = () => {
                     </Grid>
                     <Grid item xs={12} sm={6} md={4}>
                       <InfoCard icon={<PersonIcon />}   label="Manager" value={employee.managerName || 'No manager'} />
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={4}>
+                      <InfoCard icon={<SupportAgentIcon />} label="Assigned HR" value={employee.assignedHrName || 'Not assigned'} />
                     </Grid>
                     {employee.employmentType && (
                       <Grid item xs={12} sm={6} md={4}>

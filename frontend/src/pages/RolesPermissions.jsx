@@ -26,7 +26,7 @@ const ALL_MODULES = [
   { path: '/timesheets',   label: 'Timesheets' },
   { path: '/attendance',   label: 'Attendance' },
   { path: '/leaves',       label: 'Leaves' },
-  { path: '/leave-upload', label: 'Holiday Management' },
+  { path: '/leave-upload', label: 'Leave Management' },
   { path: '/performance',  label: 'Performance' },
   { path: '/reports',      label: 'Reports' },
   { path: '/resources',    label: 'Resources' },

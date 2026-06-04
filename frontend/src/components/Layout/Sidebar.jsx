@@ -1,42 +1,51 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { Box, Tooltip, Typography, IconButton } from '@mui/material';
-import ChevronLeftIcon  from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import DashboardIcon    from '@mui/icons-material/Dashboard';
-import PeopleIcon       from '@mui/icons-material/People';
-import SchoolIcon       from '@mui/icons-material/School';
-import AccessTimeIcon   from '@mui/icons-material/AccessTime';
-import EventNoteIcon    from '@mui/icons-material/EventNote';
-import HowToRegIcon     from '@mui/icons-material/HowToReg';
-import StarIcon         from '@mui/icons-material/Star';
-import BarChartIcon     from '@mui/icons-material/BarChart';
-import AccountTreeIcon  from '@mui/icons-material/AccountTree';
-import FolderIcon       from '@mui/icons-material/Folder';
-import InventoryIcon    from '@mui/icons-material/Inventory';
-import PersonIcon       from '@mui/icons-material/Person';
+import { Box, Divider, Tooltip, Typography, IconButton } from '@mui/material';
+import ChevronLeftIcon          from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon         from '@mui/icons-material/ChevronRight';
+import DashboardIcon            from '@mui/icons-material/Dashboard';
+import PeopleIcon               from '@mui/icons-material/People';
+import AccountTreeIcon          from '@mui/icons-material/AccountTree';
+import HowToRegIcon             from '@mui/icons-material/HowToReg';
+import AccessTimeIcon           from '@mui/icons-material/AccessTime';
+import BeachAccessIcon          from '@mui/icons-material/BeachAccess';
 import FileUploadIcon           from '@mui/icons-material/FileUpload';
+import CelebrationIcon          from '@mui/icons-material/Celebration';
+import SchoolIcon               from '@mui/icons-material/School';
+import StarIcon                 from '@mui/icons-material/Star';
+import BarChartIcon             from '@mui/icons-material/BarChart';
+import InventoryIcon            from '@mui/icons-material/Inventory';
 import AdminPanelSettingsIcon   from '@mui/icons-material/AdminPanelSettings';
+import PersonIcon               from '@mui/icons-material/Person';
 import { toggleSidebar } from '../../store/uiSlice';
 
 export const SIDEBAR_W_OPEN   = 240;
 export const SIDEBAR_W_CLOSED = 72;
 
+const D = { divider: true };
+
 const allNavItems = [
-  { label: 'Dashboard',    path: '/dashboard',    icon: <DashboardIcon />,    roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Employees',    path: '/employees',    icon: <PeopleIcon />,       roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER'] },
-  { label: 'Organisation', path: '/org-chart',    icon: <AccountTreeIcon />,  roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Courses',      path: '/courses',      icon: <SchoolIcon />,       roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Timesheets',   path: '/timesheets',   icon: <AccessTimeIcon />,   roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Attendance',   path: '/attendance',   icon: <HowToRegIcon />,     roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Leaves',       path: '/leaves',       icon: <EventNoteIcon />,    roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Holiday Management', path: '/leave-upload', icon: <FileUploadIcon />,   roles: ['ADMIN', 'HR'] },
-  { label: 'Performance',  path: '/performance',  icon: <StarIcon />,         roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Reports',      path: '/reports',      icon: <BarChartIcon />,     roles: ['ADMIN'] },
-  { label: 'Resources',    path: '/resources',    icon: <InventoryIcon />,    roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'My Profile',   path: '/profile',           icon: <PersonIcon />,                roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Dashboard',          path: '/dashboard',          icon: <DashboardIcon />,          roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  D,
+  { label: 'Employees',          path: '/employees',          icon: <PeopleIcon />,             roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER'] },
+  { label: 'Organisation',       path: '/org-chart',          icon: <AccountTreeIcon />,        roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  D,
+  { label: 'Attendance',         path: '/attendance',         icon: <HowToRegIcon />,           roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Timesheets',         path: '/timesheets',         icon: <AccessTimeIcon />,         roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Leaves',             path: '/leaves',             icon: <BeachAccessIcon />,        roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Leave Management',   path: '/leave-upload',       icon: <FileUploadIcon />,         roles: ['ADMIN', 'HR'] },
+  { label: 'Holidays',           path: '/holidays',           icon: <CelebrationIcon />,        roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  D,
+  { label: 'Courses',            path: '/courses',            icon: <SchoolIcon />,             roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Performance',        path: '/performance',        icon: <StarIcon />,               roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  D,
+  { label: 'Reports',            path: '/reports',            icon: <BarChartIcon />,           roles: ['ADMIN'] },
+  { label: 'Resources',          path: '/resources',          icon: <InventoryIcon />,          roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  D,
   { label: 'Roles & Permissions', path: '/roles-permissions', icon: <AdminPanelSettingsIcon />, roles: ['ADMIN'] },
+  D,
+  { label: 'My Profile',         path: '/profile',            icon: <PersonIcon />,             roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
 ];
 
 const Sidebar = () => {
@@ -52,14 +61,22 @@ const Sidebar = () => {
     try { return JSON.parse(user.allowedModules); } catch { return null; }
   })();
 
-  const navItems = allNavItems.filter((item) => {
-    // Roles & Permissions is always ADMIN-only regardless of custom permissions
-    if (item.path === '/roles-permissions') return role === 'ADMIN';
-    // If admin has assigned custom modules, use those; otherwise fall back to role-based
-    if (allowedPaths) return allowedPaths.includes(item.path);
-    return item.roles.includes(role);
-  });
-  const width    = sidebarOpen ? SIDEBAR_W_OPEN : SIDEBAR_W_CLOSED;
+  const navItems = allNavItems
+    .filter((item) => {
+      if (item.divider) return true;
+      if (item.path === '/roles-permissions') return role === 'ADMIN';
+      if (allowedPaths) return allowedPaths.includes(item.path);
+      return item.roles.includes(role);
+    })
+    // Remove dividers that are leading, trailing, or consecutive after role-filtering
+    .filter((item, idx, arr) => {
+      if (!item.divider) return true;
+      const prev = arr[idx - 1];
+      const next = arr[idx + 1];
+      return prev && !prev.divider && next && !next.divider;
+    });
+
+  const width = sidebarOpen ? SIDEBAR_W_OPEN : SIDEBAR_W_CLOSED;
 
   return (
     <>
@@ -149,11 +166,25 @@ const Sidebar = () => {
           alignItems: sidebarOpen ? 'flex-start' : 'center',
           width: '100%',
           px: sidebarOpen ? 1.5 : 0.5,
-          gap: 0.5,
+          gap: 0.25,
           flex: 1,
         }}
       >
-        {navItems.map((item) => {
+        {navItems.map((item, idx) => {
+          if (item.divider) {
+            return (
+              <Divider
+                key={`div-${idx}`}
+                sx={{
+                  borderColor: 'rgba(255,255,255,0.08)',
+                  my: 0.5,
+                  mx: sidebarOpen ? 1 : 'auto',
+                  width: sidebarOpen ? 'auto' : '55%',
+                }}
+              />
+            );
+          }
+
           const active =
             location.pathname === item.path ||
             (item.path !== '/dashboard' && location.pathname.startsWith(item.path + '/'));
@@ -167,7 +198,7 @@ const Sidebar = () => {
                 flexDirection: sidebarOpen ? 'row' : 'column',
                 alignItems: 'center',
                 justifyContent: sidebarOpen ? 'flex-start' : 'center',
-                py: sidebarOpen ? 0.9 : 0.75,
+                py: sidebarOpen ? 0.55 : 0.5,
                 px: sidebarOpen ? 1.5 : 0.5,
                 borderRadius: '10px',
                 cursor: 'pointer',
@@ -210,6 +241,7 @@ const Sidebar = () => {
               <Box sx={{ width: '100%' }}>{itemContent}</Box>
             </Tooltip>
           );
+
         })}
       </Box>
 

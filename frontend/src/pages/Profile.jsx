@@ -543,6 +543,7 @@ const ProfilePage = () => {
                       ['Employment Type', employee?.employmentType],
                       ['Employee Code', employee?.employeeCode ? `#${employee.employeeCode}` : null],
                       ['Manager', employee?.managerName],
+                      ['Assigned HR', employee?.assignedHrName],
                       ['Hire Date', employee?.hireDate],
                       ['Source of Hire', employee?.sourceOfHire],
                       ['Current Experience', employee?.currentExperience],

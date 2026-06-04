@@ -34,7 +34,7 @@ const pageTitles = {
   '/timesheets':  'Timesheets',
   '/attendance':  'Attendance',
   '/leaves':      'Leave Management',
-  '/leave-upload':'Holiday Management',
+  '/leave-upload':'Leave Management',
   '/performance': 'Performance',
   '/reports':     'Reports',
   '/resources':   'Resources',

@@ -764,7 +764,7 @@ const CoursesPage = () => {
               <Typography variant="h5" fontWeight={700}>Course Catalog</Typography>
               <Typography variant="body2" color="text.secondary" mt={0.5}>Explore and manage learning courses</Typography>
             </Box>
-            {isAdmin && (
+            {isAdmin && statusFilter === 'ALL' && (
               <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateCourse}
                 sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, borderRadius: 2, textTransform: 'none' }}>
                 Create Course

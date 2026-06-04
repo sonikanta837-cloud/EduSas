@@ -32,6 +32,17 @@ public class EmployeeService {
     private final PasswordEncoder passwordEncoder;
 
     @Transactional(readOnly = true)
+    public List<EmployeeDTO> getAllEmployees(String requesterEmail) {
+        EmployeeDetails requester = employeeDetailsRepository.findByUserEmail(requesterEmail).orElse(null);
+        if (requester != null && "HR".equals(requester.getUser().getRole().name())) {
+            return employeeDetailsRepository.findByAssignedHrIdAndActiveTrue(requester.getId())
+                    .stream().map(this::toDTO).collect(Collectors.toList());
+        }
+        return employeeDetailsRepository.findByActive(true).stream()
+                .map(this::toDTO).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
     public List<EmployeeDTO> getAllEmployees() {
         return employeeDetailsRepository.findByActive(true).stream()
                 .map(this::toDTO).collect(Collectors.toList());
@@ -66,14 +77,17 @@ public class EmployeeService {
                 throw new AccessDeniedException("Only admins can view inactive employee profiles");
             }
 
-            boolean isAdmin      = "ADMIN".equals(role) || "HR".equals(role);
+            boolean isAdmin       = "ADMIN".equals(role);
+            boolean isHrRole      = "HR".equals(role);
             boolean isManagerRole = "MANAGER".equals(role) || "ASSISTANT_MANAGER".equals(role);
-            boolean isOwnProfile = requester.getId().equals(id);
+            boolean isOwnProfile  = requester.getId().equals(id);
+            boolean isAssignedHr  = isHrRole && target.getAssignedHr() != null
+                    && target.getAssignedHr().getId().equals(requester.getId());
             boolean isDirectReport = isManagerRole
                     && target.getManager() != null
                     && target.getManager().getId().equals(requester.getId());
 
-            if (!isAdmin && !isOwnProfile && !isDirectReport) {
+            if (!isAdmin && !isAssignedHr && !isOwnProfile && !isDirectReport) {
                 throw new AccessDeniedException("You do not have permission to view this employee's profile");
             }
         }
@@ -94,7 +108,12 @@ public class EmployeeService {
     }
 
     @Transactional(readOnly = true)
-    public List<EmployeeDTO> searchEmployees(String query) {
+    public List<EmployeeDTO> searchEmployees(String query, String requesterEmail) {
+        EmployeeDetails requester = employeeDetailsRepository.findByUserEmail(requesterEmail).orElse(null);
+        if (requester != null && "HR".equals(requester.getUser().getRole().name())) {
+            return employeeDetailsRepository.searchActiveEmployeesByHr(query, requester.getId())
+                    .stream().map(this::toDTO).collect(Collectors.toList());
+        }
         return employeeDetailsRepository.searchActiveEmployees(query).stream()
                 .map(this::toDTO).collect(Collectors.toList());
     }
@@ -162,26 +181,27 @@ public class EmployeeService {
         EmployeeDetails emp = findEmployee(id);
         EmployeeDetails requester = employeeDetailsRepository.findByUserEmail(requesterEmail).orElse(null);
 
-        // Managers may only update their direct reports
         if (requester != null) {
             String requesterRole = requester.getUser().getRole().name();
-            boolean isAdminOrHR = "ADMIN".equals(requesterRole) || "HR".equals(requesterRole);
+            boolean isAdmin       = "ADMIN".equals(requesterRole);
+            boolean isAssignedHr  = "HR".equals(requesterRole) && emp.getAssignedHr() != null
+                    && emp.getAssignedHr().getId().equals(requester.getId());
             boolean isManagerRole = "MANAGER".equals(requesterRole) || "ASSISTANT_MANAGER".equals(requesterRole);
             boolean isDirectReport = isManagerRole
                     && emp.getManager() != null
                     && emp.getManager().getId().equals(requester.getId());
             boolean isSelf = emp.getId().equals(requester.getId());
-            if (!isAdminOrHR && !isDirectReport && !isSelf) {
+            if (!isAdmin && !isAssignedHr && !isDirectReport && !isSelf) {
                 throw new AccessDeniedException("You do not have permission to update this employee");
             }
         }
 
         User user = emp.getUser();
 
-        // Update User-level fields (role changes restricted to ADMIN/HR)
+        // Update User-level fields (role changes restricted to ADMIN only)
         if (dto.getRole() != null) {
             String requesterRole = requester != null ? requester.getUser().getRole().name() : "ADMIN";
-            if ("ADMIN".equals(requesterRole) || "HR".equals(requesterRole)) {
+            if ("ADMIN".equals(requesterRole)) {
                 user.setRole(Role.valueOf(dto.getRole()));
             }
         }
@@ -253,6 +273,20 @@ public class EmployeeService {
             emp.setManager(null);
         }
 
+        // Admin can assign / clear assigned HR via the edit form
+        String requesterRole = requester != null ? requester.getUser().getRole().name() : "ADMIN";
+        if ("ADMIN".equals(requesterRole)) {
+            if (dto.getAssignedHrId() != null) {
+                EmployeeDetails hr = findEmployee(dto.getAssignedHrId());
+                if (!"HR".equals(hr.getUser().getRole().name())) {
+                    throw new BadRequestException("Selected employee does not have the HR role");
+                }
+                emp.setAssignedHr(hr);
+            } else {
+                emp.setAssignedHr(null);
+            }
+        }
+
         return toDTO(employeeDetailsRepository.save(emp));
     }
 
@@ -261,6 +295,27 @@ public class EmployeeService {
         EmployeeDetails emp = findEmployee(id);
         emp.setManager(null);
         employeeDetailsRepository.save(emp);
+    }
+
+    @Transactional
+    public EmployeeDTO assignHr(Long employeeId, Long hrId) {
+        EmployeeDetails emp = findEmployee(employeeId);
+        if (hrId == null) {
+            emp.setAssignedHr(null);
+        } else {
+            EmployeeDetails hr = findEmployee(hrId);
+            if (!"HR".equals(hr.getUser().getRole().name())) {
+                throw new BadRequestException("Selected employee does not have the HR role");
+            }
+            emp.setAssignedHr(hr);
+        }
+        return toDTO(employeeDetailsRepository.save(emp));
+    }
+
+    @Transactional(readOnly = true)
+    public List<EmployeeDTO> getHrEmployees() {
+        return employeeDetailsRepository.findActiveHrEmployees()
+                .stream().map(this::toDTO).collect(Collectors.toList());
     }
 
     @Transactional
@@ -403,6 +458,8 @@ public class EmployeeService {
                 .managerName(emp.getManager() != null && emp.getManager().isActive() ? emp.getManager().getFullName() : null)
                 .subordinateCount(emp.getSubordinates() != null
                         ? (int) emp.getSubordinates().stream().filter(EmployeeDetails::isActive).count() : 0)
+                .assignedHrId(emp.getAssignedHr() != null ? emp.getAssignedHr().getId() : null)
+                .assignedHrName(emp.getAssignedHr() != null ? emp.getAssignedHr().getFullName() : null)
                 .addedBy(emp.getAddedBy())
                 .modifiedBy(emp.getModifiedBy())
                 .createdAt(emp.getCreatedAt())

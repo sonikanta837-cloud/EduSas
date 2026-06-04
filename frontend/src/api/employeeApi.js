@@ -12,4 +12,6 @@ export const employeeApi = {
   toggleStatus: (id) => api.patch(`/employees/${id}/toggle-status`),
   delete:       (id)   => api.delete(`/employees/${id}`),
   getLocations: ()     => api.get('/employees/locations'),
+  getHrUsers:   ()     => api.get('/employees/hr-users'),
+  assignHr: (id, hrId) => api.patch(`/employees/${id}/assign-hr`, null, { params: hrId ? { hrId } : {} }),
 };

@@ -45,4 +45,12 @@ public interface EmployeeDetailsRepository extends JpaRepository<EmployeeDetails
 
     @Query("SELECT e.employeeCode FROM EmployeeDetails e WHERE e.employeeCode IS NOT NULL AND e.employeeCode <> ''")
     List<String> findAllEmployeeCodes();
+
+    List<EmployeeDetails> findByAssignedHrIdAndActiveTrue(Long hrId);
+
+    @Query("SELECT e FROM EmployeeDetails e WHERE e.active = true AND e.assignedHr.id = :hrId AND (LOWER(e.firstName) LIKE LOWER(CONCAT('%', :q, '%')) OR LOWER(e.lastName) LIKE LOWER(CONCAT('%', :q, '%')) OR LOWER(e.department) LIKE LOWER(CONCAT('%', :q, '%')))")
+    List<EmployeeDetails> searchActiveEmployeesByHr(@Param("q") String query, @Param("hrId") Long hrId);
+
+    @Query("SELECT e FROM EmployeeDetails e WHERE e.user.role = com.emp.management.entity.Role.HR AND e.active = true ORDER BY e.firstName ASC")
+    List<EmployeeDetails> findActiveHrEmployees();
 }

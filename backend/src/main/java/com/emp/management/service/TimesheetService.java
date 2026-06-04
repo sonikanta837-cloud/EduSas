@@ -184,7 +184,7 @@ public class TimesheetService {
 
     // ── Daily attendance audit job (10:00 AM) ────────────────────────────────
 
-    @Scheduled(cron = "0 0 10 * * *")
+    @Scheduled(cron = "0 ${app.scheduler.daily-audit.minute:0} ${app.scheduler.daily-audit.hour:10} * * *", zone = "Asia/Kolkata")
     @Transactional
     public void runDailyAttendanceAudit() {
         LocalDate auditDate = LocalDate.now().minusDays(1);
@@ -300,7 +300,7 @@ public class TimesheetService {
 
     // ── Daily missing-timesheet audit job (10:00 AM) ─────────────────────────
 
-    @Scheduled(cron = "0 0 10 * * *")
+    @Scheduled(cron = "0 ${app.scheduler.daily-audit.minute:0} ${app.scheduler.daily-audit.hour:10} * * *", zone = "Asia/Kolkata")
     @Transactional
     public void runMissingTimesheetAudit() {
         // Resolve previous working day (skips weekends — handles Monday → Friday)

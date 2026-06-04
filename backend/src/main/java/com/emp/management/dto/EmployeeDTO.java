@@ -65,6 +65,8 @@ public class EmployeeDTO {
     private Long managerId;
     private String managerName;
     private int subordinateCount;
+    private Long assignedHrId;
+    private String assignedHrName;
 
     // Audit
     private String addedBy;

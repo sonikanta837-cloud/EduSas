@@ -420,20 +420,24 @@ const PerformancePage = () => {
   const now      = new Date();
   const currentQ = `Q${Math.ceil((now.getMonth() + 1) / 3)} ${now.getFullYear()}`;
 
-  /* top performer: highest all-time avg rating; tiebreak by review count, then name */
+  /* top performer: (1) avg rating desc, (2) review count desc, (3) most recent review date desc, (4) name asc */
   const empRatingMap = {};
   reviews.forEach(r => {
     if (!r.employeeId) return;
     if (!empRatingMap[r.employeeId])
-      empRatingMap[r.employeeId] = { name: r.employeeName || '', total: 0, count: 0 };
+      empRatingMap[r.employeeId] = { name: r.employeeName || '', total: 0, count: 0, latestDate: null };
     empRatingMap[r.employeeId].total += r.rating || 0;
     empRatingMap[r.employeeId].count++;
+    const d = r.reviewDate ? new Date(r.reviewDate) : null;
+    if (d && (!empRatingMap[r.employeeId].latestDate || d > empRatingMap[r.employeeId].latestDate))
+      empRatingMap[r.employeeId].latestDate = d;
   });
   const topPerfEntry = Object.values(empRatingMap)
-    .map(d => ({ name: d.name, avg: d.count > 0 ? d.total / d.count : 0, count: d.count }))
+    .map(d => ({ name: d.name, avg: d.count > 0 ? d.total / d.count : 0, count: d.count, latestDate: d.latestDate }))
     .sort((a, b) => {
       if (Math.abs(b.avg - a.avg) > 0.001) return b.avg - a.avg;
       if (b.count !== a.count) return b.count - a.count;
+      if (a.latestDate && b.latestDate && a.latestDate - b.latestDate !== 0) return b.latestDate - a.latestDate;
       return a.name.localeCompare(b.name);
     })[0];
 

@@ -22,11 +22,25 @@ public class EmployeeController {
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER', 'HR', 'EMPLOYEE')")
     public ResponseEntity<List<EmployeeDTO>> getAllEmployees(
-            @RequestParam(required = false) String search) {
+            @RequestParam(required = false) String search,
+            Authentication authentication) {
         if (search != null && !search.isBlank()) {
-            return ResponseEntity.ok(employeeService.searchEmployees(search));
+            return ResponseEntity.ok(employeeService.searchEmployees(search, authentication.getName()));
         }
-        return ResponseEntity.ok(employeeService.getAllEmployees());
+        return ResponseEntity.ok(employeeService.getAllEmployees(authentication.getName()));
+    }
+
+    @GetMapping("/hr-users")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<EmployeeDTO>> getHrUsers() {
+        return ResponseEntity.ok(employeeService.getHrEmployees());
+    }
+
+    @PatchMapping("/{id}/assign-hr")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<EmployeeDTO> assignHr(@PathVariable Long id,
+                                                 @RequestParam(required = false) Long hrId) {
+        return ResponseEntity.ok(employeeService.assignHr(id, hrId));
     }
 
     @GetMapping("/{id}")

@@ -18,6 +18,7 @@ import FilterAltOffIcon  from '@mui/icons-material/FilterAltOff';
 import PeopleAltIcon     from '@mui/icons-material/PeopleAlt';
 import { leaveApi } from '../api/leaveApi';
 import { employeeApi } from '../api/employeeApi';
+import { holidayApi } from '../api/holidayApi';
 import { toast } from 'react-toastify';
 
 const statusColors = { PENDING: 'warning', APPROVED: 'success', REJECTED: 'error' };
@@ -50,6 +51,7 @@ const LeavesPage = () => {
     if (v !== 1) { setFilterFrom(''); setFilterTo(''); setStatusFilter(''); }
   };
   const [form, setForm] = useState({ leaveType: 'ANNUAL', startDate: '', endDate: '', reason: '' });
+  const [rangeHolidays, setRangeHolidays] = useState([]);
   const [editOpen, setEditOpen] = useState(false);
   const [editingLeave, setEditingLeave] = useState(null);
   const [editForm, setEditForm] = useState({ leaveType: 'ANNUAL', startDate: '', endDate: '', reason: '' });
@@ -139,6 +141,19 @@ const LeavesPage = () => {
     const mine = await leaveApi.getMyLeaves(myEmployee.id);
     setMyLeaves(mine);
   };
+
+  // Fetch holidays in the selected date range for the apply-leave dialog
+  useEffect(() => {
+    if (!form.startDate || !form.endDate || form.endDate < form.startDate) {
+      setRangeHolidays([]);
+      return;
+    }
+    const year = new Date(form.startDate).getFullYear();
+    holidayApi.getMy(year).then(all => {
+      const inRange = all.filter(h => h.active && h.date >= form.startDate && h.date <= form.endDate);
+      setRangeHolidays(inRange);
+    }).catch(() => {});
+  }, [form.startDate, form.endDate]);
 
   const handleApply = async () => {
     setSubmitting(true);
@@ -488,6 +503,30 @@ const LeavesPage = () => {
             <TextField label="End Date" type="date" value={form.endDate}
               onChange={(e) => setForm({ ...form, endDate: e.target.value })}
               InputLabelProps={{ shrink: true }} fullWidth />
+
+            {/* Holiday info for selected range */}
+            {form.startDate && form.endDate && form.endDate >= form.startDate && (
+              <Box sx={{ bgcolor: rangeHolidays.length ? '#fffbeb' : '#f0fdf4', border: `1px solid ${rangeHolidays.length ? '#fde68a' : '#bbf7d0'}`, borderRadius: '10px', px: 2, py: 1.5 }}>
+                {rangeHolidays.length > 0 ? (
+                  <>
+                    <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#92400e', mb: 0.75 }}>
+                      🎉 {rangeHolidays.length} holiday{rangeHolidays.length > 1 ? 's' : ''} in this range — automatically excluded from deduction
+                    </Typography>
+                    {rangeHolidays.map(h => (
+                      <Box key={h.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
+                        <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: h.holidayType === 'PUBLIC_HOLIDAY' ? '#ef4444' : h.holidayType === 'RESTRICTED_HOLIDAY' ? '#f59e0b' : '#3b82f6', flexShrink: 0 }} />
+                        <Typography sx={{ fontSize: 12, color: '#78350f' }}>
+                          {new Date(h.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} — {h.name}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </>
+                ) : (
+                  <Typography sx={{ fontSize: 12.5, color: '#15803d' }}>✓ No holidays in this range — all working days will be deducted</Typography>
+                )}
+              </Box>
+            )}
+
             <TextField label="Reason" value={form.reason}
               onChange={(e) => setForm({ ...form, reason: e.target.value })}
               multiline rows={3} fullWidth />

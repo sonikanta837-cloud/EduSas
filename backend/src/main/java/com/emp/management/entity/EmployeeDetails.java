@@ -97,6 +97,12 @@ public class EmployeeDetails {
     @Builder.Default
     private List<EmployeeDetails> subordinates = new ArrayList<>();
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_hr_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private EmployeeDetails assignedHr;
+
     // Audit
     private String addedBy;
     private String modifiedBy;

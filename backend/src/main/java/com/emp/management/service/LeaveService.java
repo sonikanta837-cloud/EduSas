@@ -20,8 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.Arrays;
@@ -35,6 +35,7 @@ public class LeaveService {
     private final TimesheetEntryRepository timesheetEntryRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final HolidayService holidayService;
 
     @Transactional
     public LeaveDTO applyLeave(Long employeeId, LeaveDTO dto) {
@@ -57,7 +58,9 @@ public class LeaveService {
             );
         }
 
-        int totalDays = (int) ChronoUnit.DAYS.between(dto.getStartDate(), dto.getEndDate()) + 1;
+        // Count working days (Mon–Fri) minus applicable holidays for the employee's location
+        String empLocation = employee.getSeatingLocation();
+        int totalDays = holidayService.countDeductibleDays(dto.getStartDate(), dto.getEndDate(), empLocation);
 
         // Directors (ADMIN role) are auto-approved — no manual review required
         boolean isDirector = employee.getUser() != null
@@ -199,7 +202,8 @@ public class LeaveService {
             employeeId, "LEAVE", leave.getStartDate(), leave.getEndDate()
         );
 
-        int totalDays = (int) ChronoUnit.DAYS.between(dto.getStartDate(), dto.getEndDate()) + 1;
+        String updLoc = leave.getEmployee().getSeatingLocation();
+        int totalDays = holidayService.countDeductibleDays(dto.getStartDate(), dto.getEndDate(), updLoc);
 
         leave.setLeaveType(dto.getLeaveType());
         leave.setStartDate(dto.getStartDate());
@@ -234,10 +238,11 @@ public class LeaveService {
     }
 
     private void createTimesheetLeaveEntries(EmployeeDetails employee, LocalDate start, LocalDate end, String leaveType) {
+        Set<LocalDate> holidays = holidayService.getApplicableHolidayDates(start, end, employee.getSeatingLocation());
         LocalDate current = start;
         while (!current.isAfter(end)) {
             DayOfWeek dow = current.getDayOfWeek();
-            if (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY) {
+            if (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY && !holidays.contains(current)) {
                 if (!timesheetEntryRepository.existsByEmployeeIdAndProjectNameAndDate(
                         employee.getId(), "LEAVE", current)) {
                     timesheetEntryRepository.save(TimesheetEntry.builder()
