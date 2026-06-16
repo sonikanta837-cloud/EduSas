@@ -192,9 +192,9 @@ const EmployeeDetailPage = () => {
     }
   }, [user?.userId]);
 
-  // Load all employees for manager dropdown (admin only)
+  // Load all employees for manager dropdown (admin and HR)
   useEffect(() => {
-    if (user?.role === 'ADMIN') {
+    if (user?.role === 'ADMIN' || user?.role === 'HR') {
       employeeApi.getAll().then(setAllEmployees).catch(() => {});
       employeeApi.getHrUsers().then(setHrEmployees).catch(() => {});
     }
@@ -252,17 +252,6 @@ const EmployeeDetailPage = () => {
     }
   }, [tab, employee, canViewFull, canViewCourses, id]); // eslint-disable-line
 
-  useEffect(() => {
-    const handler = (e) => {
-      const { empId, date, hours } = e.detail;
-      if (empId !== parseInt(id)) return;
-      setAttendance((prev) => prev.map((a) =>
-        String(a.workDate).slice(0, 10) === date ? { ...a, workingHours: hours } : a
-      ));
-    };
-    window.addEventListener('working-hours-updated', handler);
-    return () => window.removeEventListener('working-hours-updated', handler);
-  }, [id]);
 
   const [confirmToggle, setConfirmToggle] = useState(false);
   const [showEditPassword, setShowEditPassword] = useState(false);
@@ -650,8 +639,8 @@ const EmployeeDetailPage = () => {
                       </Tooltip>
                     </Box>
                   </Grid>
-                  {/* Role — admin only */}
-                  {isAdmin && (
+                  {/* Role — admin: all roles; HR: all except ADMIN */}
+                  {(isAdmin || isHR) && (
                     <Grid item xs={12} sm={6}>
                       <FormControl size="small" fullWidth>
                         <InputLabel>Role</InputLabel>
@@ -664,13 +653,13 @@ const EmployeeDetailPage = () => {
                           <MenuItem value="MANAGER">Manager</MenuItem>
                           <MenuItem value="ASSISTANT_MANAGER">Assistant Manager</MenuItem>
                           <MenuItem value="HR">HR</MenuItem>
-                          <MenuItem value="ADMIN">Admin</MenuItem>
+                          {isAdmin && <MenuItem value="ADMIN">Admin</MenuItem>}
                         </Select>
                       </FormControl>
                     </Grid>
                   )}
-                  {/* Manager — admin only */}
-                  {isAdmin && (
+                  {/* Manager — admin and HR */}
+                  {(isAdmin || isHR) && (
                     <Grid item xs={12} sm={6}>
                       <FormControl size="small" fullWidth>
                         <InputLabel>Manager</InputLabel>
@@ -691,8 +680,8 @@ const EmployeeDetailPage = () => {
                       </FormControl>
                     </Grid>
                   )}
-                  {/* Assigned HR — admin only */}
-                  {isAdmin && (
+                  {/* Assigned HR — admin and HR */}
+                  {(isAdmin || isHR) && (
                     <Grid item xs={12} sm={6}>
                       <FormControl size="small" fullWidth>
                         <InputLabel>Assigned HR</InputLabel>
@@ -729,6 +718,7 @@ const EmployeeDetailPage = () => {
                   ].map(([f, l]) => (
                     <Grid item xs={12} sm={6} key={f}>
                       <TextField fullWidth size="small" label={l} value={form[f] || ''}
+                        autoComplete="off"
                         onChange={(e) => setForm({ ...form, [f]: e.target.value })} />
                     </Grid>
                   ))}
@@ -762,6 +752,7 @@ const EmployeeDetailPage = () => {
                       fullWidth size="small" label="New Password"
                       placeholder="Leave blank to keep current"
                       type={showEditPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
                       value={form.password || ''}
                       onChange={(e) => setForm({ ...form, password: e.target.value })}
                       InputProps={{

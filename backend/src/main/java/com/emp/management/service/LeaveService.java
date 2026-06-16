@@ -58,9 +58,10 @@ public class LeaveService {
             );
         }
 
-        // Count working days (Mon–Fri) minus applicable holidays for the employee's location
-        String empLocation = employee.getSeatingLocation();
-        int totalDays = holidayService.countDeductibleDays(dto.getStartDate(), dto.getEndDate(), empLocation);
+        // Count working days (Mon–Fri) minus applicable holidays for the employee's location + department
+        String empLocation   = employee.getSeatingLocation();
+        String empDepartment = employee.getDepartment();
+        int totalDays = holidayService.countDeductibleDays(dto.getStartDate(), dto.getEndDate(), empLocation, empDepartment);
 
         // Directors (ADMIN role) are auto-approved — no manual review required
         boolean isDirector = employee.getUser() != null
@@ -202,8 +203,9 @@ public class LeaveService {
             employeeId, "LEAVE", leave.getStartDate(), leave.getEndDate()
         );
 
-        String updLoc = leave.getEmployee().getSeatingLocation();
-        int totalDays = holidayService.countDeductibleDays(dto.getStartDate(), dto.getEndDate(), updLoc);
+        String updLoc  = leave.getEmployee().getSeatingLocation();
+        String updDept = leave.getEmployee().getDepartment();
+        int totalDays = holidayService.countDeductibleDays(dto.getStartDate(), dto.getEndDate(), updLoc, updDept);
 
         leave.setLeaveType(dto.getLeaveType());
         leave.setStartDate(dto.getStartDate());
@@ -238,7 +240,7 @@ public class LeaveService {
     }
 
     private void createTimesheetLeaveEntries(EmployeeDetails employee, LocalDate start, LocalDate end, String leaveType) {
-        Set<LocalDate> holidays = holidayService.getApplicableHolidayDates(start, end, employee.getSeatingLocation());
+        Set<LocalDate> holidays = holidayService.getApplicableHolidayDates(start, end, employee.getSeatingLocation(), employee.getDepartment());
         LocalDate current = start;
         while (!current.isAfter(end)) {
             DayOfWeek dow = current.getDayOfWeek();

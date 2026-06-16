@@ -555,36 +555,12 @@ const TimesheetTab = ({ employees, user }) => {
   const [loading,    setLoading]    = useState(false);
   const [tsPage,     setTsPage]     = useState(0);
   const [tsRpp,      setTsRpp]      = useState(10);
-  const [editHours,  setEditHours]  = useState({ empId: null, val: '' });
-  const [savingHours, setSavingHours] = useState(false);
-
-  const canEditHours = () => {
-    if (!user) return false;
-    return ['ADMIN', 'MANAGER', 'ASSISTANT_MANAGER'].includes(user.role);
-  };
-
-  const startEdit = (emp, currentHrs) => {
-    setEditHours({ empId: emp.id, val: currentHrs != null ? String(currentHrs) : '' });
-  };
-
-  const commitEdit = async (emp) => {
-    const hours = parseFloat(editHours.val);
-    if (isNaN(hours) || hours < 0) { setEditHours({ empId: null, val: '' }); return; }
-    setSavingHours(true);
-    try {
-      await timesheetApi.updateWorkingHours(emp.id, date, hours);
-      setRaw((prev) => ({
-        ...prev,
-        [emp.id]: { ...(prev[emp.id] || {}), totalHours: hours, present: true },
-      }));
-      window.dispatchEvent(new CustomEvent('working-hours-updated', { detail: { empId: emp.id, date, hours } }));
-      toast.success('Working hours updated');
-    } catch {
-      toast.error('Failed to save working hours');
-    } finally {
-      setSavingHours(false);
-      setEditHours({ empId: null, val: '' });
-    }
+  // Calculate hours from checkIn / checkOut strings ("HH:MM:SS")
+  const calcHours = (checkIn, checkOut) => {
+    if (!checkIn || !checkOut) return null;
+    const toSec = (t) => { const [h, m, s] = t.split(':').map(Number); return h * 3600 + m * 60 + (s || 0); };
+    const diff = toSec(checkOut) - toSec(checkIn);
+    return diff > 0 ? Math.round((diff / 3600) * 100) / 100 : null;
   };
 
   const load = useCallback(async (d) => {
@@ -607,15 +583,17 @@ const TimesheetTab = ({ employees, user }) => {
         )
       );
 
-      // Build attendance map using Timesheet entity's workingHours so manual edits persist
+      // Build attendance map — calculate hours from checkIn/checkOut, not stored workingHours
       const attendanceMap = {};
       const entryMap      = {};
       results.forEach(({ emp, ts, entries }) => {
         const hasOpen = ts != null && ts.loginTime != null && ts.logoutTime == null;
+        const checkIn  = ts?.loginTime  ?? null;
+        const checkOut = ts?.logoutTime ?? null;
         attendanceMap[emp.id] = {
-          checkIn:    ts?.loginTime    ?? null,
-          checkOut:   ts?.logoutTime   ?? null,
-          totalHours: ts?.workingHours ?? null,
+          checkIn,
+          checkOut,
+          totalHours: calcHours(checkIn, checkOut),
           hasOpen:    !!hasOpen,
           present:    ts != null && (ts.loginTime != null || ts.workingHours != null),
         };
@@ -820,37 +798,10 @@ const TimesheetTab = ({ employees, user }) => {
                       )}
                       {r._first && (
                         <TableCell rowSpan={r._rowSpan || 1} sx={{ ...cell, verticalAlign: 'middle' }}>
-                          {editHours.empId === r._emp.id ? (
-                            <InputBase
-                              autoFocus
-                              value={editHours.val}
-                              onChange={(e) => setEditHours((p) => ({ ...p, val: e.target.value }))}
-                              onBlur={() => commitEdit(r._emp)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') commitEdit(r._emp);
-                                if (e.key === 'Escape') setEditHours({ empId: null, val: '' });
-                              }}
-                              disabled={savingHours}
-                              inputProps={{ type: 'number', min: 0, step: 0.1, style: { width: 60, fontSize: 12, padding: '2px 4px' } }}
-                              sx={{ border: '1px solid #3b82f6', borderRadius: 1, px: 0.5, fontSize: 12 }}
-                            />
-                          ) : hrs != null ? (
-                            <Chip
-                              label={`${hrs} hrs`}
-                              size="small" color="primary" variant="outlined"
-                              sx={{ fontSize: 11, cursor: canEditHours() ? 'pointer' : 'default' }}
-                              onClick={canEditHours() ? () => startEdit(r._emp, hrs) : undefined}
-                            />
+                          {hrs != null ? (
+                            <Chip label={`${hrs} hrs`} size="small" color="primary" variant="outlined" sx={{ fontSize: 11 }} />
                           ) : hasOpen ? (
                             <Chip label="In Progress" size="small" color="warning" variant="outlined" sx={{ fontSize: 11 }} />
-                          ) : canEditHours() ? (
-                            <Typography
-                              variant="caption" color="text.secondary"
-                              sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}
-                              onClick={() => startEdit(r._emp, null)}
-                            >
-                              + set hours
-                            </Typography>
                           ) : '—'}
                         </TableCell>
                       )}

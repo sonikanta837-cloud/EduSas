@@ -24,4 +24,5 @@ public class TimesheetDTO {
     private String notes;
     private boolean alertSent;
     private boolean missingAlertSent;
+    private boolean breakAlertSent;
 }

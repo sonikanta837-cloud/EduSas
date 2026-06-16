@@ -39,9 +39,12 @@ public class AnnouncementService {
 
         long totalActive = employeeRepo.countByActive(true);
 
+        java.time.LocalDateTime joinedAt = currentEmployee != null ? currentEmployee.getCreatedAt() : null;
+
         return repo.findAllByOrderByPinnedDescCreatedAtDesc()
                 .stream()
                 .filter(a -> !a.isArchived())
+                .filter(a -> joinedAt == null || !a.getCreatedAt().isBefore(joinedAt))
                 .map(a -> toDTO(a,
                         readIds.contains(a.getId()) || username.equals(a.getAuthorName()),
                         viewCountMap.getOrDefault(a.getId(), 0L),
@@ -119,11 +122,15 @@ public class AnnouncementService {
         }
         long totalActive = employeeRepo.countByActive(true);
 
+        // Only show announcements created after the employee's account was created
+        java.time.LocalDateTime since = employee.getCreatedAt();
+
         return repo.findAllByOrderByPinnedDescCreatedAtDesc()
                 .stream()
                 .filter(a -> !a.isArchived()
                           && !readIds.contains(a.getId())
-                          && !username.equals(a.getAuthorName()))
+                          && !username.equals(a.getAuthorName())
+                          && (since == null || !a.getCreatedAt().isBefore(since)))
                 .map(a -> toDTO(a, false, viewCountMap.getOrDefault(a.getId(), 0L), totalActive))
                 .collect(Collectors.toList());
     }
@@ -132,7 +139,8 @@ public class AnnouncementService {
         if (username == null) return 0;
         EmployeeDetails employee = resolveEmployee(username);
         if (employee == null) return 0;
-        return viewRepo.countUnreadByEmployeeId(employee.getId(), username);
+        java.time.LocalDateTime since = employee.getCreatedAt();
+        return viewRepo.countUnreadByEmployeeId(employee.getId(), username, since != null ? since : java.time.LocalDateTime.MIN);
     }
 
     public AnnouncementViewersDTO getViewers(Long announcementId) {

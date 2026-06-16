@@ -45,7 +45,7 @@ import CallIcon            from '@mui/icons-material/Call';
 import ChatIcon            from '@mui/icons-material/Chat';
 import { employeeApi }      from '../api/employeeApi';
 import { announcementApi }  from '../api/announcementApi';
-import { leaveUploadApi }   from '../api/leaveUploadApi';
+import { holidayApi }       from '../api/holidayApi';
 import { toast }            from 'react-toastify';
 
 // ── Layout constants ──────────────────────────────────────────────────────────
@@ -1649,10 +1649,10 @@ const CalendarTab = ({ employees }) => {
   const [holidays, setHolidays] = useState([]);
 
   useEffect(() => {
-    leaveUploadApi.getHolidays()
-      .then(setHolidays)
+    holidayApi.getMy(year)
+      .then(list => setHolidays(list.filter(h => h.active)))
       .catch(() => {});
-  }, []);
+  }, [year]);
 
   // birthdays for current month
   const bdaysByDay = useMemo(() => {

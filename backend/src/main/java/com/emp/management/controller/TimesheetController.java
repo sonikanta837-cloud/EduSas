@@ -80,24 +80,6 @@ public class TimesheetController {
         return ResponseEntity.ok(timesheetService.getTimesheetsByDate(date));
     }
 
-    // ── Admin: edit working hours directly ────────────────────────────────────
-
-    @GetMapping("/working-hours/{empId}/month")
-    public ResponseEntity<Map<String, Double>> getWorkingHoursMap(
-            @PathVariable Long empId,
-            @RequestParam int year,
-            @RequestParam int month) {
-        return ResponseEntity.ok(timesheetService.getWorkingHoursMap(empId, year, month));
-    }
-
-    @PatchMapping("/working-hours/{empId}/{date}")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','ASSISTANT_MANAGER')")
-    public ResponseEntity<TimesheetDTO> updateWorkingHours(
-            @PathVariable Long empId,
-            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @RequestBody Map<String, Double> body) {
-        return ResponseEntity.ok(timesheetService.updateWorkingHours(empId, date, body.get("hours")));
-    }
 
     // ── Timesheet Entries (project-based hours) ────────────────────────────
 

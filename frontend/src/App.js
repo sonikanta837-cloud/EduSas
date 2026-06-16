@@ -20,7 +20,9 @@ import OrgChartPage from './pages/OrgChart';
 import ResourcesPage from './pages/Resources';
 import LeaveUploadPage from './pages/LeaveUpload';
 import HolidaysPage from './pages/Holidays';
-import RolesPermissionsPage from './pages/RolesPermissions';
+import RolesPermissionsPage   from './pages/RolesPermissions';
+import DailyWorkReportsPage   from './pages/DailyWorkReports';
+import SettingsPage           from './pages/Settings';
 
 const theme = createTheme({
   palette: {
@@ -100,6 +102,8 @@ function App() {
             <Route path="/leave-upload" element={<LeaveUploadPage />} />
             <Route path="/holidays" element={<HolidaysPage />} />
             <Route path="/roles-permissions" element={<RolesPermissionsPage />} />
+            <Route path="/work-reports" element={<DailyWorkReportsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

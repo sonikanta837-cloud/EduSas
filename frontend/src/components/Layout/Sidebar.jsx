@@ -9,6 +9,8 @@ import PeopleIcon               from '@mui/icons-material/People';
 import AccountTreeIcon          from '@mui/icons-material/AccountTree';
 import HowToRegIcon             from '@mui/icons-material/HowToReg';
 import AccessTimeIcon           from '@mui/icons-material/AccessTime';
+import EditCalendarIcon         from '@mui/icons-material/EditCalendar';
+import AssessmentIcon           from '@mui/icons-material/Assessment';
 import BeachAccessIcon          from '@mui/icons-material/BeachAccess';
 import FileUploadIcon           from '@mui/icons-material/FileUpload';
 import CelebrationIcon          from '@mui/icons-material/Celebration';
@@ -33,8 +35,8 @@ const allNavItems = [
   D,
   { label: 'Attendance',         path: '/attendance',         icon: <HowToRegIcon />,           roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
   { label: 'Timesheets',         path: '/timesheets',         icon: <AccessTimeIcon />,         roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Work Reports',       path: '/work-reports',       icon: <AssessmentIcon />,          roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
   { label: 'Leaves',             path: '/leaves',             icon: <BeachAccessIcon />,        roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Leave Management',   path: '/leave-upload',       icon: <FileUploadIcon />,         roles: ['ADMIN', 'HR'] },
   { label: 'Holidays',           path: '/holidays',           icon: <CelebrationIcon />,        roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
   D,
   { label: 'Courses',            path: '/courses',            icon: <SchoolIcon />,             roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },

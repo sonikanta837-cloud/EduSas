@@ -31,9 +31,10 @@ public class HolidayService {
     }
 
     @Transactional(readOnly = true)
-    public List<HolidayDTO> getForLocation(String location, int year) {
-        String loc = (location == null || location.isBlank()) ? "ALL" : location;
-        return holidayRepository.findActiveByLocationAndYear(loc, year)
+    public List<HolidayDTO> getForEmployee(String location, String department, int year) {
+        String loc  = (location   == null || location.isBlank())   ? "" : location;
+        String dept = (department == null || department.isBlank())  ? null  : department;
+        return holidayRepository.findActiveByLocationAndYear(loc, dept, year)
                 .stream().map(this::toDTO).collect(Collectors.toList());
     }
 
@@ -51,7 +52,8 @@ public class HolidayService {
                 .name(dto.getName())
                 .date(dto.getDate())
                 .holidayType(dto.getHolidayType())
-                .location(dto.getLocation() == null || dto.getLocation().isBlank() ? "ALL" : dto.getLocation())
+                .location(dto.getLocation() != null && !dto.getLocation().isBlank() ? dto.getLocation() : "")
+                .department(dto.getDepartment() == null || dto.getDepartment().isBlank() ? null : dto.getDepartment())
                 .description(dto.getDescription())
                 .active(dto.isActive())
                 .build();
@@ -64,7 +66,8 @@ public class HolidayService {
         h.setName(dto.getName());
         h.setDate(dto.getDate());
         h.setHolidayType(dto.getHolidayType());
-        h.setLocation(dto.getLocation() == null || dto.getLocation().isBlank() ? "ALL" : dto.getLocation());
+        h.setLocation(dto.getLocation() != null && !dto.getLocation().isBlank() ? dto.getLocation() : "");
+        h.setDepartment(dto.getDepartment() == null || dto.getDepartment().isBlank() ? null : dto.getDepartment());
         h.setDescription(dto.getDescription());
         h.setActive(dto.isActive());
         return toDTO(holidayRepository.save(h));
@@ -86,10 +89,28 @@ public class HolidayService {
      * Returns the set of applicable holiday dates for a given location within a date range.
      * Used by LeaveService to exclude holidays from leave deductions.
      */
-    public Set<LocalDate> getApplicableHolidayDates(LocalDate start, LocalDate end, String location) {
-        String loc = (location == null || location.isBlank()) ? "ALL" : location;
-        return holidayRepository.findApplicable(loc, start, end)
+    public Set<LocalDate> getApplicableHolidayDates(LocalDate start, LocalDate end, String location, String department) {
+        String loc  = (location   == null || location.isBlank())   ? "ALL" : location;
+        String dept = (department == null || department.isBlank())  ? null  : department;
+        return holidayRepository.findApplicable(loc, dept, start, end)
                 .stream().map(Holiday::getDate).collect(Collectors.toSet());
+    }
+
+    // Convenience overload used by callers that don't have department context
+    public Set<LocalDate> getApplicableHolidayDates(LocalDate start, LocalDate end, String location) {
+        return getApplicableHolidayDates(start, end, location, null);
+    }
+
+    public int countDeductibleDays(LocalDate start, LocalDate end, String location, String department) {
+        Set<LocalDate> holidays = getApplicableHolidayDates(start, end, location, department);
+        int count = 0;
+        LocalDate d = start;
+        while (!d.isAfter(end)) {
+            DayOfWeek dow = d.getDayOfWeek();
+            if (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY && !holidays.contains(d)) count++;
+            d = d.plusDays(1);
+        }
+        return count;
     }
 
     /**
@@ -97,7 +118,7 @@ public class HolidayService {
      * This is the number of leave days that will be deducted.
      */
     public int countDeductibleDays(LocalDate start, LocalDate end, String location) {
-        Set<LocalDate> holidays = getApplicableHolidayDates(start, end, location);
+        Set<LocalDate> holidays = getApplicableHolidayDates(start, end, location, null);
         int count = 0;
         LocalDate d = start;
         while (!d.isAfter(end)) {
@@ -124,6 +145,7 @@ public class HolidayService {
                 .date(h.getDate())
                 .holidayType(h.getHolidayType())
                 .location(h.getLocation())
+                .department(h.getDepartment())
                 .description(h.getDescription())
                 .active(h.isActive())
                 .createdAt(h.getCreatedAt())

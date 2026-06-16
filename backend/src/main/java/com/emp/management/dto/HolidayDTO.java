@@ -18,6 +18,7 @@ public class HolidayDTO {
     private LocalDate date;
     private String holidayType;
     private String location;
+    private String department;
     private String description;
     private boolean active;
     private LocalDateTime createdAt;

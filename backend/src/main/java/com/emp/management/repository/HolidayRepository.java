@@ -19,15 +19,19 @@ public interface HolidayRepository extends JpaRepository<Holiday, Long> {
     List<Holiday> findByYear(@Param("year") int year);
 
     @Query("SELECT h FROM Holiday h WHERE h.active = true AND h.date BETWEEN :start AND :end " +
-           "AND (h.location = 'ALL' OR h.location = :location) ORDER BY h.date ASC")
+           "AND (h.location IS NULL OR h.location = '' OR h.location = 'ALL' OR h.location = :location) " +
+           "AND (h.department IS NULL OR h.department = :department) ORDER BY h.date ASC")
     List<Holiday> findApplicable(@Param("location") String location,
+                                  @Param("department") String department,
                                   @Param("start") LocalDate start,
                                   @Param("end") LocalDate end);
 
     @Query("SELECT h FROM Holiday h WHERE h.active = true " +
-           "AND (h.location = 'ALL' OR h.location = :location) " +
+           "AND (h.location IS NULL OR h.location = '' OR h.location = 'ALL' OR h.location = :location) " +
+           "AND (h.department IS NULL OR h.department = :department) " +
            "AND YEAR(h.date) = :year ORDER BY h.date ASC")
     List<Holiday> findActiveByLocationAndYear(@Param("location") String location,
+                                               @Param("department") String department,
                                                @Param("year") int year);
 
     @Query("SELECT DISTINCT YEAR(h.date) FROM Holiday h ORDER BY YEAR(h.date) DESC")

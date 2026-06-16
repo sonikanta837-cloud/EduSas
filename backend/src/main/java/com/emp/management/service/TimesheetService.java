@@ -3,10 +3,12 @@ package com.emp.management.service;
 import com.emp.management.dto.AttendanceSessionDTO;
 import com.emp.management.dto.TimesheetDTO;
 import com.emp.management.entity.*;
+import com.emp.management.entity.AttendanceSessionStatus;
 import com.emp.management.exception.ResourceNotFoundException;
 import com.emp.management.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +34,16 @@ public class TimesheetService {
     private final LeaveRepository leaveRepository;
     private final EmailService emailService;
     private final TimesheetEntryRepository timesheetEntryRepository;
+    private final SystemSettingService systemSettingService;
+
+    @Value("${app.attendance.break-alert.enabled:true}")
+    private boolean breakAlertEnabled;
+
+    @Value("${app.attendance.break-alert.threshold-minutes:75}")
+    private int breakAlertThresholdMinutes;
+
+    @Value("${app.correction.enabled:true}")
+    private boolean correctionEnabled;
 
     // ── Auto record on app login / logout ────────────────────────────────────
 
@@ -100,11 +112,11 @@ public class TimesheetService {
             final double finalTotal = totalHours;
             timesheetRepository.findByEmployeeIdAndWorkDate(employee.getId(), today).ifPresent(t -> {
                 t.setLogoutTime(logoutTime);
-                if (!t.isManualOverride()) {
-                    t.setWorkingHours(finalTotal);
-                }
+                t.setWorkingHours(finalTotal);
                 timesheetRepository.save(t);
             });
+
+            checkAndSendBreakAlert(employee, today, "LOGOUT");
         } catch (Exception e) {
             log.warn("Could not record logout for email={}: {}", email, e.getMessage());
         }
@@ -160,27 +172,6 @@ public class TimesheetService {
                 .map(this::toDTO).orElse(null);
     }
 
-    // ── Admin: direct edit of working hours ───────────────────────────────────
-
-    @Transactional
-    public TimesheetDTO updateWorkingHours(Long empId, LocalDate date, Double hours) {
-        EmployeeDetails emp = findEmployee(empId);
-        Timesheet t = timesheetRepository.findByEmployeeIdAndWorkDate(empId, date)
-                .orElse(Timesheet.builder().employee(emp).workDate(date).alertSent(false).build());
-        t.setWorkingHours(hours);
-        t.setManualOverride(true);
-        return toDTO(timesheetRepository.save(t));
-    }
-
-    public java.util.Map<String, Double> getWorkingHoursMap(Long empId, int year, int month) {
-        LocalDate start = LocalDate.of(year, month, 1);
-        LocalDate end   = start.withDayOfMonth(start.lengthOfMonth());
-        java.util.Map<String, Double> map = new java.util.HashMap<>();
-        timesheetRepository.findByEmployeeIdAndDateRange(empId, start, end).forEach(t -> {
-            if (t.getWorkingHours() != null) map.put(t.getWorkDate().toString(), t.getWorkingHours());
-        });
-        return map;
-    }
 
     // ── Daily attendance audit job (10:00 AM) ────────────────────────────────
 
@@ -295,6 +286,7 @@ public class TimesheetService {
                 .loginTime(s.getLoginTime())
                 .logoutTime(s.getLogoutTime())
                 .sessionHours(s.getSessionHours())
+                .status(s.getStatus() != null ? s.getStatus().name() : "COMPLETE")
                 .build();
     }
 
@@ -402,6 +394,169 @@ public class TimesheetService {
                 .notes(t.getNotes())
                 .alertSent(t.isAlertSent())
                 .missingAlertSent(t.isMissingAlertSent())
+                .breakAlertSent(t.isBreakAlertSent())
                 .build();
+    }
+
+    // ── Break time alert (on logout + end-of-day scheduled job) ─────────────
+
+    private void checkAndSendBreakAlert(EmployeeDetails employee, LocalDate date) {
+        checkAndSendBreakAlert(employee, date, "BOTH");
+    }
+
+    private void checkAndSendBreakAlert(EmployeeDetails employee, LocalDate date, String triggerSource) {
+        boolean enabled = systemSettingService.getBoolean("break_alert_enabled", breakAlertEnabled);
+        if (!enabled) return;
+        if (employee.getUser() != null && Role.ADMIN == employee.getUser().getRole()) return;
+
+        String frequency = systemSettingService.getString("break_alert_frequency", "BOTH");
+        if ("ON_LOGOUT".equals(frequency) && "SCHEDULED".equals(triggerSource)) return;
+        if ("SCHEDULED".equals(frequency) && "LOGOUT".equals(triggerSource)) return;
+
+        List<AttendanceSession> completed = sessionRepository
+                .findByEmployeeIdAndWorkDateOrderByLoginTimeAsc(employee.getId(), date)
+                .stream()
+                .filter(s -> s.getLogoutTime() != null)
+                .collect(Collectors.toList());
+
+        // Need at least two sessions to accumulate a gap (break) between them
+        if (completed.size() < 2) return;
+
+        LocalTime firstLogin  = completed.get(0).getLoginTime();
+        LocalTime lastLogout  = completed.get(completed.size() - 1).getLogoutTime();
+
+        long daySpanMinutes   = ChronoUnit.MINUTES.between(firstLogin, lastLogout);
+        long activeMinutes    = completed.stream()
+                .mapToLong(s -> ChronoUnit.MINUTES.between(s.getLoginTime(), s.getLogoutTime()))
+                .sum();
+        long breakMinutes     = daySpanMinutes - activeMinutes;
+
+        int threshold = systemSettingService.getInt("break_alert_threshold_minutes", breakAlertThresholdMinutes);
+        if (breakMinutes <= threshold) return;
+
+        Timesheet ts = timesheetRepository.findByEmployeeIdAndWorkDate(employee.getId(), date).orElse(null);
+        if (ts != null && ts.isBreakAlertSent()) return;
+
+        dispatchBreakTimeAlert(employee, date, firstLogin, lastLogout, breakMinutes, threshold);
+
+        if (ts == null) {
+            ts = Timesheet.builder()
+                    .employee(employee).workDate(date)
+                    .breakAlertSent(true).alertSent(false).build();
+        } else {
+            ts.setBreakAlertSent(true);
+        }
+        timesheetRepository.save(ts);
+    }
+
+    private void dispatchBreakTimeAlert(EmployeeDetails emp, LocalDate date,
+                                         LocalTime firstLogin, LocalTime lastLogout,
+                                         long breakMinutes, int threshold) {
+        boolean notifyManager = systemSettingService.getBoolean("break_alert_notify_manager", true);
+        boolean notifyHr      = systemSettingService.getBoolean("break_alert_notify_hr", true);
+        boolean notifyAdmin   = systemSettingService.getBoolean("break_alert_notify_admin", false);
+
+        String primaryTo = null;
+
+        if (notifyManager) {
+            primaryTo = (emp.getManager() != null && emp.getManager().getUser() != null)
+                    ? emp.getManager().getUser().getEmail() : null;
+        }
+        if (primaryTo == null && notifyAdmin) {
+            primaryTo = userRepository.findByRole(Role.ADMIN).stream()
+                    .map(User::getEmail)
+                    .filter(e -> e != null && !e.isBlank())
+                    .findFirst().orElse(null);
+        }
+        if (primaryTo == null) {
+            log.warn("No recipient configured for break time alert — employee: {}", emp.getFullName());
+            return;
+        }
+
+        final String to = primaryTo;
+        java.util.List<String> ccList = new java.util.ArrayList<>();
+        if (notifyHr) {
+            userRepository.findByRole(Role.HR).stream()
+                    .map(User::getEmail)
+                    .filter(e -> e != null && !e.isBlank() && !e.equalsIgnoreCase(to))
+                    .forEach(ccList::add);
+        }
+        if (notifyAdmin) {
+            userRepository.findByRole(Role.ADMIN).stream()
+                    .map(User::getEmail)
+                    .filter(e -> e != null && !e.isBlank() && !e.equalsIgnoreCase(to))
+                    .forEach(ccList::add);
+        }
+        String[] cc = ccList.stream().distinct().toArray(String[]::new);
+
+        emailService.sendBreakTimeAlertEmail(
+                to, cc,
+                emp.getFullName(),
+                emp.getEmployeeCode(),
+                emp.getDepartment(),
+                emp.getUser().getEmail(),
+                date, firstLogin, lastLogout, breakMinutes, threshold
+        );
+    }
+
+    // ── Midnight: mark sessions with missing logout as PENDING_LOGOUT_CONFIRMATION ─
+
+    @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Kolkata")
+    @Transactional
+    public void runMissingLogoutDetection() {
+        if (!correctionEnabled) return;
+
+        // Find past sessions (before today) with no logout that haven't been flagged yet
+        List<AttendanceSession> openSessions = sessionRepository
+                .findByWorkDateBeforeAndLogoutTimeIsNullAndStatus(
+                        LocalDate.now(), AttendanceSessionStatus.COMPLETE);
+
+        int marked = 0;
+        for (AttendanceSession session : openSessions) {
+            DayOfWeek dow = session.getWorkDate().getDayOfWeek();
+            if (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY) continue;
+            session.setStatus(AttendanceSessionStatus.PENDING_LOGOUT_CONFIRMATION);
+            sessionRepository.save(session);
+            marked++;
+        }
+        log.info("Missing-logout detection: {} session(s) marked PENDING_LOGOUT_CONFIRMATION", marked);
+    }
+
+    @Scheduled(cron = "0 ${app.scheduler.break-audit.minute:30} ${app.scheduler.break-audit.hour:19} * * *", zone = "Asia/Kolkata")
+    @Transactional
+    public void runBreakTimeAudit() {
+        LocalDate today = LocalDate.now();
+        DayOfWeek dow = today.getDayOfWeek();
+        if (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY) {
+            log.info("Break time audit skipped — {} is a weekend", today);
+            return;
+        }
+
+        boolean enabled = systemSettingService.getBoolean("break_alert_enabled", breakAlertEnabled);
+        if (!enabled) {
+            log.info("Break time alert is disabled — skipping audit for {}", today);
+            return;
+        }
+
+        log.info("Running break time audit for {}", today);
+        int checked = 0;
+
+        for (EmployeeDetails emp : employeeDetailsRepository.findByActive(true)) {
+            try {
+                if (emp.getUser() == null) continue;
+
+                Timesheet ts = timesheetRepository.findByEmployeeIdAndWorkDate(emp.getId(), today).orElse(null);
+                if (ts != null && ts.isBreakAlertSent()) continue;
+
+                if (leaveRepository.hasLeaveOnDate(emp.getId(), today, LeaveStatus.APPROVED)) continue;
+
+                checkAndSendBreakAlert(emp, today, "SCHEDULED");
+                checked++;
+            } catch (Exception e) {
+                log.warn("Break time audit failed for employee {}: {}", emp.getFullName(), e.getMessage());
+            }
+        }
+
+        log.info("Break time audit completed for {} — {} employee(s) evaluated", today, checked);
     }
 }

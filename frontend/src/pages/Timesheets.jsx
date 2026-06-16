@@ -4,7 +4,7 @@ import {
   Box, Typography, IconButton, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Button, Dialog,
   DialogTitle, DialogContent, DialogActions, TextField,
-  CircularProgress, Tooltip, InputBase
+  CircularProgress, Tooltip, InputBase,
 } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -602,6 +602,7 @@ const TimesheetsPage = () => {
           <Button variant="contained" onClick={handleAddRow}>Submit</Button>
         </DialogActions>
       </Dialog>
+
     </Box>
   );
 };

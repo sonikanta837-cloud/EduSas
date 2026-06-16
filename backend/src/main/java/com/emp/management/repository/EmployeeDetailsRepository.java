@@ -53,4 +53,9 @@ public interface EmployeeDetailsRepository extends JpaRepository<EmployeeDetails
 
     @Query("SELECT e FROM EmployeeDetails e WHERE e.user.role = com.emp.management.entity.Role.HR AND e.active = true ORDER BY e.firstName ASC")
     List<EmployeeDetails> findActiveHrEmployees();
+
+    List<EmployeeDetails> findByAssignedHrIsNullAndActiveTrue();
+
+    @Query("SELECT COUNT(e) FROM EmployeeDetails e WHERE e.assignedHr.id = :hrId AND e.active = true")
+    long countActiveAssignmentsByHrId(@Param("hrId") Long hrId);
 }

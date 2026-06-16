@@ -88,13 +88,13 @@ class EmployeeControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void getAllEmployees_withSearchParam_callsSearch() throws Exception {
-        when(employeeService.searchEmployees("Alice")).thenReturn(List.of(sampleDTO));
+        when(employeeService.searchEmployees(eq("Alice"), any())).thenReturn(List.of(sampleDTO));
 
         mockMvc.perform(get("/api/employees").param("search", "Alice"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].firstName").value("Alice"));
 
-        verify(employeeService).searchEmployees("Alice");
+        verify(employeeService).searchEmployees(eq("Alice"), any());
         verify(employeeService, never()).getAllEmployees();
     }
 

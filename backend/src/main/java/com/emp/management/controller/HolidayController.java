@@ -38,9 +38,9 @@ public class HolidayController {
         int y = (year == 0) ? LocalDate.now().getYear() : year;
         EmployeeDetails emp = employeeDetailsRepository
                 .findByUserEmail(authentication.getName()).orElse(null);
-        String location = (emp != null && emp.getSeatingLocation() != null)
-                ? emp.getSeatingLocation() : "ALL";
-        return ResponseEntity.ok(holidayService.getForLocation(location, y));
+        String location   = (emp != null && emp.getSeatingLocation() != null) ? emp.getSeatingLocation() : "ALL";
+        String department = (emp != null) ? emp.getDepartment() : null;
+        return ResponseEntity.ok(holidayService.getForEmployee(location, department, y));
     }
 
     /** Available years for the year-picker */

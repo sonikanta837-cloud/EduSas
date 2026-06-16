@@ -16,6 +16,7 @@ import TableRowsIcon      from '@mui/icons-material/TableRows';
 import UploadFileIcon     from '@mui/icons-material/UploadFile';
 import DownloadIcon       from '@mui/icons-material/Download';
 import SearchIcon         from '@mui/icons-material/Search';
+import TuneIcon           from '@mui/icons-material/Tune';
 import CelebrationIcon    from '@mui/icons-material/Celebration';
 import LocationOnIcon     from '@mui/icons-material/LocationOn';
 import EventIcon          from '@mui/icons-material/Event';
@@ -38,7 +39,7 @@ const DAYS   = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 
 const BLANK = {
   name: '', date: '', holidayType: 'PUBLIC_HOLIDAY',
-  location: 'ALL', description: '', active: true,
+  location: 'ALL', department: '', description: '', active: true,
 };
 
 const fmtDate = (d) => {
@@ -142,7 +143,8 @@ const HolidaysPage = () => {
 
   const [holidays,   setHolidays]   = useState([]);
   const [years,      setYears]      = useState([]);
-  const [locations,  setLocations]  = useState(['ALL']);
+  const [locations,   setLocations]   = useState(['ALL']);
+  const [departments, setDepartments] = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [view,       setView]       = useState('calendar');   // 'calendar' | 'table'
   const [year,       setYear]       = useState(new Date().getFullYear());
@@ -160,6 +162,8 @@ const HolidaysPage = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting,   setDeleting]   = useState(false);
   const [bulkOpen,   setBulkOpen]   = useState(false);
+  const [deptMgrOpen, setDeptMgrOpen] = useState(false);
+  const [newDeptName, setNewDeptName] = useState('');
   const [bulkText,   setBulkText]   = useState('');
   const [bulkParsed, setBulkParsed] = useState([]);
   const [bulkError,  setBulkError]  = useState('');
@@ -179,6 +183,7 @@ const HolidaysPage = () => {
     holidayApi.getYears().then(setYears).catch(() => {});
     if (isAdminOrHR) {
       employeeApi.getLocations().then(locs => setLocations(['ALL', ...locs])).catch(() => {});
+      setDepartments(['UK', 'US']);
     }
   }, [isAdminOrHR]);
 
@@ -207,7 +212,7 @@ const HolidaysPage = () => {
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
   const openCreate = () => { setEditTarget(null); setForm({ ...BLANK }); setFormOpen(true); };
-  const openEdit   = (h) => { setEditTarget(h); setForm({ name: h.name, date: String(h.date).slice(0,10), holidayType: h.holidayType, location: h.location, description: h.description || '', active: h.active }); setFormOpen(true); };
+  const openEdit   = (h) => { setEditTarget(h); setForm({ name: h.name, date: String(h.date).slice(0,10), holidayType: h.holidayType, location: h.location, department: h.department || '', description: h.description || '', active: h.active }); setFormOpen(true); };
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('Holiday name is required'); return; }
@@ -436,7 +441,7 @@ const HolidaysPage = () => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: '#f8fafc' }}>
-                {['Holiday Name','Date','Day','Type','Location','Description','Status', isAdminOrHR ? 'Actions' : null]
+                {['Holiday Name','Date','Day','Type','Location','Department','Description','Status', isAdminOrHR ? 'Actions' : null]
                   .filter(Boolean).map(h => (
                   <TableCell key={h} sx={{ fontWeight: 700, fontSize: 12.5, color: '#374151', py: 1.5 }}>{h}</TableCell>
                 ))}
@@ -450,8 +455,14 @@ const HolidaysPage = () => {
                   <TableCell sx={{ fontSize: 13, color: '#64748b' }}>{dayName(h.date)}</TableCell>
                   <TableCell><TypeChip type={h.holidayType} /></TableCell>
                   <TableCell>
-                    <Chip label={h.location === 'ALL' ? 'All Locations' : h.location} size="small"
+                    <Chip
+                      label={!h.location || h.location === '' ? 'None' : h.location === 'ALL' ? 'All Locations' : h.location}
+                      size="small"
                       sx={{ fontSize: 11, bgcolor: '#f1f5f9', color: '#475569' }} />
+                  </TableCell>
+                  <TableCell>
+                    <Chip label={h.department || 'All Departments'} size="small"
+                      sx={{ fontSize: 11, bgcolor: h.department ? '#eff6ff' : '#f1f5f9', color: h.department ? '#2563eb' : '#475569' }} />
                   </TableCell>
                   <TableCell sx={{ fontSize: 12.5, color: '#64748b', maxWidth: 200 }}>
                     <Typography noWrap sx={{ fontSize: 12.5, color: '#64748b', maxWidth: 180 }}>
@@ -530,6 +541,7 @@ const HolidaysPage = () => {
                 <InputLabel>Location</InputLabel>
                 <Select value={form.location} label="Location"
                   onChange={e => setForm(f => ({ ...f, location: e.target.value }))}>
+                  <MenuItem value=""><em>None</em></MenuItem>
                   {locations.map(l => (
                     <MenuItem key={l} value={l}>{l === 'ALL' ? 'All Locations' : l}</MenuItem>
                   ))}
@@ -537,11 +549,22 @@ const HolidaysPage = () => {
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
-              <FormControlLabel
-                control={<Switch checked={form.active} onChange={e => setForm(f => ({ ...f, active: e.target.checked }))} color="success" />}
-                label={<Typography sx={{ fontSize: 13.5 }}>Active</Typography>}
-                sx={{ ml: 0, mt: 0.5 }}
-              />
+              <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'flex-start' }}>
+                <FormControl size="small" fullWidth>
+                  <InputLabel>Department (optional)</InputLabel>
+                  <Select value={form.department || ''} label="Department (optional)"
+                    onChange={e => setForm(f => ({ ...f, department: e.target.value }))}>
+                    <MenuItem value=""><em>All Departments</em></MenuItem>
+                    {departments.map(d => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+                  </Select>
+                </FormControl>
+                <Tooltip title="Manage Departments">
+                  <IconButton size="small" onClick={() => { setNewDeptName(''); setDeptMgrOpen(true); }}
+                    sx={{ mt: 0.5, color: 'text.secondary' }}>
+                    <TuneIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
             </Grid>
             <Grid item xs={12}>
               <TextField fullWidth size="small" label="Description" multiline rows={2}
@@ -576,6 +599,47 @@ const HolidaysPage = () => {
             sx={{ textTransform: 'none', borderRadius: '8px', minWidth: 90 }}>
             {deleting ? <CircularProgress size={18} color="inherit" /> : 'Delete'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Manage Departments Dialog ── */}
+      <Dialog open={deptMgrOpen} onClose={() => setDeptMgrOpen(false)} maxWidth="xs" fullWidth
+        PaperProps={{ sx: { borderRadius: '16px' } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 16, pb: 0 }}>Manage Departments</DialogTitle>
+        <Divider sx={{ mt: 1.5 }} />
+        <DialogContent sx={{ pt: 2 }}>
+          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            <TextField size="small" fullWidth placeholder="New department name…"
+              value={newDeptName} onChange={e => setNewDeptName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  const v = newDeptName.trim();
+                  if (v && !departments.includes(v)) { setDepartments(prev => [...prev, v].sort()); setNewDeptName(''); }
+                }
+              }} />
+            <Button variant="contained" size="small"
+              sx={{ bgcolor: '#1e3a5f', textTransform: 'none', borderRadius: '8px', whiteSpace: 'nowrap' }}
+              onClick={() => {
+                const v = newDeptName.trim();
+                if (v && !departments.includes(v)) { setDepartments(prev => [...prev, v].sort()); setNewDeptName(''); }
+              }}>
+              Add
+            </Button>
+          </Box>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {departments.map(d => (
+              <Chip key={d} label={d} size="small"
+                onDelete={() => {
+                  setDepartments(prev => prev.filter(x => x !== d));
+                  if (form.department === d) setForm(f => ({ ...f, department: '' }));
+                }}
+                sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontWeight: 600, fontSize: 12 }} />
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setDeptMgrOpen(false)}
+            sx={{ textTransform: 'none', borderRadius: '8px' }}>Done</Button>
         </DialogActions>
       </Dialog>
 

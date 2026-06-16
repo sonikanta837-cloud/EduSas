@@ -122,7 +122,7 @@ class EmployeeServiceTest {
     void searchEmployees_delegatesToRepository() {
         when(employeeDetailsRepository.searchActiveEmployees("John")).thenReturn(List.of(employee));
 
-        List<EmployeeDTO> result = employeeService.searchEmployees("John");
+        List<EmployeeDTO> result = employeeService.searchEmployees("John", null);
 
         assertThat(result).hasSize(1);
         verify(employeeDetailsRepository).searchActiveEmployees("John");

@@ -11,6 +11,7 @@ import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import ArrowBackIcon      from '@mui/icons-material/ArrowBack';
 import LogoutIcon         from '@mui/icons-material/Logout';
 import PersonIcon         from '@mui/icons-material/Person';
+import SettingsIcon      from '@mui/icons-material/Settings';
 import DoneAllIcon        from '@mui/icons-material/DoneAll';
 import ArrowForwardIcon   from '@mui/icons-material/ArrowForward';
 import CampaignIcon           from '@mui/icons-material/Campaign';
@@ -20,10 +21,12 @@ import MenuBookIcon           from '@mui/icons-material/MenuBook';
 import EmojiEventsIcon        from '@mui/icons-material/EmojiEvents';
 import GavelIcon              from '@mui/icons-material/Gavel';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import AssignmentLateIcon      from '@mui/icons-material/AssignmentLate';
 import { logout }                  from '../../store/authSlice';
 import { timesheetApi }            from '../../api/timesheetApi';
 import { announcementApi }         from '../../api/announcementApi';
 import { courseNotificationApi }   from '../../api/courseNotificationApi';
+import { pipNotificationApi }      from '../../api/pipNotificationApi';
 import { SIDEBAR_W_OPEN, SIDEBAR_W_CLOSED } from './Sidebar';
 
 const pageTitles = {
@@ -40,6 +43,7 @@ const pageTitles = {
   '/resources':   'Resources',
   '/profile':            'My Profile',
   '/roles-permissions':  'Roles & Permissions',
+  '/settings':           'Settings',
 };
 
 const fallbackRoutes = {
@@ -88,13 +92,15 @@ const Header = () => {
 
   const [anchorEl,       setAnchorEl]       = useState(null);
   const [unreadCount,    setUnreadCount]    = useState(0);   // announcements
-  const [courseUnread,   setCourseUnread]   = useState(0);   // courses
+  const [courseUnread,   setCourseUnread]   = useState(0);
+  const [pipUnread,      setPipUnread]      = useState(0);
   const [notifAnchor,    setNotifAnchor]    = useState(null);
-  const [unreadItems,    setUnreadItems]    = useState([]);   // announcements
-  const [courseItems,    setCourseItems]    = useState([]);   // course notifications
+  const [unreadItems,    setUnreadItems]    = useState([]);
+  const [courseItems,    setCourseItems]    = useState([]);
+  const [pipItems,       setPipItems]       = useState([]);
   const [notifLoading,   setNotifLoading]   = useState(false);
 
-  const totalUnread = unreadCount + courseUnread;
+  const totalUnread = unreadCount + courseUnread + pipUnread;
 
   const sidebarW  = sidebarOpen ? SIDEBAR_W_OPEN : SIDEBAR_W_CLOSED;
   const pageTitle =
@@ -116,6 +122,9 @@ const Header = () => {
     courseNotificationApi.getUnreadCount()
       .then(data => setCourseUnread(data?.count ?? 0))
       .catch(() => {});
+    pipNotificationApi.getUnreadCount()
+      .then(data => setPipUnread(data?.count ?? 0))
+      .catch(() => {});
   }, [user]);
 
   // ── Reset badge when AnnouncementsTab marks everything read ──────────────────
@@ -132,6 +141,13 @@ const Header = () => {
     return () => window.removeEventListener('course-notifications-read', handleRead);
   }, []);
 
+  // ── Reset PIP badge ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleRead = () => { setPipUnread(0); setPipItems([]); };
+    window.addEventListener('pip-notifications-read', handleRead);
+    return () => window.removeEventListener('pip-notifications-read', handleRead);
+  }, []);
+
   // ── Open notification popover and load all unread items ─────────────────────
   const openNotifications = useCallback((e) => {
     setNotifAnchor(e.currentTarget);
@@ -139,9 +155,11 @@ const Header = () => {
     Promise.all([
       announcementApi.getUnread().catch(() => []),
       courseNotificationApi.getUnread().catch(() => []),
-    ]).then(([ann, course]) => {
-      setUnreadItems(Array.isArray(ann) ? ann : []);
+      pipNotificationApi.getUnread().catch(() => []),
+    ]).then(([ann, course, pip]) => {
+      setUnreadItems(Array.isArray(ann)    ? ann    : []);
       setCourseItems(Array.isArray(course) ? course : []);
+      setPipItems(Array.isArray(pip)       ? pip    : []);
     }).finally(() => setNotifLoading(false));
   }, []);
 
@@ -165,18 +183,31 @@ const Header = () => {
     navigate('/courses');
   }, [navigate]);
 
+  // ── Click a PIP notification ──────────────────────────────────────────────────
+  const handlePipNotifClick = useCallback(async (item) => {
+    try { await pipNotificationApi.markAsRead(item.id); } catch { /* silent */ }
+    setPipItems(prev => prev.filter(i => i.id !== item.id));
+    setPipUnread(prev => Math.max(0, prev - 1));
+    setNotifAnchor(null);
+    navigate('/performance');
+  }, [navigate]);
+
   // ── Mark all read ────────────────────────────────────────────────────────────
   const markAllRead = useCallback(async () => {
     await Promise.all([
       ...unreadItems.map(i => announcementApi.markAsRead(i.id).catch(() => {})),
       courseNotificationApi.markAllRead().catch(() => {}),
+      pipNotificationApi.markAllRead().catch(() => {}),
     ]);
     setUnreadItems([]);
     setCourseItems([]);
+    setPipItems([]);
     setUnreadCount(0);
     setCourseUnread(0);
+    setPipUnread(0);
     window.dispatchEvent(new Event('announcements-read'));
     window.dispatchEvent(new Event('course-notifications-read'));
+    window.dispatchEvent(new Event('pip-notifications-read'));
   }, [unreadItems]);
 
   const handleLogout = async () => {
@@ -298,7 +329,7 @@ const Header = () => {
                 </Box>
               )}
             </Box>
-            {(unreadItems.length > 0 || courseItems.length > 0) && (
+            {(unreadItems.length > 0 || courseItems.length > 0 || pipItems.length > 0) && (
               <Button
                 size="small" startIcon={<DoneAllIcon sx={{ fontSize: 14 }} />}
                 onClick={markAllRead}
@@ -319,7 +350,7 @@ const Header = () => {
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
                 <CircularProgress size={26} sx={{ color: '#14b8a6' }} />
               </Box>
-            ) : unreadItems.length === 0 && courseItems.length === 0 ? (
+            ) : unreadItems.length === 0 && courseItems.length === 0 && pipItems.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 6, px: 3 }}>
                 <Box sx={{
                   width: 56, height: 56, borderRadius: '50%', bgcolor: '#f0fdfa',
@@ -473,24 +504,52 @@ const Header = () => {
                 ))}
               </>
             )}
-          </Box>
 
-          {/* Popover footer */}
-          <Box sx={{ px: 2.5, py: 1.25, borderTop: '1px solid #f1f5f9', flexShrink: 0, bgcolor: '#fff', display: 'flex', gap: 1 }}>
-            {/* <Button
-              fullWidth size="small"
-              onClick={() => { navigate('/org-chart?tab=1'); setNotifAnchor(null); }}
-              sx={{ fontSize: 12.5, color: '#14b8a6', fontWeight: 600, textTransform: 'none', borderRadius: '10px', py: .75, '&:hover': { bgcolor: '#f0fdfa' } }}
-            >
-              All Announcements
-            </Button>
-            <Button
-              fullWidth size="small"
-              onClick={() => { navigate('/courses'); setNotifAnchor(null); }}
-              sx={{ fontSize: 12.5, color: '#4f46e5', fontWeight: 600, textTransform: 'none', borderRadius: '10px', py: .75, '&:hover': { bgcolor: '#eef2ff' } }}
-            >
-              My Courses
-            </Button> */}
+            {/* ── PIP comment notification cards ── */}
+            {pipItems.length > 0 && (
+              <>
+                <Box sx={{ px: 2.5, py: .75, bgcolor: '#f8fafc', borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9' }}>
+                  <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.6px' }}>
+                    PIP Comments
+                  </Typography>
+                </Box>
+                {pipItems.map((item, idx) => (
+                  <Box
+                    key={item.id}
+                    onClick={() => handlePipNotifClick(item)}
+                    sx={{
+                      px: 2.5, py: 1.75, cursor: 'pointer', position: 'relative',
+                      borderBottom: idx < pipItems.length - 1 ? '1px solid #f8fafc' : 'none',
+                      transition: 'background .15s',
+                      '&:hover': { bgcolor: '#f8fafc' },
+                    }}
+                  >
+                    <Box sx={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 6, height: 6, borderRadius: '50%', bgcolor: '#1e3a5f' }} />
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, pl: 1 }}>
+                      <Box sx={{ width: 38, height: 38, borderRadius: '10px', flexShrink: 0, bgcolor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #bfdbfe' }}>
+                        <AssignmentLateIcon sx={{ fontSize: 19, color: '#1e3a5f' }} />
+                      </Box>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#1e3a5f', letterSpacing: '.2px', mb: .3 }}>
+                          PIP · {item.pipTitle}
+                        </Typography>
+                        <Typography sx={{
+                          fontSize: 13, fontWeight: 600, color: '#0f172a',
+                          lineHeight: 1.35, mb: .35,
+                          display: '-webkit-box', WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                        }}>
+                          {item.message}
+                        </Typography>
+                        <Typography sx={{ fontSize: 11.5, color: '#94a3b8' }}>{fmtNotif(item.createdAt)}</Typography>
+                      </Box>
+                      <ArrowForwardIcon sx={{ fontSize: 14, color: '#cbd5e1', mt: .75, flexShrink: 0 }} />
+                    </Box>
+                  </Box>
+                ))}
+              </>
+            )}
+
           </Box>
         </Popover>
 
@@ -551,6 +610,14 @@ const Header = () => {
           >
             <PersonIcon fontSize="small" sx={{ color: '#64748b' }} /> My Profile
           </MenuItem>
+          {user?.role === 'ADMIN' && (
+            <MenuItem
+              onClick={() => { navigate('/settings'); setAnchorEl(null); }}
+              sx={{ gap: 1.5, py: 1, fontSize: '0.875rem' }}
+            >
+              <SettingsIcon fontSize="small" sx={{ color: '#64748b' }} /> Settings
+            </MenuItem>
+          )}
           <MenuItem
             onClick={handleLogout}
             sx={{ color: 'error.main', gap: 1.5, py: 1, fontSize: '0.875rem' }}

@@ -35,6 +35,9 @@ public class Holiday {
     @Builder.Default
     private String location = "ALL";
 
+    // null = all departments; otherwise a specific department name
+    private String department;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 

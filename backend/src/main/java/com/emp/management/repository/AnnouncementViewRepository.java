@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
@@ -23,8 +24,11 @@ public interface AnnouncementViewRepository extends JpaRepository<AnnouncementVi
 
     @Query("SELECT COUNT(DISTINCT a.id) FROM Announcement a WHERE a.archived = false " +
            "AND a.authorName <> :username " +
+           "AND a.createdAt >= :since " +
            "AND a.id NOT IN (SELECT v.announcement.id FROM AnnouncementView v WHERE v.employee.id = :employeeId)")
-    long countUnreadByEmployeeId(@Param("employeeId") Long employeeId, @Param("username") String username);
+    long countUnreadByEmployeeId(@Param("employeeId") Long employeeId,
+                                  @Param("username") String username,
+                                  @Param("since") LocalDateTime since);
 
     @Query("SELECT v.announcement.id, COUNT(v) FROM AnnouncementView v GROUP BY v.announcement.id")
     List<Object[]> countGroupedByAnnouncement();

@@ -36,6 +36,11 @@ public class AttendanceSession {
 
     private Double sessionHours;
 
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "VARCHAR(50) DEFAULT 'COMPLETE'")
+    @Builder.Default
+    private AttendanceSessionStatus status = AttendanceSessionStatus.COMPLETE;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 }

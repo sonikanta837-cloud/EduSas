@@ -22,11 +22,12 @@ const ALL_MODULES = [
   { path: '/dashboard',    label: 'Dashboard',          always: true },
   { path: '/employees',    label: 'Employees' },
   { path: '/org-chart',    label: 'Organisation' },
-  { path: '/courses',      label: 'Courses' },
-  { path: '/timesheets',   label: 'Timesheets' },
   { path: '/attendance',   label: 'Attendance' },
+  { path: '/timesheets',   label: 'Timesheets' },
+  { path: '/work-reports', label: 'Work Reports' },
   { path: '/leaves',       label: 'Leaves' },
-  { path: '/leave-upload', label: 'Leave Management' },
+  { path: '/holidays',     label: 'Holidays' },
+  { path: '/courses',      label: 'Courses' },
   { path: '/performance',  label: 'Performance' },
   { path: '/reports',      label: 'Reports' },
   { path: '/resources',    label: 'Resources' },
@@ -46,10 +47,10 @@ const ALL_EMP_ACTION_KEYS = EMPLOYEE_ACTIONS.map((a) => a.key);
 
 const DEFAULT_MODULES_BY_ROLE = {
   ADMIN:             [...ALL_MODULES.map((m) => m.path), ...ALL_EMP_ACTION_KEYS],
-  HR:                ['/dashboard', '/employees', 'emp:view_detail', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/leave-upload', '/performance', '/resources', '/profile'],
-  MANAGER:           ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/performance', '/resources', '/profile'],
-  ASSISTANT_MANAGER: ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/performance', '/resources', '/profile'],
-  EMPLOYEE:          ['/dashboard', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/performance', '/resources', '/profile'],
+  HR:                ['/dashboard', '/employees', 'emp:view_detail', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/resources', '/profile'],
+  MANAGER:           ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/resources', '/profile'],
+  ASSISTANT_MANAGER: ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/resources', '/profile'],
+  EMPLOYEE:          ['/dashboard', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/resources', '/profile'],
 };
 
 const RolesPermissions = () => {

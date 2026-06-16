@@ -31,7 +31,7 @@ public class EmployeeController {
     }
 
     @GetMapping("/hr-users")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
     public ResponseEntity<List<EmployeeDTO>> getHrUsers() {
         return ResponseEntity.ok(employeeService.getHrEmployees());
     }

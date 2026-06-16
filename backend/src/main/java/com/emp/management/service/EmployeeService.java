@@ -10,6 +10,7 @@ import com.emp.management.exception.ResourceNotFoundException;
 import com.emp.management.repository.EmployeeDetailsRepository;
 import com.emp.management.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,9 +21,11 @@ import org.springframework.context.event.EventListener;
 
 import java.time.LocalDate;
 import java.time.Period;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmployeeService {
@@ -36,7 +39,7 @@ public class EmployeeService {
         EmployeeDetails requester = employeeDetailsRepository.findByUserEmail(requesterEmail).orElse(null);
         if (requester != null && "HR".equals(requester.getUser().getRole().name())) {
             return employeeDetailsRepository.findByAssignedHrIdAndActiveTrue(requester.getId())
-                    .stream().map(this::toDTO).collect(Collectors.toList());
+                    .stream().filter(e -> !isDirector(e)).map(this::toDTO).collect(Collectors.toList());
         }
         return employeeDetailsRepository.findByActive(true).stream()
                 .map(this::toDTO).collect(Collectors.toList());
@@ -87,6 +90,10 @@ public class EmployeeService {
                     && target.getManager() != null
                     && target.getManager().getId().equals(requester.getId());
 
+            if (isHrRole && isDirector(target) && !isOwnProfile) {
+                throw new AccessDeniedException("HR does not have permission to view director profiles");
+            }
+
             if (!isAdmin && !isAssignedHr && !isOwnProfile && !isDirectReport) {
                 throw new AccessDeniedException("You do not have permission to view this employee's profile");
             }
@@ -112,7 +119,7 @@ public class EmployeeService {
         EmployeeDetails requester = employeeDetailsRepository.findByUserEmail(requesterEmail).orElse(null);
         if (requester != null && "HR".equals(requester.getUser().getRole().name())) {
             return employeeDetailsRepository.searchActiveEmployeesByHr(query, requester.getId())
-                    .stream().map(this::toDTO).collect(Collectors.toList());
+                    .stream().filter(e -> !isDirector(e)).map(this::toDTO).collect(Collectors.toList());
         }
         return employeeDetailsRepository.searchActiveEmployees(query).stream()
                 .map(this::toDTO).collect(Collectors.toList());
@@ -173,6 +180,12 @@ public class EmployeeService {
             empBuilder.manager(manager);
         }
 
+        // Auto-assign the least-loaded active HR
+        EmployeeDetails defaultHr = pickLeastLoadedHr();
+        if (defaultHr != null) {
+            empBuilder.assignedHr(defaultHr);
+        }
+
         return toDTO(employeeDetailsRepository.save(empBuilder.build()));
     }
 
@@ -184,13 +197,19 @@ public class EmployeeService {
         if (requester != null) {
             String requesterRole = requester.getUser().getRole().name();
             boolean isAdmin       = "ADMIN".equals(requesterRole);
-            boolean isAssignedHr  = "HR".equals(requesterRole) && emp.getAssignedHr() != null
+            boolean isHrRequester = "HR".equals(requesterRole);
+            boolean isAssignedHr  = isHrRequester && emp.getAssignedHr() != null
                     && emp.getAssignedHr().getId().equals(requester.getId());
             boolean isManagerRole = "MANAGER".equals(requesterRole) || "ASSISTANT_MANAGER".equals(requesterRole);
             boolean isDirectReport = isManagerRole
                     && emp.getManager() != null
                     && emp.getManager().getId().equals(requester.getId());
             boolean isSelf = emp.getId().equals(requester.getId());
+
+            if (isHrRequester && isDirector(emp) && !isSelf) {
+                throw new AccessDeniedException("HR does not have permission to edit director profiles");
+            }
+
             if (!isAdmin && !isAssignedHr && !isDirectReport && !isSelf) {
                 throw new AccessDeniedException("You do not have permission to update this employee");
             }
@@ -198,10 +217,18 @@ public class EmployeeService {
 
         User user = emp.getUser();
 
-        // Update User-level fields (role changes restricted to ADMIN only)
+        // Update User-level fields (role changes: admin can set any role; HR can set any role except ADMIN)
         if (dto.getRole() != null) {
             String requesterRole = requester != null ? requester.getUser().getRole().name() : "ADMIN";
-            if ("ADMIN".equals(requesterRole)) {
+            boolean isAdminReq = "ADMIN".equals(requesterRole);
+            boolean isHrReq    = "HR".equals(requesterRole);
+            if (isAdminReq) {
+                user.setRole(Role.valueOf(dto.getRole()));
+            } else if (isHrReq) {
+                if ("ADMIN".equals(dto.getRole()))
+                    throw new BadRequestException("HR cannot assign the Admin role");
+                if ("ADMIN".equals(user.getRole().name()))
+                    throw new BadRequestException("HR cannot change the role of a director");
                 user.setRole(Role.valueOf(dto.getRole()));
             }
         }
@@ -273,9 +300,9 @@ public class EmployeeService {
             emp.setManager(null);
         }
 
-        // Admin can assign / clear assigned HR via the edit form
+        // Admin and HR can assign / clear assigned HR via the edit form
         String requesterRole = requester != null ? requester.getUser().getRole().name() : "ADMIN";
-        if ("ADMIN".equals(requesterRole)) {
+        if ("ADMIN".equals(requesterRole) || "HR".equals(requesterRole)) {
             if (dto.getAssignedHrId() != null) {
                 EmployeeDetails hr = findEmployee(dto.getAssignedHrId());
                 if (!"HR".equals(hr.getUser().getRole().name())) {
@@ -407,6 +434,58 @@ public class EmployeeService {
         }
     }
 
+    @EventListener(ApplicationReadyEvent.class)
+    @Transactional
+    public void backfillHrAssignments() {
+        List<EmployeeDetails> hrs = employeeDetailsRepository.findActiveHrEmployees();
+
+        // Clear stale assignments where the stored person is no longer an active HR
+        int cleared = 0;
+        for (EmployeeDetails emp : employeeDetailsRepository.findByActive(true)) {
+            if (emp.getAssignedHr() != null && !isActiveHr(emp.getAssignedHr())) {
+                emp.setAssignedHr(null);
+                employeeDetailsRepository.save(emp);
+                cleared++;
+            }
+        }
+        if (cleared > 0) log.info("Cleared {} stale HR assignments", cleared);
+
+        if (hrs.isEmpty()) return;
+
+        // Assign HR to employees who have none
+        List<EmployeeDetails> unassigned = employeeDetailsRepository.findByAssignedHrIsNullAndActiveTrue();
+        unassigned.sort(Comparator.comparingLong(EmployeeDetails::getId));
+        int count = 0;
+        for (EmployeeDetails emp : unassigned) {
+            if ("HR".equals(emp.getUser().getRole().name())) continue;
+            EmployeeDetails hr = pickLeastLoadedHr();
+            if (hr == null) break;
+            emp.setAssignedHr(hr);
+            employeeDetailsRepository.save(emp);
+            count++;
+        }
+        if (count > 0) log.info("Backfilled HR assignments for {} employees", count);
+    }
+
+    private static boolean isDirector(EmployeeDetails e) {
+        return e != null && e.getUser() != null && "ADMIN".equals(e.getUser().getRole().name());
+    }
+
+    private static boolean isActiveHr(EmployeeDetails e) {
+        return e != null && e.isActive()
+                && e.getUser() != null
+                && "HR".equals(e.getUser().getRole().name());
+    }
+
+    private EmployeeDetails pickLeastLoadedHr() {
+        List<EmployeeDetails> hrs = employeeDetailsRepository.findActiveHrEmployees();
+        if (hrs.isEmpty()) return null;
+        return hrs.stream()
+                .min(Comparator.comparingLong(hr ->
+                        employeeDetailsRepository.countActiveAssignmentsByHrId(hr.getId())))
+                .orElse(null);
+    }
+
     private EmployeeDetails findEmployee(Long id) {
         return employeeDetailsRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee", id));
@@ -458,8 +537,8 @@ public class EmployeeService {
                 .managerName(emp.getManager() != null && emp.getManager().isActive() ? emp.getManager().getFullName() : null)
                 .subordinateCount(emp.getSubordinates() != null
                         ? (int) emp.getSubordinates().stream().filter(EmployeeDetails::isActive).count() : 0)
-                .assignedHrId(emp.getAssignedHr() != null ? emp.getAssignedHr().getId() : null)
-                .assignedHrName(emp.getAssignedHr() != null ? emp.getAssignedHr().getFullName() : null)
+                .assignedHrId(isActiveHr(emp.getAssignedHr()) ? emp.getAssignedHr().getId() : null)
+                .assignedHrName(isActiveHr(emp.getAssignedHr()) ? emp.getAssignedHr().getFullName() : null)
                 .addedBy(emp.getAddedBy())
                 .modifiedBy(emp.getModifiedBy())
                 .createdAt(emp.getCreatedAt())

@@ -19,4 +19,6 @@ public class AttendanceSessionDTO {
     private LocalTime loginTime;
     private LocalTime logoutTime;
     private Double sessionHours;
+    private String status;
+    private LocalTime firstLoginTime;
 }
