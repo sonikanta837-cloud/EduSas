@@ -139,7 +139,7 @@ const MiniCalendar = ({ year, month, holidays }) => {
 // ── Main component ────────────────────────────────────────────────────────────
 const HolidaysPage = () => {
   const { user } = useSelector(s => s.auth);
-  const isAdminOrHR = user?.role === 'ADMIN' || user?.role === 'HR';
+  const isAdminOrHR = user?.role === 'ADMIN' || user?.role === 'DIRECTOR' || user?.role === 'HR';
 
   const [holidays,   setHolidays]   = useState([]);
   const [years,      setYears]      = useState([]);

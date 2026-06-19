@@ -13,14 +13,9 @@ export const login = createAsyncThunk('auth/login', async (credentials, { reject
   }
 });
 
-export const logout = createAsyncThunk('auth/logout', async (_, { rejectWithValue }) => {
-  try {
-    await authApi.logout();
-  } catch {
-    // silent
-  } finally {
-    localStorage.clear();
-  }
+export const logout = createAsyncThunk('auth/logout', async () => {
+  authApi.logout().catch(() => {}); // fire-and-forget backend invalidation
+  localStorage.clear();
 });
 
 const storedUser = (() => {

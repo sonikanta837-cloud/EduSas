@@ -56,7 +56,7 @@ const LeavesPage = () => {
   const [editingLeave, setEditingLeave] = useState(null);
   const [editForm, setEditForm] = useState({ leaveType: 'ANNUAL', startDate: '', endDate: '', reason: '' });
   const [deleteDialogId, setDeleteDialogId] = useState(null);
-  const isManagerOrAdmin = ['ADMIN', 'MANAGER', 'ASSISTANT_MANAGER'].includes(user?.role);
+  const isManagerOrAdmin = ['ADMIN', 'DIRECTOR', 'MANAGER', 'ASSISTANT_MANAGER'].includes(user?.role);
 
   /* ── date range filter (Team Leaves tab) ── */
   const [filterFrom,   setFilterFrom]   = useState('');
@@ -120,7 +120,7 @@ const LeavesPage = () => {
       if (tab === 0) {
         setLeaves(await leaveApi.getMyLeaves(emp.id));
       } else {
-        if (user?.role === 'ADMIN') setLeaves(await leaveApi.getAll());
+        if (user?.role === 'ADMIN' || user?.role === 'DIRECTOR') setLeaves(await leaveApi.getAll());
         else setLeaves(await leaveApi.getLeavesForManager(emp.id));
       }
     } catch {
@@ -156,6 +156,11 @@ const LeavesPage = () => {
   }, [form.startDate, form.endDate]);
 
   const handleApply = async () => {
+    if (!form.startDate) { toast.error('Start date is required'); return; }
+    if (form.startDate < todayStr) { toast.error('Start date cannot be in the past'); return; }
+    if (!form.endDate)   { toast.error('End date is required');   return; }
+    if (form.endDate < form.startDate) { toast.error('End date cannot be before start date'); return; }
+    if (!form.reason?.trim()) { toast.error('Reason is required'); return; }
     setSubmitting(true);
     try {
       await leaveApi.apply(myEmployee.id, form);
@@ -173,7 +178,7 @@ const LeavesPage = () => {
   const handleProcess = async (leaveId, status) => {
     setProcessingId(leaveId);
     try {
-      await leaveApi.processLeave(leaveId, myEmployee.id, status, '');
+      await leaveApi.processLeave(leaveId, status, '');
       toast.success(`Leave ${status.toLowerCase()}`);
       await fetchLeaves(myEmployee);
     } catch {
@@ -190,6 +195,11 @@ const LeavesPage = () => {
   };
 
   const handleEdit = async () => {
+    if (!editForm.startDate) { toast.error('Start date is required'); return; }
+    if (editForm.startDate < todayStr) { toast.error('Start date cannot be in the past'); return; }
+    if (!editForm.endDate)   { toast.error('End date is required');   return; }
+    if (editForm.endDate < editForm.startDate) { toast.error('End date cannot be before start date'); return; }
+    if (!editForm.reason?.trim()) { toast.error('Reason is required'); return; }
     try {
       await leaveApi.update(editingLeave.id, myEmployee.id, editForm);
       toast.success('Leave updated successfully');
@@ -499,7 +509,7 @@ const LeavesPage = () => {
             </FormControl>
             <TextField label="Start Date" type="date" value={form.startDate}
               onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-              InputLabelProps={{ shrink: true }} fullWidth />
+              InputLabelProps={{ shrink: true }} inputProps={{ min: todayStr }} fullWidth />
             <TextField label="End Date" type="date" value={form.endDate}
               onChange={(e) => setForm({ ...form, endDate: e.target.value })}
               InputLabelProps={{ shrink: true }} fullWidth />
@@ -559,7 +569,7 @@ const LeavesPage = () => {
             </FormControl>
             <TextField label="Start Date" type="date" value={editForm.startDate}
               onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })}
-              InputLabelProps={{ shrink: true }} fullWidth />
+              InputLabelProps={{ shrink: true }} inputProps={{ min: todayStr }} fullWidth />
             <TextField label="End Date" type="date" value={editForm.endDate}
               onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })}
               InputLabelProps={{ shrink: true }} fullWidth />

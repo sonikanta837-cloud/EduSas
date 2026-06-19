@@ -540,7 +540,7 @@ const AnnCard = ({ item, featured, canPost, onMenu, onViewers }) => {
 };
 
 const AnnouncementsTab = ({ userRole }) => {
-  const canPost = userRole === 'ADMIN' || userRole === 'HR';
+  const canPost = userRole === 'ADMIN' || userRole === 'DIRECTOR' || userRole === 'HR';
 
   const [items,      setItems]      = useState([]);
   const [loading,    setLoading]    = useState(true);

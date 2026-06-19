@@ -26,7 +26,7 @@ public class AnnouncementController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','HR')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR')")
     public ResponseEntity<AnnouncementDTO> create(
             @RequestBody AnnouncementDTO dto,
             @AuthenticationPrincipal UserDetails principal) {
@@ -35,7 +35,7 @@ public class AnnouncementController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','HR')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR')")
     public ResponseEntity<AnnouncementDTO> update(
             @PathVariable Long id,
             @RequestBody AnnouncementDTO dto) {
@@ -63,13 +63,13 @@ public class AnnouncementController {
     }
 
     @GetMapping("/{id}/viewers")
-    @PreAuthorize("hasAnyRole('ADMIN','HR')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR')")
     public ResponseEntity<AnnouncementViewersDTO> getViewers(@PathVariable Long id) {
         return ResponseEntity.ok(service.getViewers(id));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','HR')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         service.delete(id);
         return ResponseEntity.noContent().build();

@@ -210,11 +210,11 @@ const Header = () => {
     window.dispatchEvent(new Event('pip-notifications-read'));
   }, [unreadItems]);
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     if (user?.employeeId) {
-      try { await timesheetApi.checkOut(user.employeeId); } catch { /* silent */ }
+      timesheetApi.checkOut(user.employeeId).catch(() => {}); // fire-and-forget
     }
-    await dispatch(logout());
+    dispatch(logout()); // clears localStorage + fires backend invalidation async
     navigate('/login');
   };
 
@@ -610,7 +610,7 @@ const Header = () => {
           >
             <PersonIcon fontSize="small" sx={{ color: '#64748b' }} /> My Profile
           </MenuItem>
-          {user?.role === 'ADMIN' && (
+          {(user?.role === 'ADMIN' || user?.role === 'DIRECTOR') && (
             <MenuItem
               onClick={() => { navigate('/settings'); setAnchorEl(null); }}
               sx={{ gap: 1.5, py: 1, fontSize: '0.875rem' }}

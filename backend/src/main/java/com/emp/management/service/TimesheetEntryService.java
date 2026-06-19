@@ -4,6 +4,7 @@ import com.emp.management.dto.TimesheetEntryDTO;
 import com.emp.management.dto.WorkReportDTO;
 import com.emp.management.entity.EmployeeDetails;
 import com.emp.management.entity.TimesheetEntry;
+import com.emp.management.exception.BadRequestException;
 import com.emp.management.exception.ResourceNotFoundException;
 import com.emp.management.repository.EmployeeDetailsRepository;
 import com.emp.management.repository.TimesheetEntryRepository;
@@ -55,7 +56,7 @@ public class TimesheetEntryService {
         EmployeeDetails caller = employeeDetailsRepository.findByUserEmail(callerEmail).orElse(null);
         if (caller == null) return;
         String role = caller.getUser().getRole().name();
-        if ("ADMIN".equals(role)) return;
+        if ("ADMIN".equals(role) || "DIRECTOR".equals(role)) return;
         if ("MANAGER".equals(role) || "ASSISTANT_MANAGER".equals(role)) {
             if (caller.getId().equals(targetEmpId)) return;
             EmployeeDetails target = employeeDetailsRepository.findById(targetEmpId).orElse(null);
@@ -82,6 +83,15 @@ public class TimesheetEntryService {
             entry = TimesheetEntry.builder().employee(employee).build();
         }
 
+        if (dto.getHours() == null || dto.getHours() <= 0 || dto.getHours() > 24) {
+            throw new BadRequestException("Hours must be greater than 0 and at most 24");
+        }
+        if (dto.getDate() == null) {
+            throw new BadRequestException("Date is required");
+        }
+        if (dto.getProjectName() == null || dto.getProjectName().isBlank()) {
+            throw new BadRequestException("Project name is required");
+        }
         entry.setDate(dto.getDate());
         entry.setProjectName(dto.getProjectName());
         entry.setTaskName(dto.getTaskName() != null ? dto.getTaskName() : "");

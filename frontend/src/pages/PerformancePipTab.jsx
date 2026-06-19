@@ -63,13 +63,14 @@ const fmtDate = d =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 const URL_SPLIT = /(https?:\/\/[^\s]+)/g;
+const isSafeUrl = (s) => /^https?:\/\//i.test(s);
 const TextWithLinks = ({ text, sx }) => {
   if (!text) return null;
   const parts = text.split(URL_SPLIT);
   return (
     <Typography sx={{ fontSize: 14, color: '#374151', lineHeight: 1.6, wordBreak: 'break-all', ...sx }}>
       {parts.map((part, i) =>
-        /^https?:\/\//.test(part)
+        isSafeUrl(part)
           ? <a key={i} href={part} target="_blank" rel="noopener noreferrer"
               style={{ color: '#1d4ed8', textDecoration: 'underline', wordBreak: 'break-all' }}>{part}</a>
           : part
@@ -226,7 +227,7 @@ const CreatePipDialog = ({ open, onClose, onCreated, myEmployee, isAdmin, isHR }
     // Admin and HR see all employees; Managers see only their team
     const loader = (isAdmin || isHR) ? employeeApi.getAll() : employeeApi.getTeam(myEmployee.id);
     loader
-      .then(list => setEmpOptions((list || []).filter(e => e.active !== false && e.id !== myEmployee?.id && e.role !== 'ADMIN')))
+      .then(list => setEmpOptions((list || []).filter(e => e.active !== false && e.id !== myEmployee?.id && e.role !== 'ADMIN' && e.role !== 'DIRECTOR')))
       .catch(() => toast.error('Failed to load employees'))
       .finally(() => setEmpLoading(false));
   }, [open]); // eslint-disable-line
@@ -1003,7 +1004,7 @@ const OutcomeDialog = ({ open, onClose, pip, onSet }) => {
 
 const PerformancePipTab = ({ myEmployee }) => {
   const { user } = useSelector(s => s.auth);
-  const isAdmin   = user?.role === 'ADMIN';
+  const isAdmin   = user?.role === 'ADMIN' || user?.role === 'DIRECTOR';
   const isHR      = user?.role === 'HR';
   const isManager = user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER';
   const isEmp     = !isAdmin && !isHR && !isManager;

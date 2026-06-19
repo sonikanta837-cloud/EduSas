@@ -138,7 +138,7 @@ public class PipService {
         Role role = me.getUser().getRole();
 
         List<PerformanceImprovementPlan> pips;
-        if (role == Role.ADMIN || role == Role.HR) {
+        if (role == Role.ADMIN || role == Role.DIRECTOR || role == Role.HR) {
             pips = pipRepository.findAllByOrderByCreatedAtDesc();
         } else if (role == Role.MANAGER || role == Role.ASSISTANT_MANAGER) {
             Set<Long> seen = new LinkedHashSet<>();
@@ -279,6 +279,9 @@ public class PipService {
         PerformanceImprovementPlan pip = requirePip(pipId);
         PipGoal goal = goalRepository.findById(goalId)
                 .orElseThrow(() -> new ResourceNotFoundException("Goal not found: " + goalId));
+        if (!goal.getPip().getId().equals(pipId)) {
+            throw new BadRequestException("Goal does not belong to the specified PIP");
+        }
         EmployeeDetails actor = requireEmployee(userEmail);
 
         goal.setTitle(dto.getTitle());
@@ -299,6 +302,9 @@ public class PipService {
         PerformanceImprovementPlan pip = requirePip(pipId);
         PipGoal goal = goalRepository.findById(goalId)
                 .orElseThrow(() -> new ResourceNotFoundException("Goal not found: " + goalId));
+        if (!goal.getPip().getId().equals(pipId)) {
+            throw new BadRequestException("Goal does not belong to the specified PIP");
+        }
         EmployeeDetails actor = requireEmployee(userEmail);
 
         String title = goal.getTitle();
@@ -416,7 +422,7 @@ public class PipService {
                     !employee.getManager().getId().equals(pip.getCreatedBy().getId())) {
                 ccSet.add(employee.getManager().getUser().getEmail());
             }
-            userRepository.findByRole(Role.ADMIN).stream()
+            userRepository.findByRoleIn(java.util.List.of(Role.ADMIN, Role.DIRECTOR)).stream()
                     .map(User::getEmail).filter(Objects::nonNull)
                     .filter(e -> !e.equals(employee.getUser().getEmail()))
                     .forEach(ccSet::add);
@@ -446,7 +452,7 @@ public class PipService {
                     employee.getManager().getUser().getEmail() != null) {
                 ccSet.add(employee.getManager().getUser().getEmail());
             }
-            userRepository.findByRole(Role.ADMIN).stream()
+            userRepository.findByRoleIn(java.util.List.of(Role.ADMIN, Role.DIRECTOR)).stream()
                     .map(User::getEmail).filter(Objects::nonNull)
                     .filter(e -> !e.equals(employee.getUser().getEmail()))
                     .forEach(ccSet::add);

@@ -39,7 +39,7 @@ const T = {
   border: '#f1f5f9', card: '#ffffff', page: '#f8fafc',
 };
 const LEAVE_TOTAL = 21;
-const ROLE_COLOR  = { ADMIN: T.red, MANAGER: T.amber, EMPLOYEE: T.blue, HR: T.purple, ASSISTANT_MANAGER: T.teal };
+const ROLE_COLOR  = { ADMIN: T.red, DIRECTOR: T.red, MANAGER: T.amber, EMPLOYEE: T.blue, HR: T.purple, ASSISTANT_MANAGER: T.teal };
 const DEPT_COLOR  = [T.blue, T.green, T.amber, T.purple, T.red, T.teal];
 
 /* ─── helpers ─── */
@@ -243,7 +243,7 @@ const AdminDashboard = ({ stats, leaves, employees, navigate }) => {
     </Box>
   );
 
-  const RCOL = { ADMIN: '#e11d48', MANAGER: '#d97706', EMPLOYEE: '#4f46e5', HR: '#7c3aed', ASSISTANT_MANAGER: '#0284c7' };
+  const RCOL = { ADMIN: '#e11d48', DIRECTOR: '#4f46e5', MANAGER: '#d97706', EMPLOYEE: '#4f46e5', HR: '#7c3aed', ASSISTANT_MANAGER: '#0284c7' };
 
   return (
     <Box>

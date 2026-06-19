@@ -23,6 +23,8 @@ import HolidaysPage from './pages/Holidays';
 import RolesPermissionsPage   from './pages/RolesPermissions';
 import DailyWorkReportsPage   from './pages/DailyWorkReports';
 import SettingsPage           from './pages/Settings';
+import InterviewsPage         from './pages/Interviews';
+import InterviewFeedbackPage  from './pages/InterviewFeedback';
 
 const theme = createTheme({
   palette: {
@@ -104,6 +106,8 @@ function App() {
             <Route path="/roles-permissions" element={<RolesPermissionsPage />} />
             <Route path="/work-reports" element={<DailyWorkReportsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/interviews" element={<InterviewsPage />} />
+            <Route path="/interviews/feedback/:roundId" element={<InterviewFeedbackPage />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

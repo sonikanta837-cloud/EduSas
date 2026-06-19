@@ -12,6 +12,7 @@ import { permissionsApi } from '../api/permissionsApi';
 
 const ROLE_COLORS = {
   ADMIN: '#ef4444',
+  DIRECTOR: '#4f46e5',
   HR: '#8b5cf6',
   MANAGER: '#3b82f6',
   ASSISTANT_MANAGER: '#06b6d4',
@@ -29,6 +30,7 @@ const ALL_MODULES = [
   { path: '/holidays',     label: 'Holidays' },
   { path: '/courses',      label: 'Courses' },
   { path: '/performance',  label: 'Performance' },
+  { path: '/interviews',   label: 'Interviews' },
   { path: '/reports',      label: 'Reports' },
   { path: '/resources',    label: 'Resources' },
   { path: '/profile',      label: 'My Profile',         always: true },
@@ -47,9 +49,10 @@ const ALL_EMP_ACTION_KEYS = EMPLOYEE_ACTIONS.map((a) => a.key);
 
 const DEFAULT_MODULES_BY_ROLE = {
   ADMIN:             [...ALL_MODULES.map((m) => m.path), ...ALL_EMP_ACTION_KEYS],
-  HR:                ['/dashboard', '/employees', 'emp:view_detail', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/resources', '/profile'],
-  MANAGER:           ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/resources', '/profile'],
-  ASSISTANT_MANAGER: ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/resources', '/profile'],
+  DIRECTOR:          [...ALL_MODULES.map((m) => m.path), ...ALL_EMP_ACTION_KEYS],
+  HR:                ['/dashboard', '/employees', 'emp:view_detail', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/interviews', '/resources', '/profile'],
+  MANAGER:           ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/interviews', '/resources', '/profile'],
+  ASSISTANT_MANAGER: ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/interviews', '/resources', '/profile'],
   EMPLOYEE:          ['/dashboard', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/resources', '/profile'],
 };
 
@@ -208,7 +211,6 @@ const RolesPermissions = () => {
           ) : (
             <Card>
               <CardContent sx={{ p: 3 }}>
-                {/* Selected user header */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2.5 }}>
                   <Avatar sx={{ width: 48, height: 48, bgcolor: ROLE_COLORS[selected.role] || '#64748b', fontSize: 18 }}>
                     {selected.name.charAt(0).toUpperCase()}
@@ -244,7 +246,6 @@ const RolesPermissions = () => {
                   {ALL_MODULES.map((mod) => {
                     const active = modules.includes(mod.path);
                     const isEmp  = mod.path === '/employees';
-
                     return (
                       <Grid item xs={12} sm={isEmp && active ? 12 : 6} key={mod.path}>
                         <Box sx={{
@@ -253,7 +254,6 @@ const RolesPermissions = () => {
                           overflow: 'hidden',
                           opacity: mod.always ? 0.6 : 1,
                         }}>
-                          {/* Module toggle row */}
                           <Box sx={{
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                             px: 2, py: 1.25,
@@ -268,8 +268,6 @@ const RolesPermissions = () => {
                               color="primary"
                             />
                           </Box>
-
-                          {/* Employee sub-permissions — visible only when Employees is ON */}
                           {isEmp && active && (
                             <Box sx={{ bgcolor: '#f8faff', borderTop: '1px solid #e8eaf6', px: 2, py: 1 }}>
                               <Typography variant="caption" sx={{ color: '#6366f1', fontWeight: 700, fontSize: 10.5, letterSpacing: 0.5, textTransform: 'uppercase', display: 'block', mb: 1 }}>

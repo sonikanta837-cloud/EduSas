@@ -58,6 +58,15 @@ public class JwtTokenProvider {
         return parseClaims(token).getSubject();
     }
 
+    /** Extracts the username even if the token is expired (used for refresh-token lookup). */
+    public String getUsernameFromTokenIgnoreExpiry(String token) {
+        try {
+            return parseClaims(token).getSubject();
+        } catch (ExpiredJwtException e) {
+            return e.getClaims().getSubject();
+        }
+    }
+
     public boolean validateToken(String token) {
         try {
             parseClaims(token);

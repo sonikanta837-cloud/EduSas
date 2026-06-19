@@ -24,6 +24,7 @@ public class CorrectionRequestController {
     // ── Employee: get sessions awaiting correction ───────────────────────────
 
     @GetMapping("/pending-sessions")
+    @PreAuthorize("hasAnyRole('EMPLOYEE','HR','MANAGER','ASSISTANT_MANAGER')")
     public ResponseEntity<List<AttendanceSessionDTO>> getPendingSessions(Authentication auth) {
         return ResponseEntity.ok(correctionRequestService.getPendingSessions(auth.getName()));
     }
@@ -31,6 +32,7 @@ public class CorrectionRequestController {
     // ── Employee: submit a correction request ────────────────────────────────
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('EMPLOYEE','HR','MANAGER','ASSISTANT_MANAGER')")
     public ResponseEntity<CorrectionRequestDTO> submit(
             @RequestParam Long sessionId,
             @RequestParam String requestedLogoutTime,
@@ -51,15 +53,15 @@ public class CorrectionRequestController {
     // ── Manager: pending requests for own team ───────────────────────────────
 
     @GetMapping("/pending/team")
-    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER','ASSISTANT_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR','MANAGER','ASSISTANT_MANAGER')")
     public ResponseEntity<List<CorrectionRequestDTO>> getPendingTeam(Authentication auth) {
         return ResponseEntity.ok(correctionRequestService.getPendingForTeam(auth.getName()));
     }
 
-    // ── Admin / HR: all pending requests ────────────────────────────────────
+    // ── Admin / Director / HR: all pending requests ──────────────────────────
 
     @GetMapping("/pending")
-    @PreAuthorize("hasAnyRole('ADMIN','HR')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR')")
     public ResponseEntity<List<CorrectionRequestDTO>> getAllPending() {
         return ResponseEntity.ok(correctionRequestService.getAllPending());
     }
@@ -67,7 +69,7 @@ public class CorrectionRequestController {
     // ── Approve ──────────────────────────────────────────────────────────────
 
     @PutMapping("/{id}/approve")
-    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER','ASSISTANT_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR','MANAGER','ASSISTANT_MANAGER')")
     public ResponseEntity<CorrectionRequestDTO> approve(
             @PathVariable Long id,
             @RequestBody Map<String, String> body,
@@ -81,7 +83,7 @@ public class CorrectionRequestController {
     // ── Reject ───────────────────────────────────────────────────────────────
 
     @PutMapping("/{id}/reject")
-    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER','ASSISTANT_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR','MANAGER','ASSISTANT_MANAGER')")
     public ResponseEntity<CorrectionRequestDTO> reject(
             @PathVariable Long id,
             @RequestBody Map<String, String> body,
@@ -91,10 +93,10 @@ public class CorrectionRequestController {
                 body.getOrDefault("comment", "")));
     }
 
-    // ── Audit log (Manager / HR / Admin) ─────────────────────────────────────
+    // ── Audit log ────────────────────────────────────────────────────────────
 
     @GetMapping("/audit-logs")
-    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER','ASSISTANT_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR','MANAGER','ASSISTANT_MANAGER')")
     public ResponseEntity<List<AuditLogDTO>> getAuditLogs() {
         return ResponseEntity.ok(correctionRequestService.getAuditLogs());
     }

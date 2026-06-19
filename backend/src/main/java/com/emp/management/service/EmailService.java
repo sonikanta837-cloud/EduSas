@@ -708,4 +708,105 @@ public class EmailService {
         if (mins <= 90) return "#d97706";
         return "#dc2626";
     }
+
+    // ── Interview: round assigned (To: interviewer) ───────────────────────────
+
+    public void sendInterviewAssignedEmail(String to, String interviewerName,
+                                           String candidateName, String candidatePosition,
+                                           String roundType, String scheduledAt,
+                                           String location, String managerNotes) {
+        String body =
+            "<p>Dear <strong>" + interviewerName + "</strong>,</p>" +
+            "<p>You have been assigned to conduct an interview. Please find the details below:</p>" +
+            tableOpen() +
+            row("Candidate",     candidateName) +
+            row("Position",      candidatePosition) +
+            row("Round Type",    roundType.replace("_", " ")) +
+            row("Scheduled At",  scheduledAt) +
+            row("Location/Link", location) +
+            row("Notes",         managerNotes) +
+            tableClose() +
+            note("Please log in to EmpSAS to view full candidate details and submit your feedback after the interview.");
+
+        try {
+            send(to, null, "Interview Assignment: " + candidateName + " – " + roundType.replace("_", " ") + " Round – EmpSAS",
+                 wrap("&#128101;", "Interview Round Assignment", body));
+            log.info("Interview assignment email sent to {}", to);
+        } catch (Exception e) {
+            log.error("Failed to send interview assignment email to {}: {}", to, e.getMessage());
+        }
+    }
+
+    // ── Interview: feedback submitted (To: manager) ───────────────────────────
+
+    public void sendInterviewFeedbackEmail(String to, String managerName,
+                                           String interviewerName, String candidateName,
+                                           String roundType, String recommendation, String overallRating) {
+        String recBg = recommendation != null && (recommendation.contains("HIRE") && !recommendation.contains("NO"))
+            ? "#dcfce7" : recommendation != null && recommendation.contains("NO") ? "#fee2e2" : "#fff7ed";
+        String recColor = recommendation != null && (recommendation.contains("HIRE") && !recommendation.contains("NO"))
+            ? "#16a34a" : recommendation != null && recommendation.contains("NO") ? "#dc2626" : "#d97706";
+        String recBadge = recommendation == null ? "&mdash;" :
+            "<span style='background:" + recBg + ";color:" + recColor + ";padding:3px 10px;border-radius:12px;font-weight:bold;font-size:13px;'>"
+            + recommendation.replace("_", " ") + "</span>";
+
+        String body =
+            "<p>Dear <strong>" + managerName + "</strong>,</p>" +
+            "<p><strong>" + interviewerName + "</strong> has submitted feedback for the interview round.</p>" +
+            tableOpen() +
+            row("Candidate",      candidateName) +
+            row("Round Type",     roundType.replace("_", " ")) +
+            row("Interviewer",    interviewerName) +
+            row("Overall Rating", overallRating + " / 5") +
+            row("Recommendation", recBadge) +
+            tableClose() +
+            note("Log in to EmpSAS to review the full feedback and decide the next action for this candidate.");
+
+        try {
+            send(to, null, "Interview Feedback Submitted: " + candidateName + " – EmpSAS",
+                 wrap("&#128203;", "Interview Feedback Received", body));
+            log.info("Interview feedback notification email sent to {}", to);
+        } catch (Exception e) {
+            log.error("Failed to send interview feedback email to {}: {}", to, e.getMessage());
+        }
+    }
+
+    // ── Interview: candidate decision (To: panel / CC: HR) ───────────────────
+
+    public void sendCandidateDecisionEmail(String[] to, String candidateName,
+                                           String position, String decision, String decidedBy) {
+        String badge;
+        String icon;
+        switch (decision) {
+            case "SELECTED":
+                badge = "<span style='background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:12px;font-weight:bold;font-size:13px;'>SELECTED</span>";
+                icon = "&#9989;";
+                break;
+            case "REJECTED":
+                badge = "<span style='background:#fee2e2;color:#dc2626;padding:3px 10px;border-radius:12px;font-weight:bold;font-size:13px;'>REJECTED</span>";
+                icon = "&#10060;";
+                break;
+            default:
+                badge = "<span style='background:#fff7ed;color:#d97706;padding:3px 10px;border-radius:12px;font-weight:bold;font-size:13px;'>" + decision.replace("_", " ") + "</span>";
+                icon = "&#128336;";
+        }
+        String body =
+            "<p>A final decision has been made for the following candidate:</p>" +
+            tableOpen() +
+            row("Candidate",   candidateName) +
+            row("Position",    position) +
+            row("Decision",    badge) +
+            row("Decided By",  decidedBy) +
+            tableClose() +
+            note("Log in to EmpSAS to view the full interview history and all feedback for this candidate.");
+
+        try {
+            if (to != null && to.length > 0)
+                sendMulti(to, null, "Candidate Decision: " + candidateName + " – EmpSAS",
+                          wrap(icon, "Interview Decision", body));
+            log.info("Candidate decision email sent for {}", candidateName);
+        } catch (Exception e) {
+            log.error("Failed to send candidate decision email: {}", e.getMessage());
+        }
+    }
 }

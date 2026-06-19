@@ -257,7 +257,7 @@ const ReviewCard = ({ r, isAdmin, isManager, myEmployeeId, onViewDetails, onEdit
 ════════════════════════════════════════════════════ */
 const PerformancePage = () => {
   const { user } = useSelector((s) => s.auth);
-  const isAdmin   = user?.role === 'ADMIN';
+  const isAdmin   = user?.role === 'ADMIN' || user?.role === 'DIRECTOR';
   const isManager = user?.role === 'MANAGER';
   const isAsst    = user?.role === 'ASSISTANT_MANAGER';
   const isMgr     = isManager || isAsst;
@@ -352,7 +352,7 @@ const PerformancePage = () => {
       const list = isAdmin
         ? await employeeApi.getAll()
         : await employeeApi.getTeam(myEmployee.id);
-      setEmpOptions((list || []).filter(e => e.id !== myEmployee.id && e.role !== 'ADMIN' && e.active !== false));
+      setEmpOptions((list || []).filter(e => e.id !== myEmployee.id && e.role !== 'ADMIN' && e.role !== 'DIRECTOR' && e.active !== false));
     } catch {
       toast.error('Failed to load employees');
     } finally {
@@ -362,8 +362,9 @@ const PerformancePage = () => {
 
   /* ── submit review ── */
   const handleCreate = async () => {
-    if (!form.employeeId)  { toast.error('Please select an employee'); return; }
-    if (!form.reviewPeriod){ toast.error('Please select a review period'); return; }
+    if (!form.employeeId)         { toast.error('Please select an employee'); return; }
+    if (!form.reviewPeriod)       { toast.error('Please select a review period'); return; }
+    if (!form.comments?.trim())   { toast.error('Comments are required'); return; }
 
     const duplicate = reviews.find(r => r.employeeId === form.employeeId && r.reviewPeriod === form.reviewPeriod);
     if (duplicate) {
@@ -409,7 +410,8 @@ const PerformancePage = () => {
 
   /* ── update review ── */
   const handleUpdate = async () => {
-    if (!editForm.reviewPeriod) { toast.error('Please select a review period'); return; }
+    if (!editForm.reviewPeriod)      { toast.error('Please select a review period'); return; }
+    if (!editForm.comments?.trim())  { toast.error('Comments are required'); return; }
     setUpdating(true);
     try {
       const updated = await performanceApi.update(editTarget.id, editForm);

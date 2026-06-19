@@ -42,22 +42,24 @@ public class ResourceStorageService {
         User user = userRepository.findByEmail(uploaderEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + uploaderEmail));
 
-        String originalName = file.getOriginalFilename();
-        String uniqueName   = UUID.randomUUID() + "_" + originalName;
-        Path   uploadPath   = Paths.get(uploadDir);
+        String safeOriginal = sanitizeFilename(file.getOriginalFilename());
+        String uniqueName   = UUID.randomUUID() + "_" + safeOriginal;
+        Path   uploadPath   = Paths.get(uploadDir).toAbsolutePath().normalize();
         try {
             Files.createDirectories(uploadPath);
-            Files.copy(file.getInputStream(), uploadPath.resolve(uniqueName),
+            Path dest = uploadPath.resolve(uniqueName).normalize();
+            if (!dest.startsWith(uploadPath)) throw new BadRequestException("Invalid file name");
+            Files.copy(file.getInputStream(), dest,
                     StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             throw new BadRequestException("Failed to store file: " + e.getMessage());
         }
 
-        String resolvedTitle = (title != null && !title.isBlank()) ? title.trim() : originalName;
+        String resolvedTitle = (title != null && !title.isBlank()) ? title.trim() : safeOriginal;
         Resource saved = resourceRepository.save(Resource.builder()
                 .title(resolvedTitle)
                 .fileName(uniqueName)
-                .originalFileName(originalName)
+                .originalFileName(safeOriginal)
                 .fileType(file.getContentType())
                 .fileSize(file.getSize())
                 .filePath(uploadDir + "/" + uniqueName)
@@ -68,6 +70,11 @@ public class ResourceStorageService {
                 .uploadedBy(user)
                 .build());
         return toDTO(saved);
+    }
+
+    private static String sanitizeFilename(String name) {
+        if (name == null || name.isBlank()) return "upload";
+        return name.replaceAll("[^a-zA-Z0-9._-]", "_");
     }
 
     // ── Read ──────────────────────────────────────────────────────────────────

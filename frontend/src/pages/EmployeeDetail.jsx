@@ -135,7 +135,7 @@ const InfoCard = ({ icon, label, value }) => (
 );
 
 // ── Role chip colours ─────────────────────────────────────────────────────────
-const roleColor = { ADMIN: '#ef4444', MANAGER: '#f59e0b', ASSISTANT_MANAGER: '#f59e0b', HR: '#8b5cf6', EMPLOYEE: '#3b82f6' };
+const roleColor = { ADMIN: '#ef4444', DIRECTOR: '#4f46e5', MANAGER: '#f59e0b', ASSISTANT_MANAGER: '#f59e0b', HR: '#8b5cf6', EMPLOYEE: '#3b82f6' };
 
 // ── Main component ────────────────────────────────────────────────────────────
 const EmployeeDetailPage = () => {
@@ -175,7 +175,7 @@ const EmployeeDetailPage = () => {
   const [timesheets,   setTimesheets]   = useState([]);
   const [courses,      setCourses]      = useState([]);
 
-  const isAdmin   = user?.role === 'ADMIN';
+  const isAdmin   = user?.role === 'ADMIN' || user?.role === 'DIRECTOR';
   const isHR      = user?.role === 'HR';
   const isManager = user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER';
 
@@ -194,7 +194,7 @@ const EmployeeDetailPage = () => {
 
   // Load all employees for manager dropdown (admin and HR)
   useEffect(() => {
-    if (user?.role === 'ADMIN' || user?.role === 'HR') {
+    if (user?.role === 'ADMIN' || user?.role === 'DIRECTOR' || user?.role === 'HR') {
       employeeApi.getAll().then(setAllEmployees).catch(() => {});
       employeeApi.getHrUsers().then(setHrEmployees).catch(() => {});
     }
@@ -257,6 +257,11 @@ const EmployeeDetailPage = () => {
   const [showEditPassword, setShowEditPassword] = useState(false);
 
   const handleSave = async () => {
+    if (!form.firstName?.trim()) { toast.error('First name is required'); return; }
+    if (!form.lastName?.trim())  { toast.error('Last name is required'); return; }
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { toast.error('Invalid email format'); return; }
+    if (form.phone && !/^[+]?[0-9]{7,15}$/.test(form.phone.trim())) { toast.error('Invalid phone number format'); return; }
+    if (form.password && form.password.length < 8) { toast.error('New password must be at least 8 characters'); return; }
     try {
       const payload = {
         ...form,
@@ -537,6 +542,7 @@ const EmployeeDetailPage = () => {
                   <Grid item xs={12} sm={6}>
                     <TextField fullWidth size="small" label="Date of Birth" type="date"
                       InputLabelProps={{ shrink: true }}
+                      inputProps={{ max: new Date().toISOString().split('T')[0] }}
                       value={form.dateOfBirth ? String(form.dateOfBirth).slice(0, 10) : ''}
                       onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value || null })} />
                   </Grid>
@@ -654,6 +660,7 @@ const EmployeeDetailPage = () => {
                           <MenuItem value="ASSISTANT_MANAGER">Assistant Manager</MenuItem>
                           <MenuItem value="HR">HR</MenuItem>
                           {isAdmin && <MenuItem value="ADMIN">Admin</MenuItem>}
+                          {isAdmin && <MenuItem value="DIRECTOR">Director</MenuItem>}
                         </Select>
                       </FormControl>
                     </Grid>
@@ -670,7 +677,7 @@ const EmployeeDetailPage = () => {
                         >
                           <MenuItem value="">None</MenuItem>
                           {allEmployees
-                            .filter((e) => e.id !== employee?.id && e.active !== false && (e.role === 'MANAGER' || e.role === 'ASSISTANT_MANAGER' || e.role === 'ADMIN'))
+                            .filter((e) => e.id !== employee?.id && e.active !== false && (e.role === 'MANAGER' || e.role === 'ASSISTANT_MANAGER' || e.role === 'ADMIN' || e.role === 'DIRECTOR'))
                             .map((e) => (
                               <MenuItem key={e.id} value={e.id}>
                                 {e.fullName} ({e.role})

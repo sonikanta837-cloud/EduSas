@@ -46,8 +46,8 @@ import { toast } from 'react-toastify';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, ChartTooltip, Legend, ArcElement);
 
-const ROLE_COLOR = { ADMIN: '#ef4444', MANAGER: '#f59e0b', ASSISTANT_MANAGER: '#f97316', HR: '#8b5cf6', EMPLOYEE: '#3b82f6' };
-const ROLE_BG   = { ADMIN: '#fef2f2', MANAGER: '#fffbeb', ASSISTANT_MANAGER: '#fff7ed', HR: '#f5f3ff', EMPLOYEE: '#eff6ff' };
+const ROLE_COLOR = { ADMIN: '#ef4444', DIRECTOR: '#4f46e5', MANAGER: '#f59e0b', ASSISTANT_MANAGER: '#f97316', HR: '#8b5cf6', EMPLOYEE: '#3b82f6' };
+const ROLE_BG   = { ADMIN: '#fef2f2', DIRECTOR: '#eef2ff', MANAGER: '#fffbeb', ASSISTANT_MANAGER: '#fff7ed', HR: '#f5f3ff', EMPLOYEE: '#eff6ff' };
 
 /* ── reusable widget card ── */
 const W = ({ title, seeAll, seeAllN, onSeeAll, children, minH, sx = {} }) => (

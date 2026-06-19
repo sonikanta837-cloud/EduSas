@@ -2015,7 +2015,7 @@ function FAQSection({ canManage }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ResourcesPage() {
   const { user }  = useSelector(s => s.auth);
-  const canManage = user?.role === 'ADMIN' || user?.role === 'HR';
+  const canManage = user?.role === 'ADMIN' || user?.role === 'DIRECTOR' || user?.role === 'HR';
 
   const [tab,       setTab]       = useState(0);
   const [resources, setResources] = useState([]);

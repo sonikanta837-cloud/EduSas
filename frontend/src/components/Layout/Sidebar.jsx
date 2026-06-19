@@ -20,6 +20,7 @@ import BarChartIcon             from '@mui/icons-material/BarChart';
 import InventoryIcon            from '@mui/icons-material/Inventory';
 import AdminPanelSettingsIcon   from '@mui/icons-material/AdminPanelSettings';
 import PersonIcon               from '@mui/icons-material/Person';
+import WorkHistoryIcon          from '@mui/icons-material/WorkHistory';
 import { toggleSidebar } from '../../store/uiSlice';
 
 export const SIDEBAR_W_OPEN   = 240;
@@ -28,26 +29,27 @@ export const SIDEBAR_W_CLOSED = 72;
 const D = { divider: true };
 
 const allNavItems = [
-  { label: 'Dashboard',          path: '/dashboard',          icon: <DashboardIcon />,          roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Dashboard',          path: '/dashboard',          icon: <DashboardIcon />,          roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
   D,
-  { label: 'Employees',          path: '/employees',          icon: <PeopleIcon />,             roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER'] },
-  { label: 'Organisation',       path: '/org-chart',          icon: <AccountTreeIcon />,        roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Employees',          path: '/employees',          icon: <PeopleIcon />,             roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER'] },
+  { label: 'Organisation',       path: '/org-chart',          icon: <AccountTreeIcon />,        roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
   D,
-  { label: 'Attendance',         path: '/attendance',         icon: <HowToRegIcon />,           roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Timesheets',         path: '/timesheets',         icon: <AccessTimeIcon />,         roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Work Reports',       path: '/work-reports',       icon: <AssessmentIcon />,          roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Leaves',             path: '/leaves',             icon: <BeachAccessIcon />,        roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Holidays',           path: '/holidays',           icon: <CelebrationIcon />,        roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Attendance',         path: '/attendance',         icon: <HowToRegIcon />,           roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Timesheets',         path: '/timesheets',         icon: <AccessTimeIcon />,         roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Work Reports',       path: '/work-reports',       icon: <AssessmentIcon />,          roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Leaves',             path: '/leaves',             icon: <BeachAccessIcon />,        roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Holidays',           path: '/holidays',           icon: <CelebrationIcon />,        roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
   D,
-  { label: 'Courses',            path: '/courses',            icon: <SchoolIcon />,             roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Performance',        path: '/performance',        icon: <StarIcon />,               roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Courses',            path: '/courses',            icon: <SchoolIcon />,             roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Performance',        path: '/performance',        icon: <StarIcon />,               roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Interviews',         path: '/interviews',         icon: <WorkHistoryIcon />,        roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
   D,
-  { label: 'Reports',            path: '/reports',            icon: <BarChartIcon />,           roles: ['ADMIN'] },
-  { label: 'Resources',          path: '/resources',          icon: <InventoryIcon />,          roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'Reports',            path: '/reports',            icon: <BarChartIcon />,           roles: ['ADMIN', 'DIRECTOR'] },
+  { label: 'Resources',          path: '/resources',          icon: <InventoryIcon />,          roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
   D,
-  { label: 'Roles & Permissions', path: '/roles-permissions', icon: <AdminPanelSettingsIcon />, roles: ['ADMIN'] },
+  { label: 'Roles & Permissions', path: '/roles-permissions', icon: <AdminPanelSettingsIcon />, roles: ['ADMIN', 'DIRECTOR'] },
   D,
-  { label: 'My Profile',         path: '/profile',            icon: <PersonIcon />,             roles: ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
+  { label: 'My Profile',         path: '/profile',            icon: <PersonIcon />,             roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
 ];
 
 const Sidebar = () => {
@@ -66,7 +68,7 @@ const Sidebar = () => {
   const navItems = allNavItems
     .filter((item) => {
       if (item.divider) return true;
-      if (item.path === '/roles-permissions') return role === 'ADMIN';
+      if (item.path === '/roles-permissions') return role === 'ADMIN' || role === 'DIRECTOR';
       if (allowedPaths) return allowedPaths.includes(item.path);
       return item.roles.includes(role);
     })

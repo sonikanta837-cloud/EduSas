@@ -39,8 +39,8 @@ const fmtAvg = (reports, field) => {
 
 const DailyWorkReports = () => {
   const { user } = useSelector((s) => s.auth);
-  const isManagerOrAbove = ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER'].includes(user?.role);
-  const canGenerate      = ['ADMIN', 'HR'].includes(user?.role);
+  const isManagerOrAbove = ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER'].includes(user?.role);
+  const canGenerate      = ['ADMIN', 'DIRECTOR', 'HR'].includes(user?.role);
 
   const [fromDate,    setFromDate]    = useState(dayjs().startOf('month').format('YYYY-MM-DD'));
   const [toDate,      setToDate]      = useState(dayjs().format('YYYY-MM-DD'));

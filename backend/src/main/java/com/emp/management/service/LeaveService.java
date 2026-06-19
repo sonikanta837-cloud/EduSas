@@ -14,6 +14,8 @@ import com.emp.management.repository.LeaveRepository;
 import com.emp.management.repository.TimesheetEntryRepository;
 import com.emp.management.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +28,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.Arrays;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class LeaveService {
@@ -38,11 +41,19 @@ public class LeaveService {
     private final HolidayService holidayService;
 
     @Transactional
-    public LeaveDTO applyLeave(Long employeeId, LeaveDTO dto) {
+    public LeaveDTO applyLeave(Long employeeId, LeaveDTO dto, String callerEmail) {
+        requireSelfOrPrivileged(employeeId, callerEmail);
         EmployeeDetails employee = findEmployee(employeeId);
 
+        if (dto.getStartDate().isBefore(LocalDate.now())) {
+            throw new BadRequestException("Start date cannot be in the past");
+        }
         if (dto.getEndDate().isBefore(dto.getStartDate())) {
             throw new BadRequestException("End date cannot be before start date");
+        }
+        long calendarDays = dto.getEndDate().toEpochDay() - dto.getStartDate().toEpochDay() + 1;
+        if (calendarDays > 30) {
+            throw new BadRequestException("Leave duration cannot exceed 30 calendar days");
         }
 
         boolean overlap = leaveRepository.existsOverlappingLeave(
@@ -63,9 +74,17 @@ public class LeaveService {
         String empDepartment = employee.getDepartment();
         int totalDays = holidayService.countDeductibleDays(dto.getStartDate(), dto.getEndDate(), empLocation, empDepartment);
 
-        // Directors (ADMIN role) are auto-approved — no manual review required
+        if (totalDays == 0) {
+            throw new BadRequestException(
+                "The selected date range falls entirely on weekends or public holidays. " +
+                "No working days to deduct."
+            );
+        }
+
+        // Directors (ADMIN/DIRECTOR role) are auto-approved — no manual review required
         boolean isDirector = employee.getUser() != null
-                && Role.ADMIN == employee.getUser().getRole();
+                && (Role.ADMIN == employee.getUser().getRole()
+                    || Role.DIRECTOR == employee.getUser().getRole());
 
         Leave leave = Leave.builder()
                 .employee(employee)
@@ -85,20 +104,25 @@ public class LeaveService {
         createTimesheetLeaveEntries(employee, dto.getStartDate(), dto.getEndDate(), dto.getLeaveType());
 
         if (!isDirector) {
-            // Notify manager (To) + HR and Admin (CC)
-            String managerEmail = resolveManagerEmail(employee);
-            if (managerEmail != null) {
-                String[] cc = collectHrAdminEmails(managerEmail);
-                emailService.sendLeaveRequestEmail(
-                    managerEmail, cc,
-                    employee.getUser().getEmail(),
-                    employee.getFullName(),
-                    dto.getLeaveType(),
-                    dto.getStartDate(),
-                    dto.getEndDate(),
-                    totalDays,
-                    dto.getReason()
-                );
+            // Notify manager (To) + HR and Admin (CC) — email failure must not roll back the saved leave
+            try {
+                String managerEmail = resolveManagerEmail(employee);
+                if (managerEmail != null) {
+                    String[] cc = collectHrAdminEmails(managerEmail);
+                    emailService.sendLeaveRequestEmail(
+                        managerEmail, cc,
+                        employee.getUser().getEmail(),
+                        employee.getFullName(),
+                        dto.getLeaveType(),
+                        dto.getStartDate(),
+                        dto.getEndDate(),
+                        totalDays,
+                        dto.getReason()
+                    );
+                }
+            } catch (Exception e) {
+                log.error("Leave request email failed for employee {} — leave {} is saved: {}",
+                        employee.getId(), saved.getId(), e.getMessage());
             }
         }
 
@@ -106,7 +130,7 @@ public class LeaveService {
     }
 
     @Transactional
-    public LeaveDTO updateLeaveStatus(Long leaveId, Long managerId, LeaveStatus status, String comment) {
+    public LeaveDTO updateLeaveStatus(Long leaveId, String managerEmail, LeaveStatus status, String comment) {
         Leave leave = leaveRepository.findById(leaveId)
                 .orElseThrow(() -> new ResourceNotFoundException("Leave", leaveId));
 
@@ -114,7 +138,8 @@ public class LeaveService {
             throw new BadRequestException("Leave request already processed");
         }
 
-        EmployeeDetails manager = findEmployee(managerId);
+        EmployeeDetails manager = employeeDetailsRepository.findByUserEmail(managerEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee not found for: " + managerEmail));
         leave.setStatus(status);
         leave.setApprovedBy(manager);
         leave.setManagerComment(comment);
@@ -130,24 +155,30 @@ public class LeaveService {
 
         Leave saved = leaveRepository.save(leave);
 
-        // Notify employee (To) of the decision; CC HR and Admin
-        String employeeEmail = leave.getEmployee().getUser().getEmail();
-        String[] cc = collectHrAdminEmails(employeeEmail);
-        emailService.sendLeaveDecisionEmail(
-            employeeEmail, cc,
-            leave.getEmployee().getFullName(),
-            status.name(),
-            leave.getLeaveType(),
-            leave.getStartDate(),
-            leave.getEndDate(),
-            manager.getFullName(),
-            comment
-        );
+        // Notify employee (To) of the decision; CC HR and Admin — email failure must not roll back the status change
+        try {
+            String employeeEmail = leave.getEmployee().getUser().getEmail();
+            String[] cc = collectHrAdminEmails(employeeEmail);
+            emailService.sendLeaveDecisionEmail(
+                employeeEmail, cc,
+                leave.getEmployee().getFullName(),
+                status.name(),
+                leave.getLeaveType(),
+                leave.getStartDate(),
+                leave.getEndDate(),
+                manager.getFullName(),
+                comment
+            );
+        } catch (Exception e) {
+            log.error("Leave decision email failed for leave {} — status {} is saved: {}",
+                    leaveId, status, e.getMessage());
+        }
 
         return toDTO(saved);
     }
 
-    public List<LeaveDTO> getMyLeaves(Long employeeId) {
+    public List<LeaveDTO> getMyLeaves(Long employeeId, String callerEmail) {
+        requireSelfOrPrivileged(employeeId, callerEmail);
         return leaveRepository.findByEmployeeIdOrderByAppliedAtDesc(employeeId).stream()
                 .map(this::toDTO).collect(Collectors.toList());
     }
@@ -173,9 +204,14 @@ public class LeaveService {
     }
 
     @Transactional
-    public LeaveDTO updateLeave(Long leaveId, Long employeeId, LeaveDTO dto) {
+    public LeaveDTO updateLeave(Long leaveId, Long employeeId, LeaveDTO dto, String callerEmail) {
         Leave leave = leaveRepository.findById(leaveId)
                 .orElseThrow(() -> new ResourceNotFoundException("Leave", leaveId));
+
+        if (!leave.getEmployee().getId().equals(employeeId)) {
+            throw new BadRequestException("Leave does not belong to this employee");
+        }
+        requireSelfOrPrivileged(employeeId, callerEmail);
 
         if (leave.getStatus() != LeaveStatus.PENDING) {
             throw new BadRequestException("Only pending leaves can be edited");
@@ -222,9 +258,11 @@ public class LeaveService {
     }
 
     @Transactional
-    public void deleteLeave(Long leaveId) {
+    public void deleteLeave(Long leaveId, String callerEmail) {
         Leave leave = leaveRepository.findById(leaveId)
                 .orElseThrow(() -> new ResourceNotFoundException("Leave", leaveId));
+
+        requireSelfOrPrivileged(leave.getEmployee().getId(), callerEmail);
 
         if (leave.getStatus() != LeaveStatus.PENDING) {
             throw new BadRequestException("Only pending leaves can be deleted");
@@ -263,7 +301,7 @@ public class LeaveService {
     private String[] collectHrAdminEmails(String excludeEmail) {
         return Stream.concat(
                 userRepository.findByRole(Role.HR).stream(),
-                userRepository.findByRole(Role.ADMIN).stream()
+                userRepository.findByRoleIn(java.util.List.of(Role.ADMIN, Role.DIRECTOR)).stream()
         )
         .map(User::getEmail)
         .filter(e -> e != null && !e.equalsIgnoreCase(excludeEmail))
@@ -276,10 +314,21 @@ public class LeaveService {
             return employee.getManager().getUser().getEmail();
         }
         // Fall back to first admin
-        return userRepository.findByRole(Role.ADMIN).stream()
+        return userRepository.findByRoleIn(java.util.List.of(Role.ADMIN, Role.DIRECTOR)).stream()
                 .map(User::getEmail)
                 .findFirst()
                 .orElse(null);
+    }
+
+    private void requireSelfOrPrivileged(Long targetEmployeeId, String callerEmail) {
+        EmployeeDetails caller = employeeDetailsRepository.findByUserEmail(callerEmail).orElse(null);
+        if (caller == null) return;
+        Role role = caller.getUser() != null ? caller.getUser().getRole() : null;
+        boolean privileged = role == Role.ADMIN || role == Role.DIRECTOR || role == Role.HR
+                          || role == Role.MANAGER || role == Role.ASSISTANT_MANAGER;
+        if (!privileged && !caller.getId().equals(targetEmployeeId)) {
+            throw new AccessDeniedException("Access denied");
+        }
     }
 
     private EmployeeDetails findEmployee(Long id) {
