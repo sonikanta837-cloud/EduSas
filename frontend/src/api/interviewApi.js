@@ -12,6 +12,7 @@ export const interviewApi = {
   // Rounds
   scheduleRound: (candidateId, data) => api.post(`/interviews/candidates/${candidateId}/rounds`, data),
   getRoundsForCandidate: (candidateId) => api.get(`/interviews/candidates/${candidateId}/rounds`),
+  getRound: (id) => api.get(`/interviews/rounds/${id}`),
   getMyRounds: () => api.get('/interviews/my-rounds'),
   updateRound: (id, data) => api.put(`/interviews/rounds/${id}`, data),
   startRound: (id) => api.put(`/interviews/rounds/${id}/start`),

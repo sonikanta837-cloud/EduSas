@@ -95,7 +95,14 @@ public class InterviewController {
         return ResponseEntity.ok(interviewService.updateRound(id, dto, auth.getName()));
     }
 
+    @GetMapping("/rounds/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<InterviewRoundDTO> getRound(@PathVariable Long id) {
+        return ResponseEntity.ok(interviewService.getRound(id));
+    }
+
     @PutMapping("/rounds/{id}/start")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<InterviewRoundDTO> startRound(@PathVariable Long id, Authentication auth) {
         return ResponseEntity.ok(interviewService.startRound(id, auth.getName()));
     }
@@ -110,6 +117,7 @@ public class InterviewController {
     // ── Feedback ──────────────────────────────────────────────────────────────
 
     @PostMapping("/rounds/{roundId}/feedback")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<InterviewFeedbackDTO> submitFeedback(
             @PathVariable Long roundId,
             @RequestBody InterviewFeedbackDTO dto,
@@ -119,6 +127,7 @@ public class InterviewController {
     }
 
     @PutMapping("/feedback/{feedbackId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<InterviewFeedbackDTO> updateFeedback(
             @PathVariable Long feedbackId,
             @RequestBody InterviewFeedbackDTO dto,

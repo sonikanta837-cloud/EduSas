@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box, Typography, Button, Grid, Card, CardContent, Avatar, Chip,
@@ -9,6 +9,7 @@ import CheckCircleIcon    from '@mui/icons-material/CheckCircle';
 import PauseCircleIcon    from '@mui/icons-material/PauseCircle';
 import CancelIcon         from '@mui/icons-material/Cancel';
 import DoneAllIcon        from '@mui/icons-material/DoneAll';
+import BlockIcon          from '@mui/icons-material/Block';
 import StarIcon           from '@mui/icons-material/Star';
 import AttachFileIcon     from '@mui/icons-material/AttachFile';
 import CalendarMonthIcon  from '@mui/icons-material/CalendarMonth';
@@ -28,10 +29,11 @@ const ROUND_TYPE_COLOR = {
 };
 
 const RECOMMENDATION_OPTIONS = [
-  { value: 'HIRE',         label: 'Move to Next Round', desc: 'Proceed to the next interview round', icon: <DoneAllIcon />,     color: '#16a34a', bg: '#f0fdf4', border: '#86efac' },
-  { value: 'STRONG_HIRE',  label: 'Hire',               desc: 'Strong fit for the role',             icon: <CheckCircleIcon />, color: '#1d4ed8', bg: '#eff6ff', border: '#93c5fd' },
-  { value: 'MAYBE',        label: 'Hold',               desc: 'Hold for further evaluation',         icon: <PauseCircleIcon />, color: '#d97706', bg: '#fffbeb', border: '#fcd34d' },
-  { value: 'NO_HIRE',      label: 'Reject',             desc: 'Not a fit for the role',              icon: <CancelIcon />,      color: '#dc2626', bg: '#fef2f2', border: '#fca5a5' },
+  { value: 'HIRE',          label: 'Move to Next Round', desc: 'Proceed to the next interview round', icon: <DoneAllIcon />,     color: '#16a34a', bg: '#f0fdf4', border: '#86efac' },
+  { value: 'STRONG_HIRE',   label: 'Hire',               desc: 'Strong fit for the role',             icon: <CheckCircleIcon />, color: '#1d4ed8', bg: '#eff6ff', border: '#93c5fd' },
+  { value: 'MAYBE',         label: 'Hold',               desc: 'Hold for further evaluation',         icon: <PauseCircleIcon />, color: '#d97706', bg: '#fffbeb', border: '#fcd34d' },
+  { value: 'NO_HIRE',       label: 'Reject',             desc: 'Not a fit for the role',              icon: <CancelIcon />,      color: '#dc2626', bg: '#fef2f2', border: '#fca5a5' },
+  { value: 'STRONG_NO_HIRE',label: 'Strong No Hire',     desc: 'Definite rejection for this role',    icon: <BlockIcon />,       color: '#7f1d1d', bg: '#fff1f2', border: '#fecdd3' },
 ];
 
 const SKILLS = [
@@ -96,9 +98,19 @@ const InterviewFeedbackPage = () => {
   const navigate      = useNavigate();
   const location      = useLocation();
 
-  const round            = location.state?.round;
+  const [round, setRound]           = useState(location.state?.round || null);
+  const [loadingRound, setLoadingRound] = useState(!location.state?.round);
   const existingFeedback = location.state?.existingFeedback;
   const isEdit           = !!existingFeedback;
+
+  useEffect(() => {
+    if (!location.state?.round && roundId) {
+      interviewApi.getRound(Number(roundId))
+        .then(data => setRound(data))
+        .catch(() => {})
+        .finally(() => setLoadingRound(false));
+    }
+  }, [roundId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [form, setForm] = useState(() => {
     if (existingFeedback) {
@@ -122,6 +134,14 @@ const InterviewFeedbackPage = () => {
   const [saving, setSaving] = useState(false);
 
   const setField = (key, val) => setForm(f => ({ ...f, [key]: val }));
+
+  if (loadingRound) {
+    return (
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <CircularProgress sx={{ color: '#1e3a5f' }} />
+      </Box>
+    );
+  }
 
   if (!round) {
     return (
@@ -449,7 +469,7 @@ const InterviewFeedbackPage = () => {
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5 }}>
               <Button variant="outlined" onClick={() => navigate('/interviews')}
                 sx={{ textTransform: 'none', borderColor: '#e2e8f0', color: '#64748b' }}>
-                Save as Draft
+                Cancel
               </Button>
               <Button variant="contained" onClick={handleSubmit} disabled={saving}
                 sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, textTransform: 'none', px: 3 }}>

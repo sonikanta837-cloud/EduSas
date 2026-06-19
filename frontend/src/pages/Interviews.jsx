@@ -1072,8 +1072,8 @@ const InterviewsPage = () => {
           <DialogTitle sx={{ pb: 1, fontWeight: 700, fontSize: 18, borderBottom: '1px solid #f1f5f9' }}>
             Assign Interview
           </DialogTitle>
-          <DialogContent sx={{ pt: 3 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <DialogContent sx={{ pt: 1 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1.5 }}>
 
               {/* Candidate */}
               <TextField label="Candidate *" select size="small" fullWidth
@@ -1887,7 +1887,7 @@ const AuditLogLoader = ({ auditLogs, setAuditLogs, fmtDt }) => {
       .then(logs => { setAuditLogs(Array.isArray(logs) ? logs : []); setLoaded(true); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [loaded, setAuditLogs]);
 
   if (loading) return <Box sx={{ textAlign: 'center', py: 4 }}><CircularProgress sx={{ color: '#1e3a5f' }} /></Box>;
 

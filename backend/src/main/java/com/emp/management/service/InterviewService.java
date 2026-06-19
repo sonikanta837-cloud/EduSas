@@ -58,8 +58,24 @@ public class InterviewService {
 
     @Transactional(readOnly = true)
     public List<InterviewCandidateDTO> getAllCandidates() {
-        return candidateRepo.findAllByOrderByCreatedAtDesc()
-                .stream().map(c -> toCandidateDTO(c, true)).collect(Collectors.toList());
+        List<InterviewCandidate> candidates = candidateRepo.findAllByOrderByCreatedAtDesc();
+        if (candidates.isEmpty()) return Collections.emptyList();
+
+        List<Long> candidateIds = candidates.stream().map(InterviewCandidate::getId).collect(Collectors.toList());
+        List<InterviewRound> allRounds = roundRepo.findByCandidateIdsOrderByRoundNumberAsc(candidateIds);
+
+        Map<Long, List<InterviewRound>> roundsByCandidate = allRounds.stream()
+                .collect(Collectors.groupingBy(r -> r.getCandidate().getId()));
+
+        List<Long> roundIds = allRounds.stream().map(InterviewRound::getId).collect(Collectors.toList());
+        Map<Long, List<InterviewFeedback>> feedbacksByRound = roundIds.isEmpty()
+                ? Collections.emptyMap()
+                : feedbackRepo.findByRoundIdIn(roundIds).stream()
+                        .collect(Collectors.groupingBy(f -> f.getRound().getId()));
+
+        return candidates.stream()
+                .map(c -> toCandidateDTO(c, roundsByCandidate.getOrDefault(c.getId(), Collections.emptyList()), feedbacksByRound))
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
@@ -96,6 +112,9 @@ public class InterviewService {
     public InterviewCandidateDTO updateCandidateStatus(Long id, String status, String callerEmail) {
         EmployeeDetails caller = getEmployeeByEmail(callerEmail);
         InterviewCandidate candidate = findCandidate(id);
+        if (status == null || status.isBlank()) {
+            throw new BadRequestException("Status is required");
+        }
         CandidateStatus newStatus;
         try {
             newStatus = CandidateStatus.valueOf(status.toUpperCase());
@@ -383,19 +402,21 @@ public class InterviewService {
         stats.put("rejectionRate", total > 0 ? Math.round((double) rejected / total * 100.0) : 0);
 
         long totalRounds     = roundRepo.count();
-        long completedRounds = roundRepo.findByStatusOrderByScheduledAtAsc(RoundStatus.COMPLETED).size();
-        long scheduledRounds = roundRepo.findByStatusOrderByScheduledAtAsc(RoundStatus.SCHEDULED).size();
+        long completedRounds = roundRepo.countByStatus(RoundStatus.COMPLETED);
+        long scheduledRounds = roundRepo.countByStatus(RoundStatus.SCHEDULED);
         stats.put("totalRounds",     totalRounds);
         stats.put("completedRounds", completedRounds);
         stats.put("scheduledRounds", scheduledRounds);
 
-        OptionalDouble avgRating = feedbackRepo.findAll().stream()
-                .filter(f -> f.getOverallRating() != null)
-                .mapToInt(InterviewFeedback::getOverallRating)
-                .average();
-        stats.put("averageRating", avgRating.isPresent() ? Math.round(avgRating.getAsDouble() * 10.0) / 10.0 : 0);
+        Double avgRating = feedbackRepo.getAverageOverallRating();
+        stats.put("averageRating", avgRating != null ? Math.round(avgRating * 10.0) / 10.0 : 0);
 
         return stats;
+    }
+
+    @Transactional(readOnly = true)
+    public InterviewRoundDTO getRound(Long roundId) {
+        return toRoundDTO(findRound(roundId), true);
     }
 
     @Transactional(readOnly = true)
@@ -482,6 +503,45 @@ public class InterviewService {
     // DTO mapping
     // ─────────────────────────────────────────────────────────────────────────
 
+    private InterviewCandidateDTO toCandidateDTO(InterviewCandidate c, List<InterviewRound> rounds, Map<Long, List<InterviewFeedback>> feedbacksByRound) {
+        double avgRating = rounds.stream()
+                .flatMap(r -> feedbacksByRound.getOrDefault(r.getId(), Collections.emptyList()).stream())
+                .filter(f -> f.getOverallRating() != null)
+                .mapToInt(InterviewFeedback::getOverallRating)
+                .average().orElse(0);
+
+        InterviewRound latest = rounds.isEmpty() ? null : rounds.get(rounds.size() - 1);
+
+        return InterviewCandidateDTO.builder()
+                .id(c.getId())
+                .name(c.getName())
+                .email(c.getEmail())
+                .phone(c.getPhone())
+                .position(c.getPosition())
+                .department(c.getDepartment())
+                .source(c.getSource())
+                .resumePath(c.getResumePath())
+                .notes(c.getNotes())
+                .status(c.getStatus() != null ? c.getStatus().name() : null)
+                .createdById(c.getCreatedBy() != null ? c.getCreatedBy().getId() : null)
+                .createdByName(c.getCreatedBy() != null
+                        ? c.getCreatedBy().getFirstName() + " " + c.getCreatedBy().getLastName() : null)
+                .createdAt(c.getCreatedAt())
+                .updatedAt(c.getUpdatedAt())
+                .rounds(rounds.stream()
+                        .map(r -> toRoundDTO(r, feedbacksByRound.getOrDefault(r.getId(), Collections.emptyList())))
+                        .collect(Collectors.toList()))
+                .totalRounds(rounds.size())
+                .completedRounds((int) rounds.stream().filter(r -> r.getStatus() == RoundStatus.COMPLETED).count())
+                .averageRating(avgRating > 0 ? Math.round(avgRating * 10.0) / 10.0 : null)
+                .currentRoundType(latest != null && latest.getRoundType() != null ? latest.getRoundType().name() : null)
+                .currentRoundStatus(latest != null && latest.getStatus() != null ? latest.getStatus().name() : null)
+                .currentRoundInterviewerName(latest != null && latest.getInterviewer() != null
+                        ? latest.getInterviewer().getFirstName() + " " + latest.getInterviewer().getLastName() : null)
+                .currentRoundScheduledAt(latest != null ? latest.getScheduledAt() : null)
+                .build();
+    }
+
     private InterviewCandidateDTO toCandidateDTO(InterviewCandidate c, boolean includeRounds) {
         List<InterviewRound> rounds = includeRounds
                 ? roundRepo.findByCandidateIdOrderByRoundNumberAsc(c.getId())
@@ -527,7 +587,10 @@ public class InterviewService {
         List<InterviewFeedback> feedbacks = includeFeedback
                 ? feedbackRepo.findByRoundId(r.getId())
                 : Collections.emptyList();
+        return toRoundDTO(r, feedbacks);
+    }
 
+    private InterviewRoundDTO toRoundDTO(InterviewRound r, List<InterviewFeedback> feedbacks) {
         boolean feedbackSubmitted = !feedbacks.isEmpty();
         double avgRating = feedbacks.stream()
                 .filter(f -> f.getOverallRating() != null)
@@ -557,7 +620,7 @@ public class InterviewService {
                 .managerNotes(r.getManagerNotes())
                 .createdAt(r.getCreatedAt())
                 .updatedAt(r.getUpdatedAt())
-                .feedbacks(includeFeedback ? feedbacks.stream().map(this::toFeedbackDTO).collect(Collectors.toList()) : null)
+                .feedbacks(feedbacks.stream().map(this::toFeedbackDTO).collect(Collectors.toList()))
                 .feedbackSubmitted(feedbackSubmitted)
                 .averageRating(avgRating > 0 ? Math.round(avgRating * 10.0) / 10.0 : null)
                 .build();
