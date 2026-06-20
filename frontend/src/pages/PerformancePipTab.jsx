@@ -22,7 +22,6 @@ import TrackChangesIcon     from '@mui/icons-material/TrackChanges';
 import AssignmentLateIcon   from '@mui/icons-material/AssignmentLate';
 import CalendarTodayIcon    from '@mui/icons-material/CalendarToday';
 import PersonIcon           from '@mui/icons-material/Person';
-import TrendingUpIcon       from '@mui/icons-material/TrendingUp';
 import SendIcon             from '@mui/icons-material/Send';
 import { pipApi }           from '../api/pipApi';
 import { employeeApi }      from '../api/employeeApi';
@@ -475,7 +474,6 @@ const PipDetailDialog = ({ open, pipId, onClose, onUpdated, myEmployee, canManag
   const canAct  = canManage && !isMyPip;
   const [comment, setComment]   = useState('');
   const [posting, setPosting]   = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
   const [outcomeOpen, setOutcomeOpen] = useState(false);
   const [reviewOpen, setReviewOpen]   = useState(false);
   const [addGoalOpen, setAddGoalOpen] = useState(false);

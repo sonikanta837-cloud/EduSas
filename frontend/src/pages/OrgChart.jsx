@@ -49,9 +49,7 @@ import { holidayApi }       from '../api/holidayApi';
 import { toast }            from 'react-toastify';
 
 // ── Layout constants ──────────────────────────────────────────────────────────
-const CARD_W = 200;
 const CARD_H = 68;
-const LINE   = '#cbd5e1';
 const BLUE   = '#14b8a6';
 
 const DEPT_COLORS = [
@@ -169,6 +167,7 @@ const EmployeeTreeView = ({ nodes, childrenMap, rootIds, loadChildren, onOpen })
   // Auto-drill into single root on first load
   useEffect(() => {
     if (rootIds.length === 1 && currentId === null) setCurrentId(rootIds[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rootIds]);
 
   const isTopLevel  = history.length === 0;
@@ -1567,6 +1566,7 @@ const BirthdayFolksTab = ({ employees, onNavigate }) => {
         return { ...e, bdayM: m, bdayD: d, daysUntil };
       })
       .sort((a, b) => a.daysUntil - b.daysUntil);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employees]);
 
   const thisMonth = upcoming.filter((e) => e.bdayM === todayM);
@@ -1666,6 +1666,7 @@ const CalendarTab = ({ employees }) => {
       }
     });
     return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employees, month, year]);
 
   // holidays for current month+year — holiday.date is "yyyy-MM-dd"

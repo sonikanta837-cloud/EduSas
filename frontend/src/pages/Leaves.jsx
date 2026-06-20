@@ -24,6 +24,7 @@ import { toast } from 'react-toastify';
 const statusColors = { PENDING: 'warning', APPROVED: 'success', REJECTED: 'error' };
 
 // Fixed quota (days) per leave type — keyed by the exact leaveType string stored in DB
+// eslint-disable-next-line no-unused-vars
 const LEAVE_QUOTA_MAP = {
   'ANNUAL':         { label: 'Annual Leave',        total: 21, color: '#14b8a6', bg: '#f0fdfa' },
   'Annual Leave':   { label: 'Annual Leave',        total: 21, color: '#14b8a6', bg: '#f0fdfa' },
@@ -63,7 +64,6 @@ const LeavesPage = () => {
   const [filterTo,     setFilterTo]     = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
-  const todayStr = new Date().toISOString().split('T')[0];
 
   /* A leave overlaps [filterFrom, filterTo] when:
      leave.startDate <= filterTo  AND  leave.endDate >= filterFrom */
@@ -134,6 +134,7 @@ const LeavesPage = () => {
       const [, mine] = await Promise.allSettled([fetchLeaves(emp), leaveApi.getMyLeaves(emp.id)]);
       if (mine.status === 'fulfilled') setMyLeaves(mine.value);
     }).finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, tab]);
 
   const refreshMyLeaves = async () => {

@@ -95,6 +95,7 @@ const cell = { fontSize: 13, py: 0.8, px: 1.5 };
 const hdr  = { ...cell, fontWeight: 700, bgcolor: '#f1f5f9', whiteSpace: 'nowrap' };
 
 const fmt     = (d) => (d ? String(d).slice(0, 10) : '—');
+// eslint-disable-next-line no-unused-vars
 const fmtCurr = (n) => n != null ? `₹${Number(n).toLocaleString('en-IN')}` : '—';
 
 // ── Excel export — monthly leaves ─────────────────────────────────────────────
@@ -211,7 +212,7 @@ const ReportsPage = () => {
   // Summary-specific filters
   const [sumDept,        setSumDept]        = useState('ALL');
   const [sumLoc,         setSumLoc]         = useState('ALL');
-  const [sumStatus,      setSumStatus]      = useState('ALL');
+  const [sumStatus] = useState('ALL');
   const [sumSearch,      setSumSearch]      = useState('');
 
   const { year: selYear, month: selMonthIdx, label: selLabel } = MONTH_OPTIONS[selMonth];

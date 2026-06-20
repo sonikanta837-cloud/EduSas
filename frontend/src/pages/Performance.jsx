@@ -20,7 +20,6 @@ import AssignmentIcon     from '@mui/icons-material/Assignment';
 import StarRoundedIcon    from '@mui/icons-material/StarRounded';
 import ChevronLeftIcon    from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon   from '@mui/icons-material/ChevronRight';
-import OpenInNewIcon      from '@mui/icons-material/OpenInNew';
 import DeleteOutlineIcon  from '@mui/icons-material/DeleteOutline';
 import EditOutlinedIcon   from '@mui/icons-material/EditOutlined';
 import { performanceApi }  from '../api/performanceApi';
@@ -83,9 +82,11 @@ const ratingInfo = (r) => {
 };
 
 /* ─── helpers ─── */
+// eslint-disable-next-line no-unused-vars
 const splitItems = (text) =>
   text ? text.split(/[,\n]+/).map(s => s.trim()).filter(Boolean) : [];
 
+// eslint-disable-next-line no-unused-vars
 const assessmentInfo = (rating) => {
   if (rating >= 4.5) return { label: 'Excellent Performance',   desc: 'Consistently exceeds expectations and delivers exceptional results' };
   if (rating >= 4)   return { label: 'Very Good Performance',   desc: 'Exceeds expectations in most areas of performance' };

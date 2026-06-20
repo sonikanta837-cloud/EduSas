@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import {
   Box, Card, CardContent, CardActions, Typography, Button,
@@ -23,7 +23,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
 import CancelIcon from '@mui/icons-material/Cancel';
 import DownloadIcon from '@mui/icons-material/Download';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { courseApi } from '../api/courseApi';
 import { employeeApi } from '../api/employeeApi';
@@ -55,6 +54,7 @@ function extractYoutubeId(url) {
   return m ? m[1] : null;
 }
 
+// eslint-disable-next-line no-unused-vars
 function YoutubeThumbnail({ url, title }) {
   const vid = extractYoutubeId(url);
   if (!vid) {
@@ -109,7 +109,6 @@ const CoursesPage = () => {
   const [examForm, setExamForm] = useState(EMPTY_EXAM_FORM);
   const [generating, setGenerating] = useState(false);
   const [examEditIndex, setExamEditIndex] = useState(0);
-  const examBottomRef = useRef(null);
 
   // MCQ exam taking dialog
   const [takeExamCourse, setTakeExamCourse] = useState(null);
@@ -217,6 +216,7 @@ const CoursesPage = () => {
       const updated = courses.find(c => c.id === viewCourse.id);
       if (updated) setViewCourse(updated);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courses]);
 
   const refresh = async () => {

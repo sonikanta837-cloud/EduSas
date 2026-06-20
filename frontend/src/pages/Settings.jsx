@@ -5,7 +5,6 @@ import {
   Tooltip, TextField, InputAdornment, Select, MenuItem,
   FormControl, InputLabel,
 } from '@mui/material';
-import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import AccessTimeIcon           from '@mui/icons-material/AccessTime';
 import CheckCircleIcon          from '@mui/icons-material/CheckCircle';
 import MarkEmailReadIcon        from '@mui/icons-material/MarkEmailRead';
@@ -128,7 +127,7 @@ function BreakAlertPanel() {
     finally { setSaving(false); }
   };
 
-  const fmtMin = v => v >= 60 ? `${Math.floor(v/60)}h ${v%60>0?`${v%60}m`:''}`.trim() : `${v}m`;
+  const fmtMin = v => v >= 60 ? `${Math.floor(v/60)}h ${v%60>0?`${v%60}m`:''}`.trim() : `${v}m`; // eslint-disable-line no-unused-vars
 
   if (loading) return <Box sx={{ display:'flex', justifyContent:'center', py:6 }}><CircularProgress /></Box>;
   if (!settings) return <Alert severity="error">{error}</Alert>;

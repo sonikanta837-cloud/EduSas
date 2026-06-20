@@ -8,7 +8,7 @@ import {
   DialogContent, DialogActions, MenuItem, Select, FormControl,
   InputLabel, CircularProgress, Tooltip, Stack, Tabs, Tab,
   Divider, List, ListItem, ListItemText, LinearProgress, TablePagination,
-  InputBase, Collapse,
+  Collapse,
 } from '@mui/material';
 import SearchIcon         from '@mui/icons-material/Search';
 import AddIcon            from '@mui/icons-material/Add';
@@ -27,8 +27,6 @@ import NavigateNextIcon   from '@mui/icons-material/NavigateNext';
 import EmojiEventsIcon    from '@mui/icons-material/EmojiEvents';
 import CheckCircleIcon    from '@mui/icons-material/CheckCircle';
 import PersonRemoveIcon   from '@mui/icons-material/PersonRemove';
-import AccountTreeIcon   from '@mui/icons-material/AccountTree';
-import ChevronRightIcon  from '@mui/icons-material/ChevronRight';
 import VisibilityIcon        from '@mui/icons-material/Visibility';
 import VisibilityOffIcon     from '@mui/icons-material/VisibilityOff';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
@@ -1402,7 +1400,7 @@ const DT_CONN_W  = 40;
 const DT_BRANCH  = 24;
 const DT_BLUE    = '#14b8a6';
 
-const DepartmentTreeTab = ({ employees, onNavigate }) => {
+const DepartmentTreeTab = ({ employees, onNavigate }) => { // eslint-disable-line no-unused-vars
   const activeEmps = useMemo(() => employees.filter((e) => e.active), [employees]);
 
   const deptMap = useMemo(() => {

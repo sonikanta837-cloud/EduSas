@@ -36,6 +36,7 @@ const fmtHours = (h) => {
   return `${hrs}h ${String(mins).padStart(2, '0')}m`;
 };
 
+// eslint-disable-next-line no-unused-vars
 const parseTime = (t) => {
   if (!t) return null;
   const [h, m, s] = t.split(':').map(Number);
@@ -105,7 +106,6 @@ const DayCard = ({ date, sessions, isToday, liveSec, holidayName }) => {
   const [expanded, setExpanded] = useState(isToday);
 
   const dow = date.format('ddd').toUpperCase();
-  const dom = date.format('DD MMM');
   const isWeekend = date.day() === 0 || date.day() === 6;
   const isFuture = date.isAfter(dayjs(), 'day');
   const isHoliday = Boolean(holidayName);

@@ -6,7 +6,7 @@ import {
   TablePagination, Dialog, DialogTitle, DialogContent, DialogActions,
   InputAdornment, CircularProgress, Divider, Paper, Tabs, Tab,
   Accordion, AccordionSummary, AccordionDetails, MenuItem, Alert,
-  Grid, Stack,
+  Grid,
 } from '@mui/material';
 import SearchIcon          from '@mui/icons-material/Search';
 import AddIcon             from '@mui/icons-material/Add';
@@ -440,6 +440,7 @@ function FormsTemplatesSection({ resources, canManage, onRefresh }) {
 }
 
 // ── FormsSection ─────────────────────────────────────────────────────────────
+// eslint-disable-next-line no-unused-vars
 function FormsSection({ resources, canManage, onRefresh }) {
   const [search,    setSearch]    = useState('');
   const [catFilter, setCatFilter] = useState('');
@@ -1533,6 +1534,7 @@ function ResignationLetterTemplate({ open, onClose }) {
 }
 
 // ── DocumentSection ───────────────────────────────────────────────────────────
+// eslint-disable-next-line no-unused-vars
 function DocumentSection({ category, resources, canManage, onRefresh, userId }) {
   const [search, setSearch] = useState('');
   const [page,   setPage]   = useState(0);

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import {
   Box, Card, CardContent, Grid, Typography, TextField, Button,
-  Avatar, Chip, CircularProgress, Divider, IconButton, Tooltip,
+  Avatar, Chip, CircularProgress, Divider, IconButton,
   Tab, Tabs, LinearProgress
 } from '@mui/material';
 import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined';
@@ -18,17 +18,11 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import WorkIcon from '@mui/icons-material/Work';
 import SchoolIcon from '@mui/icons-material/School';
-import CardMembershipIcon from '@mui/icons-material/CardMembership';
 import BadgeIcon from '@mui/icons-material/Badge';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import BeachAccessIcon from '@mui/icons-material/BeachAccess';
 import CakeIcon from '@mui/icons-material/Cake';
 import BusinessIcon from '@mui/icons-material/Business';
-import PersonIcon from '@mui/icons-material/Person';
-import DownloadIcon from '@mui/icons-material/Download';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import GroupIcon from '@mui/icons-material/Group';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import {
@@ -113,6 +107,7 @@ const TimeDonut = ({ pct, label, hours, target, breakdown }) => {
 };
 
 /* ── PDF download — delegates to server-side iText certificate generator ── */
+// eslint-disable-next-line no-unused-vars
 const downloadCertificate = async (courseName, employeeName, certNo) => {
   try {
     const blob = await courseApi.downloadCertificatePdf(certNo);
@@ -134,7 +129,7 @@ const ProfilePage = () => {
   const { user } = useSelector((s) => s.auth);
   const navigate = useNavigate();
   const [employee, setEmployee] = useState(null);
-  const [certificates, setCertificates] = useState([]);
+  const [, setCertificates] = useState([]);
   const [courses, setCourses] = useState([]);
   const [performance, setPerformance] = useState([]);
   const [leaves, setLeaves] = useState([]);
@@ -218,6 +213,7 @@ const ProfilePage = () => {
   const skillsList = useMemo(() =>
     employee?.skills ? employee.skills.split(',').map(s => s.trim()).filter(Boolean) : [], [employee]);
 
+  // eslint-disable-next-line no-unused-vars
   const avgPerf = useMemo(() =>
     performance.length > 0 ? (performance.reduce((s, p) => s + (p.rating || 0), 0) / performance.length).toFixed(1) : null, [performance]);
 
@@ -270,6 +266,7 @@ const ProfilePage = () => {
   }, [courses]);
 
   /* leave by type */
+  // eslint-disable-next-line no-unused-vars
   const leaveByType = useMemo(() => {
     const map = {};
     leaves.filter(l => l.status === 'APPROVED').forEach(l => {

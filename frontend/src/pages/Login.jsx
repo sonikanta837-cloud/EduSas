@@ -19,10 +19,8 @@ import api from '../api/axios';
 
 const GOLD      = '#CAA763';
 const GOLD_DARK = '#725A2C';
-const NAVY      = '#213555';
 const NAVY_DARK = '#182840';
 const CARD_BG   = '#1c3354';
-const INPUT_BG  = '#152942';
 
 /* Shared field overrides — white bg, dark text */
 const darkField = {
