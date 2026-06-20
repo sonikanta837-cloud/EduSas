@@ -41,7 +41,7 @@ describe('LoginPage', () => {
   describe('render', () => {
     it('renders the login form', () => {
       const { container } = renderLogin();
-      expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('you@example.com')).toBeInTheDocument();
       expect(getPasswordInput(container)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
     });
@@ -60,7 +60,7 @@ describe('LoginPage', () => {
   describe('form interaction', () => {
     it('allows typing in email and password fields', async () => {
       const { container } = renderLogin();
-      const emailInput = screen.getByLabelText(/email address/i);
+      const emailInput = screen.getByPlaceholderText('you@example.com');
       const passwordInput = getPasswordInput(container);
 
       await userEvent.type(emailInput, 'test@example.com');
@@ -95,7 +95,7 @@ describe('LoginPage', () => {
       mock.onPost('/timesheet/check-in').reply(200, {});
 
       const { container } = renderLogin();
-      await userEvent.type(screen.getByLabelText(/email address/i), 'alice@company.com');
+      await userEvent.type(screen.getByPlaceholderText('you@example.com'), 'alice@company.com');
       await userEvent.type(getPasswordInput(container), 'password');
       await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
@@ -108,7 +108,7 @@ describe('LoginPage', () => {
       mock.onPost('/auth/login').reply(401, { message: 'Invalid email or password' });
 
       const { container } = renderLogin();
-      await userEvent.type(screen.getByLabelText(/email address/i), 'bad@email.com');
+      await userEvent.type(screen.getByPlaceholderText('you@example.com'), 'bad@email.com');
       await userEvent.type(getPasswordInput(container), 'wrongpass');
       await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
@@ -138,7 +138,7 @@ describe('LoginPage', () => {
       renderLogin();
       await userEvent.click(screen.getByRole('button', { name: /forgot password/i }));
 
-      const dialogEmailInput = screen.getAllByLabelText(/email address/i)[1];
+      const dialogEmailInput = screen.getByPlaceholderText('Enter your email');
       await userEvent.type(dialogEmailInput, 'alice@company.com');
       await userEvent.click(screen.getByRole('button', { name: /send reset link/i }));
 

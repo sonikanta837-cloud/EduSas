@@ -4,6 +4,8 @@ import com.emp.management.dto.CourseDTO;
 import com.emp.management.entity.*;
 import com.emp.management.exception.ResourceNotFoundException;
 import com.emp.management.repository.*;
+import com.emp.management.service.CourseNotificationService;
+import com.emp.management.service.EmailService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +30,8 @@ class CourseServiceFilterTest {
     @Mock private EmployeeDetailsRepository employeeDetailsRepository;
     @Mock private UserRepository userRepository;
     @Mock private ObjectMapper objectMapper;
+    @Mock private CourseNotificationService courseNotificationService;
+    @Mock private EmailService emailService;
 
     @InjectMocks private CourseService courseService;
 
@@ -289,6 +293,8 @@ class CourseServiceFilterTest {
 
     @Test
     void enrollEmployee_alreadyEnrolled_throwsBadRequestException() {
+        // findById must succeed first; then existence check throws BadRequest
+        when(employeeDetailsRepository.findById(10L)).thenReturn(Optional.of(activeEmp1));
         when(enrollmentRepository.existsByEmployeeIdAndCourseId(10L, 5L)).thenReturn(true);
 
         assertThatThrownBy(() -> courseService.enrollEmployee(5L, 10L))
@@ -302,6 +308,7 @@ class CourseServiceFilterTest {
         when(employeeDetailsRepository.findById(10L)).thenReturn(Optional.of(activeEmp1));
         when(courseRepository.findById(5L)).thenReturn(Optional.of(course));
         when(enrollmentRepository.save(any())).thenReturn(enrollmentActive1);
+        doNothing().when(courseNotificationService).createNotification(any(), any());
 
         courseService.enrollEmployee(5L, 10L);
 

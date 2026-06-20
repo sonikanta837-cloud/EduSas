@@ -145,6 +145,15 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.11</version>
+                <configuration>
+                    <excludes>
+                        <!-- Exclude Lombok-generated DTO/entity/config boilerplate -->
+                        <exclude>com/emp/management/dto/**</exclude>
+                        <exclude>com/emp/management/entity/**</exclude>
+                        <exclude>com/emp/management/config/**</exclude>
+                        <exclude>com/emp/management/security/LoginRateLimitFilter*</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>

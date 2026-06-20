@@ -275,7 +275,7 @@ describe('DayCard — Holiday > Weekly Off priority', () => {
 // ── DayCard status — Present / Overtime ──────────────────────────────────────
 
 describe('DayCard — Present and Overtime status', () => {
-  it('shows Present chip for past weekday with completed sessions (8h)', async () => {
+  it('shows Completed chip for past weekday with completed sessions (8h)', async () => {
     const weekStart = dayjs().startOf('week');
     const tuesday = weekStart.add(2, 'day');
     const tuesdayStr = tuesday.format('YYYY-MM-DD');
@@ -298,8 +298,9 @@ describe('DayCard — Present and Overtime status', () => {
       await screen.findByText('Attendance');
 
       await waitFor(() => {
-        const presentChips = screen.queryAllByText('Present');
-        expect(presentChips.length).toBeGreaterThanOrEqual(1);
+        // Past completed days show "Completed" (not "Present") per Attendance.jsx line 150
+        const completedChips = screen.queryAllByText('Completed');
+        expect(completedChips.length).toBeGreaterThanOrEqual(1);
       });
     }
   });

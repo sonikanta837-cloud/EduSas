@@ -128,7 +128,7 @@ describe('PerformancePage — header', () => {
 
   it('renders subtitle text', async () => {
     renderPage();
-    expect(await screen.findByText(/Track and manage employee performance reviews/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Track and manage all employee performance reviews/i)).toBeInTheDocument();
   });
 });
 

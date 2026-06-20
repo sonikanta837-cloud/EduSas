@@ -81,6 +81,7 @@ class AuthServiceTest {
         when(userRepository.findByEmail("alice@company.com")).thenReturn(Optional.of(testUser));
         when(tokenProvider.generateToken(auth)).thenReturn("access-token");
         when(tokenProvider.generateRefreshToken("alice@company.com")).thenReturn("refresh-token");
+        when(passwordEncoder.encode("refresh-token")).thenReturn("encoded-refresh");
         when(userRepository.save(any())).thenReturn(testUser);
         doNothing().when(timesheetService).recordLogin(anyLong());
 
@@ -119,19 +120,40 @@ class AuthServiceTest {
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
+    @Test
+    void login_employeeWithNoDetails_usesEmailAsFullName() {
+        testUser.setEmployeeDetails(null);
+        LoginRequest req = new LoginRequest();
+        req.setEmail("alice@company.com");
+        req.setPassword("password");
+
+        Authentication auth = mock(Authentication.class);
+        when(authenticationManager.authenticate(any())).thenReturn(auth);
+        when(userRepository.findByEmail("alice@company.com")).thenReturn(Optional.of(testUser));
+        when(tokenProvider.generateToken(auth)).thenReturn("access");
+        when(tokenProvider.generateRefreshToken("alice@company.com")).thenReturn("refresh");
+        when(passwordEncoder.encode(anyString())).thenReturn("encoded");
+        when(userRepository.save(any())).thenReturn(testUser);
+        doNothing().when(timesheetService).recordLogin(anyLong());
+
+        LoginResponse response = authService.login(req);
+
+        assertThat(response.getFullName()).isEqualTo("alice@company.com");
+    }
+
     // ── Register ─────────────────────────────────────────────────────────────
 
     @Test
     void register_newEmail_createsUserAndEmployee() {
         RegisterRequest req = new RegisterRequest();
         req.setEmail("new@company.com");
-        req.setPassword("pass");
+        req.setPassword("ValidPass1");
         req.setFirstName("Bob");
         req.setLastName("Jones");
         req.setRole(Role.EMPLOYEE);
 
         when(userRepository.existsByEmail("new@company.com")).thenReturn(false);
-        when(passwordEncoder.encode("pass")).thenReturn("encoded");
+        when(passwordEncoder.encode("ValidPass1")).thenReturn("encoded");
         when(userRepository.save(any())).thenReturn(testUser);
         when(employeeDetailsRepository.save(any())).thenReturn(testEmployee);
 
@@ -161,7 +183,7 @@ class AuthServiceTest {
     void register_withManagerId_setsManager() {
         RegisterRequest req = new RegisterRequest();
         req.setEmail("new@company.com");
-        req.setPassword("pass");
+        req.setPassword("ValidPass1");
         req.setFirstName("Bob");
         req.setLastName("Jones");
         req.setRole(Role.EMPLOYEE);
@@ -180,16 +202,86 @@ class AuthServiceTest {
         verify(employeeDetailsRepository).findById(2L);
     }
 
+    @Test
+    void register_passwordTooShort_throwsBadRequestException() {
+        RegisterRequest req = new RegisterRequest();
+        req.setEmail("new@company.com");
+        req.setPassword("short");
+        req.setFirstName("New");
+        req.setLastName("User");
+        req.setRole(Role.EMPLOYEE);
+
+        when(userRepository.existsByEmail("new@company.com")).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.register(req))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("8 characters");
+    }
+
+    @Test
+    void register_passwordNoUppercase_throwsBadRequestException() {
+        RegisterRequest req = new RegisterRequest();
+        req.setEmail("new@company.com");
+        req.setPassword("alllowercase1");
+        req.setFirstName("New");
+        req.setLastName("User");
+        req.setRole(Role.EMPLOYEE);
+
+        when(userRepository.existsByEmail("new@company.com")).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.register(req))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("uppercase");
+    }
+
+    @Test
+    void register_passwordNoDigit_throwsBadRequestException() {
+        RegisterRequest req = new RegisterRequest();
+        req.setEmail("new@company.com");
+        req.setPassword("NoDigitsHere");
+        req.setFirstName("New");
+        req.setLastName("User");
+        req.setRole(Role.EMPLOYEE);
+
+        when(userRepository.existsByEmail("new@company.com")).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.register(req))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("number");
+    }
+
+    @Test
+    void register_managerNotFound_throwsResourceNotFoundException() {
+        RegisterRequest req = new RegisterRequest();
+        req.setEmail("new@company.com");
+        req.setPassword("ValidPass1");
+        req.setFirstName("Bob");
+        req.setLastName("Jones");
+        req.setRole(Role.EMPLOYEE);
+        req.setManagerId(999L);
+
+        when(userRepository.existsByEmail("new@company.com")).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("encoded");
+        when(userRepository.save(any())).thenReturn(testUser);
+        when(employeeDetailsRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.register(req))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
     // ── Refresh Token ────────────────────────────────────────────────────────
 
     @Test
     void refreshToken_validToken_returnsNewTokens() {
-        testUser.setRefreshToken("old-refresh");
+        testUser.setRefreshToken("hashed-old-refresh");
 
-        when(userRepository.findByRefreshToken("old-refresh")).thenReturn(Optional.of(testUser));
+        when(tokenProvider.getUsernameFromTokenIgnoreExpiry("old-refresh")).thenReturn("alice@company.com");
+        when(userRepository.findByEmail("alice@company.com")).thenReturn(Optional.of(testUser));
         when(tokenProvider.validateToken("old-refresh")).thenReturn(true);
+        when(passwordEncoder.matches("old-refresh", "hashed-old-refresh")).thenReturn(true);
         when(tokenProvider.generateToken("alice@company.com")).thenReturn("new-access");
         when(tokenProvider.generateRefreshToken("alice@company.com")).thenReturn("new-refresh");
+        when(passwordEncoder.encode("new-refresh")).thenReturn("hashed-new-refresh");
         when(userRepository.save(any())).thenReturn(testUser);
 
         LoginResponse response = authService.refreshToken("old-refresh");
@@ -199,8 +291,8 @@ class AuthServiceTest {
     }
 
     @Test
-    void refreshToken_invalidToken_throwsBadRequestException() {
-        when(userRepository.findByRefreshToken("bad-token")).thenReturn(Optional.empty());
+    void refreshToken_invalidTokenNullEmail_throwsBadRequestException() {
+        when(tokenProvider.getUsernameFromTokenIgnoreExpiry("bad-token")).thenReturn(null);
 
         assertThatThrownBy(() -> authService.refreshToken("bad-token"))
                 .isInstanceOf(BadRequestException.class)
@@ -209,14 +301,40 @@ class AuthServiceTest {
 
     @Test
     void refreshToken_expiredToken_throwsBadRequestException() {
-        testUser.setRefreshToken("expired-refresh");
-
-        when(userRepository.findByRefreshToken("expired-refresh")).thenReturn(Optional.of(testUser));
+        when(tokenProvider.getUsernameFromTokenIgnoreExpiry("expired-refresh")).thenReturn("alice@company.com");
+        when(userRepository.findByEmail("alice@company.com")).thenReturn(Optional.of(testUser));
         when(tokenProvider.validateToken("expired-refresh")).thenReturn(false);
 
         assertThatThrownBy(() -> authService.refreshToken("expired-refresh"))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("expired");
+    }
+
+    @Test
+    void refreshToken_hashMismatch_throwsBadRequestException() {
+        testUser.setRefreshToken("hashed-different");
+
+        when(tokenProvider.getUsernameFromTokenIgnoreExpiry("valid-token")).thenReturn("alice@company.com");
+        when(userRepository.findByEmail("alice@company.com")).thenReturn(Optional.of(testUser));
+        when(tokenProvider.validateToken("valid-token")).thenReturn(true);
+        when(passwordEncoder.matches("valid-token", "hashed-different")).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.refreshToken("valid-token"))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("Invalid refresh token");
+    }
+
+    @Test
+    void refreshToken_noStoredRefreshToken_throwsBadRequestException() {
+        testUser.setRefreshToken(null);
+
+        when(tokenProvider.getUsernameFromTokenIgnoreExpiry("valid-token")).thenReturn("alice@company.com");
+        when(userRepository.findByEmail("alice@company.com")).thenReturn(Optional.of(testUser));
+        when(tokenProvider.validateToken("valid-token")).thenReturn(true);
+
+        assertThatThrownBy(() -> authService.refreshToken("valid-token"))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("Invalid refresh token");
     }
 
     // ── Forgot Password ──────────────────────────────────────────────────────
@@ -236,11 +354,14 @@ class AuthServiceTest {
     }
 
     @Test
-    void forgotPassword_unknownEmail_throwsResourceNotFoundException() {
+    void forgotPassword_unknownEmail_doesNothing() {
         when(userRepository.findByEmail("nobody@example.com")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.forgotPassword("nobody@example.com"))
-                .isInstanceOf(ResourceNotFoundException.class);
+        // Should NOT throw — silent for security
+        authService.forgotPassword("nobody@example.com");
+
+        verify(userRepository, never()).save(any());
+        verify(emailService, never()).sendPasswordResetEmail(anyString(), anyString());
     }
 
     // ── Reset Password ───────────────────────────────────────────────────────
@@ -251,14 +372,15 @@ class AuthServiceTest {
         testUser.setResetTokenExpiry(LocalDateTime.now().plusMinutes(30));
 
         when(userRepository.findByResetToken("valid-token")).thenReturn(Optional.of(testUser));
-        when(passwordEncoder.encode("newPassword")).thenReturn("encodedNew");
+        when(passwordEncoder.encode("NewPass1")).thenReturn("encodedNew");
         when(userRepository.save(any())).thenReturn(testUser);
 
-        authService.resetPassword("valid-token", "newPassword");
+        authService.resetPassword("valid-token", "NewPass1");
 
         assertThat(testUser.getResetToken()).isNull();
         assertThat(testUser.getResetTokenExpiry()).isNull();
-        verify(passwordEncoder).encode("newPassword");
+        assertThat(testUser.getRefreshToken()).isNull();
+        verify(passwordEncoder).encode("NewPass1");
     }
 
     @Test
@@ -268,7 +390,7 @@ class AuthServiceTest {
 
         when(userRepository.findByResetToken("expired-token")).thenReturn(Optional.of(testUser));
 
-        assertThatThrownBy(() -> authService.resetPassword("expired-token", "newPassword"))
+        assertThatThrownBy(() -> authService.resetPassword("expired-token", "NewPass1"))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("expired");
     }
@@ -277,8 +399,31 @@ class AuthServiceTest {
     void resetPassword_unknownToken_throwsBadRequestException() {
         when(userRepository.findByResetToken("bad-token")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.resetPassword("bad-token", "newPassword"))
+        assertThatThrownBy(() -> authService.resetPassword("bad-token", "NewPass1"))
                 .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void resetPassword_weakPassword_throwsBadRequestException() {
+        testUser.setResetToken("valid-token");
+        testUser.setResetTokenExpiry(LocalDateTime.now().plusMinutes(30));
+
+        when(userRepository.findByResetToken("valid-token")).thenReturn(Optional.of(testUser));
+
+        assertThatThrownBy(() -> authService.resetPassword("valid-token", "weak"))
+                .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void resetPassword_nullExpiry_throwsBadRequestException() {
+        testUser.setResetToken("valid-token");
+        testUser.setResetTokenExpiry(null);
+
+        when(userRepository.findByResetToken("valid-token")).thenReturn(Optional.of(testUser));
+
+        assertThatThrownBy(() -> authService.resetPassword("valid-token", "NewPass1"))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("expired");
     }
 
     // ── Logout ───────────────────────────────────────────────────────────────
@@ -304,5 +449,16 @@ class AuthServiceTest {
         authService.logout("nobody@example.com");
 
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void logout_callsTimesheetRecordLogout() {
+        when(userRepository.findByEmail("alice@company.com")).thenReturn(Optional.of(testUser));
+        when(userRepository.save(any())).thenReturn(testUser);
+        doNothing().when(timesheetService).recordLogout("alice@company.com");
+
+        authService.logout("alice@company.com");
+
+        verify(timesheetService).recordLogout("alice@company.com");
     }
 }

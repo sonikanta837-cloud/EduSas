@@ -40,6 +40,17 @@ class EmployeeControllerTest {
 
     private EmployeeDTO sampleDTO;
 
+    // Valid RegisterRequest for controller tests (min 8-char password)
+    private RegisterRequest validRequest(String email) {
+        RegisterRequest req = new RegisterRequest();
+        req.setEmail(email);
+        req.setPassword("ValidPass1");
+        req.setFirstName("New");
+        req.setLastName("Hire");
+        req.setRole(Role.EMPLOYEE);
+        return req;
+    }
+
     @BeforeEach
     void setUp() {
         sampleDTO = EmployeeDTO.builder()
@@ -57,9 +68,9 @@ class EmployeeControllerTest {
     // ── GET /api/employees ───────────────────────────────────────────────────
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(username = "admin@company.com", roles = "ADMIN")
     void getAllEmployees_asAdmin_returns200WithList() throws Exception {
-        when(employeeService.getAllEmployees()).thenReturn(List.of(sampleDTO));
+        when(employeeService.getAllEmployees(anyString())).thenReturn(List.of(sampleDTO));
 
         mockMvc.perform(get("/api/employees"))
                 .andExpect(status().isOk())
@@ -68,9 +79,9 @@ class EmployeeControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "EMPLOYEE")
+    @WithMockUser(username = "emp@company.com", roles = "EMPLOYEE")
     void getAllEmployees_asEmployee_returns200() throws Exception {
-        when(employeeService.getAllEmployees()).thenReturn(List.of(sampleDTO));
+        when(employeeService.getAllEmployees(anyString())).thenReturn(List.of(sampleDTO));
 
         mockMvc.perform(get("/api/employees"))
                 .andExpect(status().isOk());
@@ -86,16 +97,16 @@ class EmployeeControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @WithMockUser(username = "admin@company.com", roles = "ADMIN")
     void getAllEmployees_withSearchParam_callsSearch() throws Exception {
-        when(employeeService.searchEmployees(eq("Alice"), any())).thenReturn(List.of(sampleDTO));
+        when(employeeService.searchEmployees(eq("Alice"), anyString())).thenReturn(List.of(sampleDTO));
 
         mockMvc.perform(get("/api/employees").param("search", "Alice"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].firstName").value("Alice"));
 
-        verify(employeeService).searchEmployees(eq("Alice"), any());
-        verify(employeeService, never()).getAllEmployees();
+        verify(employeeService).searchEmployees(eq("Alice"), anyString());
+        verify(employeeService, never()).getAllEmployees(anyString());
     }
 
     // ── GET /api/employees/{id} ──────────────────────────────────────────────
@@ -145,55 +156,47 @@ class EmployeeControllerTest {
 
     @Test
     @WithMockUser(username = "admin@company.com", roles = "ADMIN")
-    void createEmployee_asAdmin_returns200() throws Exception {
-        RegisterRequest req = new RegisterRequest();
-        req.setEmail("new@company.com");
-        req.setPassword("pass");
-        req.setFirstName("New");
-        req.setLastName("Hire");
-        req.setRole(Role.EMPLOYEE);
-
+    void createEmployee_asAdmin_returns201() throws Exception {
         when(employeeService.createEmployee(any(), eq("admin@company.com"))).thenReturn(sampleDTO);
 
         mockMvc.perform(post("/api/employees")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isOk())
+                        .content(objectMapper.writeValueAsString(validRequest("new@company.com"))))
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.firstName").value("Alice"));
     }
 
     @Test
     @WithMockUser(roles = "EMPLOYEE")
     void createEmployee_asEmployee_returns403() throws Exception {
-        RegisterRequest req = new RegisterRequest();
-        req.setEmail("new@company.com");
-        req.setPassword("pass");
-        req.setFirstName("New");
-        req.setLastName("Hire");
-        req.setRole(Role.EMPLOYEE);
-
+        // Employee role should be rejected at auth level before validation
         mockMvc.perform(post("/api/employees")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
+                        .content(objectMapper.writeValueAsString(validRequest("new@company.com"))))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     @WithMockUser(username = "admin@company.com", roles = "ADMIN")
     void createEmployee_duplicateEmail_returns400() throws Exception {
-        RegisterRequest req = new RegisterRequest();
-        req.setEmail("existing@company.com");
-        req.setPassword("pass");
-        req.setFirstName("Dup");
-        req.setLastName("User");
-        req.setRole(Role.EMPLOYEE);
-
         when(employeeService.createEmployee(any(), anyString()))
                 .thenThrow(new BadRequestException("Email already registered"));
 
         mockMvc.perform(post("/api/employees")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
+                        .content(objectMapper.writeValueAsString(validRequest("existing@company.com"))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "admin@company.com", roles = "ADMIN")
+    void createEmployee_invalidEmail_returns400() throws Exception {
+        RegisterRequest badReq = validRequest("not-an-email");
+        badReq.setEmail("not-an-email");
+
+        mockMvc.perform(post("/api/employees")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(badReq)))
                 .andExpect(status().isBadRequest());
     }
 
@@ -202,13 +205,25 @@ class EmployeeControllerTest {
     @Test
     @WithMockUser(username = "admin@company.com", roles = "ADMIN")
     void updateEmployee_asAdmin_returns200() throws Exception {
-        EmployeeDTO updateDTO = EmployeeDTO.builder().firstName("Updated").lastName("Name").build();
         when(employeeService.updateEmployee(eq(1L), any(), eq("admin@company.com"))).thenReturn(sampleDTO);
 
         mockMvc.perform(put("/api/employees/1")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updateDTO)))
-                .andExpect(status().isOk());
+                        .content(objectMapper.writeValueAsString(sampleDTO)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("alice@company.com"));
+    }
+
+    @Test
+    @WithMockUser(username = "admin@company.com", roles = "ADMIN")
+    void updateEmployee_nonExisting_returns404() throws Exception {
+        when(employeeService.updateEmployee(eq(99L), any(), anyString()))
+                .thenThrow(new ResourceNotFoundException("Employee", 99L));
+
+        mockMvc.perform(put("/api/employees/99")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(sampleDTO)))
+                .andExpect(status().isNotFound());
     }
 
     // ── PATCH /api/employees/{id}/toggle-status ──────────────────────────────
@@ -224,20 +239,21 @@ class EmployeeControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "MANAGER")
-    void toggleStatus_asManager_returns403() throws Exception {
+    @WithMockUser(roles = "EMPLOYEE")
+    void toggleStatus_asEmployee_returns403() throws Exception {
         mockMvc.perform(patch("/api/employees/1/toggle-status"))
                 .andExpect(status().isForbidden());
     }
 
+    // ── PATCH /api/employees/{id}/clear-manager ──────────────────────────────
+
     @Test
     @WithMockUser(roles = "ADMIN")
-    void toggleStatus_nonExistingId_returns404() throws Exception {
-        doThrow(new ResourceNotFoundException("Employee", 99L))
-                .when(employeeService).toggleEmployeeStatus(99L);
+    void clearManager_asAdmin_returns200() throws Exception {
+        doNothing().when(employeeService).clearManager(1L);
 
-        mockMvc.perform(patch("/api/employees/99/toggle-status"))
-                .andExpect(status().isNotFound());
+        mockMvc.perform(patch("/api/employees/1/clear-manager"))
+                .andExpect(status().isOk());
     }
 
     // ── DELETE /api/employees/{id} ───────────────────────────────────────────
@@ -253,19 +269,19 @@ class EmployeeControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "HR")
-    void deleteEmployee_asHR_returns403() throws Exception {
+    @WithMockUser(roles = "EMPLOYEE")
+    void deleteEmployee_asEmployee_returns403() throws Exception {
         mockMvc.perform(delete("/api/employees/1"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    void deleteEmployee_nonExistingId_returns404() throws Exception {
-        doThrow(new ResourceNotFoundException("Employee", 99L))
-                .when(employeeService).deleteEmployee(99L);
+    void deleteEmployee_notFound_returns404() throws Exception {
+        doThrow(new ResourceNotFoundException("Employee", 999L))
+                .when(employeeService).deleteEmployee(999L);
 
-        mockMvc.perform(delete("/api/employees/99"))
+        mockMvc.perform(delete("/api/employees/999"))
                 .andExpect(status().isNotFound());
     }
 
@@ -277,6 +293,19 @@ class EmployeeControllerTest {
         when(employeeService.getOrgChart()).thenReturn(List.of(sampleDTO));
 
         mockMvc.perform(get("/api/employees/org-chart"))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    // ── GET /api/employees/locations ──────────────────────────────────────────
+
+    @Test
+    @WithMockUser(roles = "EMPLOYEE")
+    void getLocations_authenticated_returns200() throws Exception {
+        when(employeeService.getDistinctLocations()).thenReturn(List.of("Mumbai", "Pune", "Bangalore"));
+
+        mockMvc.perform(get("/api/employees/locations"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3));
     }
 }

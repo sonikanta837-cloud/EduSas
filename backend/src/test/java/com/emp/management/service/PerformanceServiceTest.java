@@ -240,20 +240,32 @@ class PerformanceServiceTest {
     // ── getEmployeeReviews ────────────────────────────────────────────────────
 
     @Test
-    void getEmployeeReviews_existingEmployee_returnsList() {
+    void getEmployeeReviews_adminCaller_returnsList() {
         when(reviewRepository.findByEmployeeIdOrderByReviewDateDesc(2L)).thenReturn(List.of(review));
+        when(employeeDetailsRepository.findByUserEmail("admin@company.com")).thenReturn(Optional.of(adminEmployee));
 
-        List<PerformanceReviewDTO> result = performanceService.getEmployeeReviews(2L);
+        List<PerformanceReviewDTO> result = performanceService.getEmployeeReviews(2L, "admin@company.com");
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getEmployeeName()).isEqualTo("John Doe");
     }
 
     @Test
+    void getEmployeeReviews_selfCaller_returnsList() {
+        when(reviewRepository.findByEmployeeIdOrderByReviewDateDesc(2L)).thenReturn(List.of(review));
+        when(employeeDetailsRepository.findByUserEmail("emp@company.com")).thenReturn(Optional.of(employee));
+
+        List<PerformanceReviewDTO> result = performanceService.getEmployeeReviews(2L, "emp@company.com");
+
+        assertThat(result).hasSize(1);
+    }
+
+    @Test
     void getEmployeeReviews_noReviews_returnsEmptyList() {
         when(reviewRepository.findByEmployeeIdOrderByReviewDateDesc(2L)).thenReturn(List.of());
+        when(employeeDetailsRepository.findByUserEmail("admin@company.com")).thenReturn(Optional.of(adminEmployee));
 
-        List<PerformanceReviewDTO> result = performanceService.getEmployeeReviews(2L);
+        List<PerformanceReviewDTO> result = performanceService.getEmployeeReviews(2L, "admin@company.com");
 
         assertThat(result).isEmpty();
     }
@@ -281,10 +293,11 @@ class PerformanceServiceTest {
     // ── getReviewsByReviewer ──────────────────────────────────────────────────
 
     @Test
-    void getReviewsByReviewer_existingReviewer_returnsList() {
+    void getReviewsByReviewer_adminCaller_returnsList() {
         when(reviewRepository.findByReviewerIdOrderByReviewDateDesc(1L)).thenReturn(List.of(review));
+        when(employeeDetailsRepository.findByUserEmail("admin@company.com")).thenReturn(Optional.of(adminEmployee));
 
-        List<PerformanceReviewDTO> result = performanceService.getReviewsByReviewer(1L);
+        List<PerformanceReviewDTO> result = performanceService.getReviewsByReviewer(1L, "admin@company.com");
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getReviewerName()).isEqualTo("Admin User");
@@ -293,10 +306,11 @@ class PerformanceServiceTest {
     // ── getAverageRating ──────────────────────────────────────────────────────
 
     @Test
-    void getAverageRating_returnsRepositoryValue() {
+    void getAverageRating_adminCaller_returnsRepositoryValue() {
         when(reviewRepository.getAverageRatingByEmployee(2L)).thenReturn(3.75);
+        when(employeeDetailsRepository.findByUserEmail("admin@company.com")).thenReturn(Optional.of(adminEmployee));
 
-        Double avg = performanceService.getAverageRating(2L);
+        Double avg = performanceService.getAverageRating(2L, "admin@company.com");
 
         assertThat(avg).isEqualTo(3.75);
     }
@@ -304,8 +318,9 @@ class PerformanceServiceTest {
     @Test
     void getAverageRating_noReviews_returnsNull() {
         when(reviewRepository.getAverageRatingByEmployee(99L)).thenReturn(null);
+        when(employeeDetailsRepository.findByUserEmail("admin@company.com")).thenReturn(Optional.of(adminEmployee));
 
-        Double avg = performanceService.getAverageRating(99L);
+        Double avg = performanceService.getAverageRating(99L, "admin@company.com");
 
         assertThat(avg).isNull();
     }
