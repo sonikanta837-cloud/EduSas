@@ -81,7 +81,6 @@ public class EmailService {
             mailSender.send(msg);
         } catch (Exception e) {
             log.error("Failed to send email to {}: {}", to, e.getMessage());
-            throw new RuntimeException("Email send failed", e);
         }
     }
 
@@ -115,12 +114,12 @@ public class EmailService {
             note("If you did not request this, please ignore this email.");
 
         try {
-            send(to, null, "Password Reset Request - EmpSAS",
-                 wrap("&#128274;", "Password Reset Request", body));
-            log.info("Password reset email sent to {}", to);
+        send(to, null, "Password Reset Request - EmpSAS",
+             wrap("&#128274;", "Password Reset Request", body));
+        log.info("Password reset email sent to {}", to);
         } catch (Exception e) {
             log.error("Failed to send reset email to {}: {}", to, e.getMessage());
-            throw new RuntimeException("Failed to send reset email");
+            //throw new RuntimeException("Failed to send reset email");
         }
     }
 
