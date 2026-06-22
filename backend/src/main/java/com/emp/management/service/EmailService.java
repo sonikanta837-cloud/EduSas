@@ -1,23 +1,32 @@
 package com.emp.management.service;
 
-import jakarta.mail.internet.MimeMessage;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    @Value("${resend.api.key}")
+    private String resendApiKey;
+
+    @Value("${resend.from}")
+    private String fromAddress;
+
+    private final RestTemplate restTemplate = new RestTemplate();
 
     // ── Shared HTML helpers ───────────────────────────────────────────────────
 
@@ -72,13 +81,14 @@ public class EmailService {
 
     private void send(String to, String[] cc, String subject, String html) {
         try {
-            MimeMessage msg = mailSender.createMimeMessage();
-            MimeMessageHelper h = new MimeMessageHelper(msg, false, "UTF-8");
-            h.setTo(to);
-            if (cc != null && cc.length > 0) h.setCc(cc);
-            h.setSubject(subject);
-            h.setText(html, true);
-            mailSender.send(msg);
+            Map<String, Object> body = new HashMap<>();
+            body.put("from", fromAddress);
+            body.put("to", List.of(to));
+            if (cc != null && cc.length > 0) body.put("cc", Arrays.asList(cc));
+            body.put("subject", subject);
+            body.put("html", html);
+            restTemplate.postForObject("https://api.resend.com/emails",
+                    new HttpEntity<>(body, resendHeaders()), String.class);
         } catch (Exception e) {
             log.error("Failed to send email to {}: {}", to, e.getMessage());
         }
@@ -86,16 +96,24 @@ public class EmailService {
 
     private void sendMulti(String[] to, String[] cc, String subject, String html) {
         try {
-            MimeMessage msg = mailSender.createMimeMessage();
-            MimeMessageHelper h = new MimeMessageHelper(msg, false, "UTF-8");
-            h.setTo(to);
-            if (cc != null && cc.length > 0) h.setCc(cc);
-            h.setSubject(subject);
-            h.setText(html, true);
-            mailSender.send(msg);
+            Map<String, Object> body = new HashMap<>();
+            body.put("from", fromAddress);
+            body.put("to", Arrays.asList(to));
+            if (cc != null && cc.length > 0) body.put("cc", Arrays.asList(cc));
+            body.put("subject", subject);
+            body.put("html", html);
+            restTemplate.postForObject("https://api.resend.com/emails",
+                    new HttpEntity<>(body, resendHeaders()), String.class);
         } catch (Exception e) {
             log.error("Failed to send email to {}: {}", Arrays.toString(to), e.getMessage());
         }
+    }
+
+    private HttpHeaders resendHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + resendApiKey);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        return headers;
     }
 
     // ── Password reset ────────────────────────────────────────────────────────
@@ -296,18 +314,10 @@ public class EmailService {
             "</ol>" +
             note("If you were on leave or had a valid reason, please disregard this message.");
 
-        try {
-            MimeMessage msg = mailSender.createMimeMessage();
-            MimeMessageHelper h = new MimeMessageHelper(msg, false, "UTF-8");
-            h.setTo(employeeEmail);
-            if (managerEmail != null && !managerEmail.isBlank()) h.setCc(managerEmail);
-            h.setSubject("Reminder: Please Fill Your Timesheet — " + dateStr);
-            h.setText(wrap("&#128197;", "Timesheet Reminder", body), true);
-            mailSender.send(msg);
-            log.info("Timesheet reminder sent to {} for {}", employeeEmail, missingDate);
-        } catch (Exception e) {
-            log.error("Failed to send timesheet reminder to {}: {}", employeeEmail, e.getMessage());
-        }
+        String[] ccArr = (managerEmail != null && !managerEmail.isBlank()) ? new String[]{managerEmail} : null;
+        send(employeeEmail, ccArr, "Reminder: Please Fill Your Timesheet — " + dateStr,
+             wrap("&#128197;", "Timesheet Reminder", body));
+        log.info("Timesheet reminder sent to {} for {}", employeeEmail, missingDate);
     }
 
     // ── Under-hours alert ─────────────────────────────────────────────────────
