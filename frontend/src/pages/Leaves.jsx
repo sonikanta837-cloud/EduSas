@@ -57,7 +57,7 @@ const LeavesPage = () => {
   const [editingLeave, setEditingLeave] = useState(null);
   const [editForm, setEditForm] = useState({ leaveType: 'ANNUAL', startDate: '', endDate: '', reason: '' });
   const [deleteDialogId, setDeleteDialogId] = useState(null);
-  const isManagerOrAdmin = ['ADMIN', 'MANAGER', 'ASSISTANT_MANAGER'].includes(user?.role);
+  const isManagerOrAdmin = ['ADMIN', 'MANAGER', 'ASSISTANT_MANAGER', 'HR'].includes(user?.role);
 
   /* ── date range filter (Team Leaves tab) ── */
   const [filterFrom,   setFilterFrom]   = useState('');
@@ -120,7 +120,7 @@ const LeavesPage = () => {
       if (tab === 0) {
         setLeaves(await leaveApi.getMyLeaves(emp.id));
       } else {
-        if (user?.role === 'ADMIN') setLeaves(await leaveApi.getAll());
+        if (['ADMIN', 'HR'].includes(user?.role)) setLeaves(await leaveApi.getAll());
         else setLeaves(await leaveApi.getLeavesForManager(emp.id));
       }
     } catch {
