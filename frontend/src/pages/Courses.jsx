@@ -143,11 +143,13 @@ const CoursesPage = () => {
       const matchStatus =
         statusFilter === 'ALL' ? true :
         statusFilter === 'CERTIFICATE' ? !!c.certificateNumber :
-        statusFilter === 'ENROLLED' ? ['ENROLLED', 'IN_PROGRESS', 'COMPLETED', 'FAILED'].includes(c.enrollmentStatus) :
+        statusFilter === 'ENROLLED' ? (isAdmin ? c.enrollmentCount > 0 : ['ENROLLED', 'IN_PROGRESS', 'COMPLETED', 'FAILED'].includes(c.enrollmentStatus)) :
+        statusFilter === 'IN_PROGRESS' ? (isAdmin ? c.inProgressCount > 0 : c.enrollmentStatus === 'IN_PROGRESS') :
+        statusFilter === 'COMPLETED' ? (isAdmin ? c.completedCount > 0 : c.enrollmentStatus === 'COMPLETED') :
         c.enrollmentStatus === statusFilter;
       return matchSearch && matchStatus;
     });
-  }, [courses, courseSearch, statusFilter]);
+  }, [courses, courseSearch, statusFilter, isAdmin]);
 
   const mergeEnrollment = (allCourses, enrolled) => {
     const map = {};
@@ -786,9 +788,9 @@ const CoursesPage = () => {
             <Tabs value={statusFilter} onChange={(_, v) => setStatusFilter(v)}
               sx={{ '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, minWidth: 'auto', px: 2 }, '& .MuiTabs-indicator': { bgcolor: '#1e3a5f' } }}>
               <Tab label={`All (${courses.length})`} value="ALL" />
-              <Tab label={`Enrolled (${courses.filter(c => ['ENROLLED','IN_PROGRESS','COMPLETED','FAILED'].includes(c.enrollmentStatus)).length})`} value="ENROLLED" />
-              <Tab label={`In Progress (${courses.filter(c => c.enrollmentStatus === 'IN_PROGRESS').length})`} value="IN_PROGRESS" />
-              <Tab label={`Completed (${courses.filter(c => c.enrollmentStatus === 'COMPLETED').length})`} value="COMPLETED" />
+              <Tab label={`Enrolled (${isAdmin ? courses.filter(c => c.enrollmentCount > 0).length : courses.filter(c => ['ENROLLED','IN_PROGRESS','COMPLETED','FAILED'].includes(c.enrollmentStatus)).length})`} value="ENROLLED" />
+              <Tab label={`In Progress (${isAdmin ? courses.filter(c => c.inProgressCount > 0).length : courses.filter(c => c.enrollmentStatus === 'IN_PROGRESS').length})`} value="IN_PROGRESS" />
+              <Tab label={`Completed (${isAdmin ? courses.filter(c => c.completedCount > 0).length : courses.filter(c => c.enrollmentStatus === 'COMPLETED').length})`} value="COMPLETED" />
               <Tab
                 label={`Certificates (${certs.length})`}
                 value="CERTIFICATE"
