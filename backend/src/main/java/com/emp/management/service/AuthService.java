@@ -143,16 +143,23 @@ public class AuthService {
                 .build();
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = Exception.class)
     public void forgotPassword(String email) {
-        // Always return silently — never reveal whether an email is registered
         userRepository.findByEmail(email).ifPresent(user -> {
             String token = UUID.randomUUID().toString();
             user.setResetToken(token);
             user.setResetTokenExpiry(LocalDateTime.now().plusMinutes(30));
             userRepository.save(user);
+
             String resetUrl = baseUrl + "/reset-password?token=" + token;
-            emailService.sendPasswordResetEmail(email, resetUrl);
+            try {
+                emailService.sendPasswordResetEmail(email, resetUrl);
+            } catch (Exception e) {
+                // Token is committed (noRollbackFor) — log the failure and surface a clear message
+                log.error("Password reset token saved but email delivery failed for {}: {}", email, e.getMessage());
+                throw new BadRequestException("Reset link created but email could not be sent. " +
+                        "Please contact your administrator or try again.");
+            }
         });
     }
 
