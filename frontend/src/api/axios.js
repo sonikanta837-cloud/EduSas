@@ -4,7 +4,7 @@ const BASE = process.env.REACT_APP_API_URL || '/api';
 
 const api = axios.create({
   baseURL: BASE,
-  headers: { 'Content-Type': 'application/json' },
+  headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
 });
 
 api.interceptors.request.use((config) => {

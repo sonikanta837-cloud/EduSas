@@ -1,6 +1,7 @@
 package com.emp.management.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -65,10 +66,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrity(DataIntegrityViolationException ex) {
+        log.error("Data integrity violation", ex);
+        return buildError(HttpStatus.CONFLICT, "Database constraint violated: " + getRootCause(ex));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneral(Exception ex) {
         log.error("Unhandled exception", ex);
-        return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred");
+        return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred: " + ex.getMessage());
+    }
+
+    private String getRootCause(Throwable ex) {
+        Throwable cause = ex;
+        while (cause.getCause() != null) cause = cause.getCause();
+        return cause.getMessage() != null ? cause.getMessage() : ex.getClass().getSimpleName();
     }
 
     private ResponseEntity<ErrorResponse> buildError(HttpStatus status, String message) {

@@ -38,7 +38,7 @@ public class InterviewService {
 
     @Transactional
     public InterviewCandidateDTO createCandidate(InterviewCandidateDTO dto, String callerEmail) {
-        EmployeeDetails creator = getEmployeeByEmail(callerEmail);
+        EmployeeDetails creator = findEmployeeByEmailOptional(callerEmail).orElse(null);
         InterviewCandidate candidate = InterviewCandidate.builder()
                 .name(dto.getName())
                 .email(dto.getEmail())
@@ -442,6 +442,11 @@ public class InterviewService {
                 .orElseThrow(() -> new ResourceNotFoundException("Employee not found for user: " + email));
     }
 
+    private java.util.Optional<EmployeeDetails> findEmployeeByEmailOptional(String email) {
+        return userRepo.findByEmail(email)
+                .flatMap(user -> employeeRepo.findByUserId(user.getId()));
+    }
+
     private InterviewCandidate findCandidate(Long id) {
         return candidateRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Candidate not found: " + id));
@@ -575,8 +580,8 @@ public class InterviewService {
                 .totalRounds(rounds.size())
                 .completedRounds((int) rounds.stream().filter(r -> r.getStatus() == RoundStatus.COMPLETED).count())
                 .averageRating(avgRating > 0 ? Math.round(avgRating * 10.0) / 10.0 : null)
-                .currentRoundType(latest != null ? latest.getRoundType().name() : null)
-                .currentRoundStatus(latest != null ? latest.getStatus().name() : null)
+                .currentRoundType(latest != null && latest.getRoundType() != null ? latest.getRoundType().name() : null)
+                .currentRoundStatus(latest != null && latest.getStatus() != null ? latest.getStatus().name() : null)
                 .currentRoundInterviewerName(latest != null && latest.getInterviewer() != null
                         ? latest.getInterviewer().getFirstName() + " " + latest.getInterviewer().getLastName() : null)
                 .currentRoundScheduledAt(latest != null ? latest.getScheduledAt() : null)
