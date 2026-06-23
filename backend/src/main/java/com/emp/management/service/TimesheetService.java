@@ -509,7 +509,7 @@ public class TimesheetService {
         // Find past sessions (before today) with no logout that haven't been flagged yet
         List<AttendanceSession> openSessions = sessionRepository
                 .findByWorkDateBeforeAndLogoutTimeIsNullAndStatus(
-                        LocalDate.now(), AttendanceSessionStatus.COMPLETE);
+                        LocalDate.now(java.time.ZoneId.of("Asia/Kolkata")), AttendanceSessionStatus.COMPLETE);
 
         int marked = 0;
         for (AttendanceSession session : openSessions) {
