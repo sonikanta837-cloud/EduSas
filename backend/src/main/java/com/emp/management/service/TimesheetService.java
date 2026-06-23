@@ -127,12 +127,20 @@ public class TimesheetService {
     @Transactional
     public void checkIn(Long employeeId) {
         EmployeeDetails employee = findEmployee(employeeId);
+        if (employee.getUser() == null) {
+            throw new com.emp.management.exception.BadRequestException(
+                    "Employee has no associated user account");
+        }
         recordLogin(employee.getUser().getId());
     }
 
     @Transactional
     public void checkOut(Long employeeId) {
         EmployeeDetails employee = findEmployee(employeeId);
+        if (employee.getUser() == null) {
+            throw new com.emp.management.exception.BadRequestException(
+                    "Employee has no associated user account");
+        }
         recordLogout(employee.getUser().getEmail());
     }
 
@@ -240,7 +248,7 @@ public class TimesheetService {
         String managerEmail = (emp.getManager() != null && emp.getManager().getUser() != null)
                 ? emp.getManager().getUser().getEmail() : null;
         if (managerEmail == null) {
-            managerEmail = userRepository.findByRole(Role.ADMIN).stream()
+            managerEmail = userRepository.findByRoleIn(java.util.List.of(Role.ADMIN, Role.DIRECTOR)).stream()
                     .map(User::getEmail)
                     .filter(e -> e != null && !e.isBlank())
                     .findFirst().orElse(null);
@@ -254,7 +262,7 @@ public class TimesheetService {
         final String primaryTo = managerEmail;
         String[] cc = Stream.concat(
                 userRepository.findByRole(Role.HR).stream(),
-                userRepository.findByRole(Role.ADMIN).stream()
+                userRepository.findByRoleIn(java.util.List.of(Role.ADMIN, Role.DIRECTOR)).stream()
         )
         .map(User::getEmail)
         .filter(e -> e != null && !e.isBlank() && !e.equalsIgnoreCase(primaryTo))
@@ -290,9 +298,9 @@ public class TimesheetService {
                 .build();
     }
 
-    // ── Daily missing-timesheet audit job (10:00 AM) ─────────────────────────
+    // ── Daily missing-timesheet audit job (10:30 AM by default) ─────────────
 
-    @Scheduled(cron = "0 ${app.scheduler.daily-audit.minute:0} ${app.scheduler.daily-audit.hour:10} * * *", zone = "Asia/Kolkata")
+    @Scheduled(cron = "0 ${app.scheduler.missing-ts-audit.minute:30} ${app.scheduler.missing-ts-audit.hour:10} * * *", zone = "Asia/Kolkata")
     @Transactional
     public void runMissingTimesheetAudit() {
         // Resolve previous working day (skips weekends — handles Monday → Friday)
@@ -350,7 +358,7 @@ public class TimesheetService {
         String managerEmail = (emp.getManager() != null && emp.getManager().getUser() != null)
                 ? emp.getManager().getUser().getEmail() : null;
         if (managerEmail == null) {
-            managerEmail = userRepository.findByRole(Role.ADMIN).stream()
+            managerEmail = userRepository.findByRoleIn(java.util.List.of(Role.ADMIN, Role.DIRECTOR)).stream()
                     .map(User::getEmail)
                     .filter(e -> e != null && !e.isBlank())
                     .findFirst().orElse(null);
@@ -364,7 +372,7 @@ public class TimesheetService {
         final String primaryTo = managerEmail;
         String[] cc = Stream.concat(
                 userRepository.findByRole(Role.HR).stream(),
-                userRepository.findByRole(Role.ADMIN).stream()
+                userRepository.findByRoleIn(java.util.List.of(Role.ADMIN, Role.DIRECTOR)).stream()
         )
         .map(User::getEmail)
         .filter(e -> e != null && !e.isBlank() && !e.equalsIgnoreCase(primaryTo))
@@ -407,7 +415,7 @@ public class TimesheetService {
     private void checkAndSendBreakAlert(EmployeeDetails employee, LocalDate date, String triggerSource) {
         boolean enabled = systemSettingService.getBoolean("break_alert_enabled", breakAlertEnabled);
         if (!enabled) return;
-        if (employee.getUser() != null && Role.ADMIN == employee.getUser().getRole()) return;
+        if (employee.getUser() != null && (Role.ADMIN == employee.getUser().getRole() || Role.DIRECTOR == employee.getUser().getRole())) return;
 
         String frequency = systemSettingService.getString("break_alert_frequency", "BOTH");
         if ("ON_LOGOUT".equals(frequency) && "SCHEDULED".equals(triggerSource)) return;
@@ -463,7 +471,7 @@ public class TimesheetService {
                     ? emp.getManager().getUser().getEmail() : null;
         }
         if (primaryTo == null && notifyAdmin) {
-            primaryTo = userRepository.findByRole(Role.ADMIN).stream()
+            primaryTo = userRepository.findByRoleIn(java.util.List.of(Role.ADMIN, Role.DIRECTOR)).stream()
                     .map(User::getEmail)
                     .filter(e -> e != null && !e.isBlank())
                     .findFirst().orElse(null);
@@ -482,7 +490,7 @@ public class TimesheetService {
                     .forEach(ccList::add);
         }
         if (notifyAdmin) {
-            userRepository.findByRole(Role.ADMIN).stream()
+            userRepository.findByRoleIn(java.util.List.of(Role.ADMIN, Role.DIRECTOR)).stream()
                     .map(User::getEmail)
                     .filter(e -> e != null && !e.isBlank() && !e.equalsIgnoreCase(to))
                     .forEach(ccList::add);

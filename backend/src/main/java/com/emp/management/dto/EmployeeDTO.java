@@ -1,5 +1,9 @@
 package com.emp.management.dto;
 
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,11 +20,15 @@ import java.time.LocalDateTime;
 public class EmployeeDTO {
     private Long id;
     private Long userId;
+    @Email(message = "Invalid email format")
     private String email;
+    @NotBlank(message = "First name is required")
     private String firstName;
+    @NotBlank(message = "Last name is required")
     private String lastName;
     private String fullName;
     private String employeeCode;
+    @Pattern(regexp = "^$|^[+]?[0-9]{7,15}$", message = "Invalid phone number format")
     private String phone;
     private String personalEmail;
     private String workEmail;
@@ -55,6 +63,7 @@ public class EmployeeDTO {
     private String totalExperience;
     private String skills;
     private String experience;
+    @DecimalMin(value = "0.0", message = "Salary cannot be negative")
     private BigDecimal salary;
 
     private String profileImageUrl;

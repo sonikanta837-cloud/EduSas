@@ -84,7 +84,7 @@ const EMPTY_QUESTION = { question: '', options: ['', '', '', ''], correctAnswer:
 
 const CoursesPage = () => {
   const { user } = useSelector((s) => s.auth);
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'DIRECTOR';
   const isManager = user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER';
 
   const [courses, setCourses] = useState([]);
@@ -122,6 +122,9 @@ const CoursesPage = () => {
   const [certsLoading, setCertsLoading] = useState(false);
   const [certPage, setCertPage] = useState(0);
   const [certRpp, setCertRpp] = useState(10);
+  const [allEnrollments, setAllEnrollments] = useState([]);
+  const [enrollPage, setEnrollPage] = useState(0);
+  const [enrollRpp, setEnrollRpp] = useState(10);
 
   // Detail / catalog view
   const [viewCourse, setViewCourse] = useState(null);
@@ -143,13 +146,11 @@ const CoursesPage = () => {
       const matchStatus =
         statusFilter === 'ALL' ? true :
         statusFilter === 'CERTIFICATE' ? !!c.certificateNumber :
-        statusFilter === 'ENROLLED' ? (isAdmin ? c.enrollmentCount > 0 : ['ENROLLED', 'IN_PROGRESS', 'COMPLETED', 'FAILED'].includes(c.enrollmentStatus)) :
-        statusFilter === 'IN_PROGRESS' ? (isAdmin ? c.inProgressCount > 0 : c.enrollmentStatus === 'IN_PROGRESS') :
-        statusFilter === 'COMPLETED' ? (isAdmin ? c.completedCount > 0 : c.enrollmentStatus === 'COMPLETED') :
+        statusFilter === 'ENROLLED' ? ['ENROLLED', 'IN_PROGRESS', 'COMPLETED', 'FAILED'].includes(c.enrollmentStatus) :
         c.enrollmentStatus === statusFilter;
       return matchSearch && matchStatus;
     });
-  }, [courses, courseSearch, statusFilter, isAdmin]);
+  }, [courses, courseSearch, statusFilter]);
 
   const mergeEnrollment = (allCourses, enrolled) => {
     const map = {};
@@ -161,19 +162,16 @@ const CoursesPage = () => {
     const init = async () => {
       try {
         if (isAdmin) {
-          const [empResp, allResp, allCourses] = await Promise.all([
+          const [empResp, allResp, allCourses, enrollments] = await Promise.all([
             employeeApi.getByUserId(user.userId).catch(() => null),
             employeeApi.getAll(),
             courseApi.getAll(),
+            courseApi.getAllEnrollments(),
           ]);
           setMyEmployee(empResp);
           setAllEmployees(allResp);
-          if (empResp) {
-            const enrolled = await courseApi.getForEmployee(empResp.id).catch(() => []);
-            setCourses(mergeEnrollment(allCourses, enrolled));
-          } else {
-            setCourses(allCourses);
-          }
+          setCourses(allCourses);
+          setAllEnrollments(Array.isArray(enrollments) ? enrollments : []);
         } else if (isManager) {
           const empResp = await employeeApi.getByUserId(user.userId).catch(() => null);
           setMyEmployee(empResp);
@@ -204,6 +202,7 @@ const CoursesPage = () => {
     req.then(r => setCerts(Array.isArray(r) ? r : [])).catch(() => setCerts([]));
   }, [isAdmin]);
 
+  useEffect(() => { setEnrollPage(0); }, [statusFilter]);
   useEffect(() => {
     if (statusFilter !== 'CERTIFICATE') return;
     setCertsLoading(true);
@@ -224,13 +223,12 @@ const CoursesPage = () => {
   const refresh = async () => {
     try {
       if (isAdmin) {
-        const allCourses = await courseApi.getAll();
-        if (myEmployee) {
-          const enrolled = await courseApi.getForEmployee(myEmployee.id).catch(() => []);
-          setCourses(mergeEnrollment(allCourses, enrolled));
-        } else {
-          setCourses(allCourses);
-        }
+        const [allCourses, enrollments] = await Promise.all([
+          courseApi.getAll(),
+          courseApi.getAllEnrollments(),
+        ]);
+        setCourses(allCourses);
+        setAllEnrollments(Array.isArray(enrollments) ? enrollments : []);
       } else if (isManager && myEmployee) {
         const [allCourses, enrolled] = await Promise.all([
           courseApi.getAll(),
@@ -788,9 +786,9 @@ const CoursesPage = () => {
             <Tabs value={statusFilter} onChange={(_, v) => setStatusFilter(v)}
               sx={{ '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, minWidth: 'auto', px: 2 }, '& .MuiTabs-indicator': { bgcolor: '#1e3a5f' } }}>
               <Tab label={`All (${courses.length})`} value="ALL" />
-              <Tab label={`Enrolled (${isAdmin ? courses.filter(c => c.enrollmentCount > 0).length : courses.filter(c => ['ENROLLED','IN_PROGRESS','COMPLETED','FAILED'].includes(c.enrollmentStatus)).length})`} value="ENROLLED" />
-              <Tab label={`In Progress (${isAdmin ? courses.filter(c => c.inProgressCount > 0).length : courses.filter(c => c.enrollmentStatus === 'IN_PROGRESS').length})`} value="IN_PROGRESS" />
-              <Tab label={`Completed (${isAdmin ? courses.filter(c => c.completedCount > 0).length : courses.filter(c => c.enrollmentStatus === 'COMPLETED').length})`} value="COMPLETED" />
+              <Tab label={`Enrolled (${isAdmin ? allEnrollments.filter(e => e.status === 'ENROLLED').length : courses.filter(c => ['ENROLLED','IN_PROGRESS','COMPLETED','FAILED'].includes(c.enrollmentStatus)).length})`} value="ENROLLED" />
+              <Tab label={`In Progress (${isAdmin ? allEnrollments.filter(e => e.status === 'IN_PROGRESS').length : courses.filter(c => c.enrollmentStatus === 'IN_PROGRESS').length})`} value="IN_PROGRESS" />
+              <Tab label={`Completed (${isAdmin ? allEnrollments.filter(e => e.status === 'COMPLETED').length : courses.filter(c => c.enrollmentStatus === 'COMPLETED').length})`} value="COMPLETED" />
               <Tab
                 label={`Certificates (${certs.length})`}
                 value="CERTIFICATE"
@@ -801,8 +799,85 @@ const CoursesPage = () => {
             </Tabs>
           </Box>
 
+          {/* Enrollment table (Admin/Director system-wide view) */}
+          {isAdmin && ['ENROLLED', 'IN_PROGRESS', 'COMPLETED'].includes(statusFilter) ? (() => {
+            const rows = allEnrollments.filter(e => e.status === statusFilter);
+            const statusLabel = { ENROLLED: 'Enrolled', IN_PROGRESS: 'In Progress', COMPLETED: 'Completed' }[statusFilter];
+            const statusChipColor = { ENROLLED: 'primary', IN_PROGRESS: 'warning', COMPLETED: 'success' }[statusFilter];
+            return (
+              <Card sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: '#f1f5f9' }}>
+                        <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569', py: 1.5 }}>#</TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569' }}>Employee</TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569' }}>Code</TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569' }}>Course Title</TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569' }} align="center">Status</TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569' }} align="center">Progress</TableCell>
+                        {statusFilter === 'COMPLETED' && <>
+                          <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569' }}>Completion Date</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569' }} align="center">Score</TableCell>
+                        </>}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {rows.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={statusFilter === 'COMPLETED' ? 8 : 6} align="center" sx={{ py: 6 }}>
+                            <SchoolIcon sx={{ fontSize: 48, color: '#cbd5e1', mb: 1, display: 'block', mx: 'auto' }} />
+                            <Typography color="text.secondary" fontSize={14}>No {statusLabel.toLowerCase()} enrollments found.</Typography>
+                          </TableCell>
+                        </TableRow>
+                      ) : rows.slice(enrollPage * enrollRpp, (enrollPage + 1) * enrollRpp).map((row, i) => (
+                        <TableRow key={`${row.employeeId}-${row.courseId}`} hover sx={{ bgcolor: i % 2 === 0 ? 'white' : '#f8fafc' }}>
+                          <TableCell sx={{ fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>{enrollPage * enrollRpp + i + 1}</TableCell>
+                          <TableCell sx={{ fontSize: 13, fontWeight: 600 }}>{row.employeeName}</TableCell>
+                          <TableCell sx={{ fontSize: 13, color: '#64748b', fontFamily: 'monospace' }}>{row.employeeCode}</TableCell>
+                          <TableCell sx={{ fontSize: 13, maxWidth: 240 }}>
+                            <Typography variant="body2" fontWeight={600} noWrap>{row.courseTitle}</Typography>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Chip label={statusLabel} size="small" color={statusChipColor} sx={{ fontWeight: 700, fontSize: 11.5 }} />
+                          </TableCell>
+                          <TableCell align="center">
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 80 }}>
+                              <LinearProgress variant="determinate" value={row.progressPercent}
+                                sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { bgcolor: '#1e3a5f' } }} />
+                              <Typography variant="caption" fontWeight={600} sx={{ minWidth: 28 }}>{row.progressPercent}%</Typography>
+                            </Box>
+                          </TableCell>
+                          {statusFilter === 'COMPLETED' && <>
+                            <TableCell sx={{ fontSize: 13, color: '#475569', whiteSpace: 'nowrap' }}>{row.completionDate || '—'}</TableCell>
+                            <TableCell align="center">
+                              {row.examScore != null
+                                ? <Chip label={`${row.examScore}%`} size="small" color={row.examScore >= 70 ? 'success' : 'warning'} sx={{ fontWeight: 700, fontSize: 11.5 }} />
+                                : '—'}
+                            </TableCell>
+                          </>}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+                {rows.length > enrollRpp && (
+                  <TablePagination
+                    component="div"
+                    count={rows.length}
+                    page={enrollPage}
+                    onPageChange={(_, p) => setEnrollPage(p)}
+                    rowsPerPage={enrollRpp}
+                    onRowsPerPageChange={e => { setEnrollRpp(parseInt(e.target.value, 10)); setEnrollPage(0); }}
+                    rowsPerPageOptions={[10, 25, 50]}
+                  />
+                )}
+              </Card>
+            );
+          })() : null}
+
           {/* Certificates table */}
-          {statusFilter === 'CERTIFICATE' ? (
+          {!isAdmin || !['ENROLLED', 'IN_PROGRESS', 'COMPLETED'].includes(statusFilter) ? statusFilter === 'CERTIFICATE' ? (
             <Card sx={{ borderRadius: 2, overflow: 'hidden' }}>
               <TableContainer>
                 <Table size="small">
@@ -1000,7 +1075,7 @@ const CoursesPage = () => {
                 </Card>
               ))}
             </Box>
-          )}
+          ) : null}
         </Box>
       )}
       </Box>
@@ -1036,11 +1111,11 @@ const CoursesPage = () => {
       {(() => {
         // Employees eligible to be assigned this course
         const assignableEmployees = (() => {
-          const notEnrolled = allEmployees.filter(e => !enrolledIds.includes(e.id));
+          const notEnrolled = allEmployees.filter(e => !enrolledIds.includes(e.id) && e.role !== 'ADMIN' && e.role !== 'DIRECTOR');
           if (isAdmin) return notEnrolled;
-          // Manager: only their direct reports (not themselves, not admins)
+          // Manager: only their direct reports (not themselves)
           return notEnrolled.filter(
-            e => e.managerId === myEmployee?.id && e.role !== 'ADMIN' && e.id !== myEmployee?.id
+            e => e.managerId === myEmployee?.id && e.id !== myEmployee?.id
           );
         })();
         return (

@@ -28,7 +28,7 @@ public class ResourceController {
     }
 
     @PostMapping("/upload")
-    @PreAuthorize("hasAnyRole('ADMIN','HR')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR')")
     public ResponseEntity<ResourceDTO> upload(
             @RequestParam("file")                    MultipartFile file,
             @RequestParam(required = false)          String title,
@@ -42,14 +42,14 @@ public class ResourceController {
     }
 
     @PatchMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','HR')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR')")
     public ResponseEntity<ResourceDTO> update(@PathVariable Long id,
                                               @RequestBody Map<String, String> body) {
         return ResponseEntity.ok(resourceStorageService.updateResource(id, body));
     }
 
     @PatchMapping("/{id}/toggle")
-    @PreAuthorize("hasAnyRole('ADMIN','HR')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR')")
     public ResponseEntity<ResourceDTO> toggle(@PathVariable Long id) {
         return ResponseEntity.ok(resourceStorageService.toggleActive(id));
     }
@@ -76,7 +76,7 @@ public class ResourceController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','HR')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         resourceStorageService.deleteResource(id);
         return ResponseEntity.noContent().build();

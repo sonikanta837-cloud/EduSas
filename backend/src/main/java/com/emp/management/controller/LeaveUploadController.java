@@ -26,7 +26,7 @@ public class LeaveUploadController {
     private final LeaveRepository    leaveRepository;
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<LeaveUploadResult> upload(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "location", required = false) String location) {
@@ -39,7 +39,7 @@ public class LeaveUploadController {
     }
 
     @PostMapping("/holiday")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<LeaveUploadResult> addHoliday(@RequestBody Map<String, String> body) {
         String name     = body.get("name");
         String dateStr  = body.get("date");
@@ -94,7 +94,7 @@ public class LeaveUploadController {
     }
 
     @GetMapping("/template")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<byte[]> downloadTemplate() {
         try {
             byte[] bytes = leaveUploadService.generateTemplate();

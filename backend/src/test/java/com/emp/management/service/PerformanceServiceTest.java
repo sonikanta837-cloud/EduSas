@@ -243,7 +243,7 @@ class PerformanceServiceTest {
     void getEmployeeReviews_existingEmployee_returnsList() {
         when(reviewRepository.findByEmployeeIdOrderByReviewDateDesc(2L)).thenReturn(List.of(review));
 
-        List<PerformanceReviewDTO> result = performanceService.getEmployeeReviews(2L);
+        List<PerformanceReviewDTO> result = performanceService.getEmployeeReviews(2L, "caller@company.com");
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getEmployeeName()).isEqualTo("John Doe");
@@ -253,7 +253,7 @@ class PerformanceServiceTest {
     void getEmployeeReviews_noReviews_returnsEmptyList() {
         when(reviewRepository.findByEmployeeIdOrderByReviewDateDesc(2L)).thenReturn(List.of());
 
-        List<PerformanceReviewDTO> result = performanceService.getEmployeeReviews(2L);
+        List<PerformanceReviewDTO> result = performanceService.getEmployeeReviews(2L, "caller@company.com");
 
         assertThat(result).isEmpty();
     }
@@ -284,7 +284,7 @@ class PerformanceServiceTest {
     void getReviewsByReviewer_existingReviewer_returnsList() {
         when(reviewRepository.findByReviewerIdOrderByReviewDateDesc(1L)).thenReturn(List.of(review));
 
-        List<PerformanceReviewDTO> result = performanceService.getReviewsByReviewer(1L);
+        List<PerformanceReviewDTO> result = performanceService.getReviewsByReviewer(1L, "caller@company.com");
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getReviewerName()).isEqualTo("Admin User");
@@ -296,7 +296,7 @@ class PerformanceServiceTest {
     void getAverageRating_returnsRepositoryValue() {
         when(reviewRepository.getAverageRatingByEmployee(2L)).thenReturn(3.75);
 
-        Double avg = performanceService.getAverageRating(2L);
+        Double avg = performanceService.getAverageRating(2L, "caller@company.com");
 
         assertThat(avg).isEqualTo(3.75);
     }
@@ -305,7 +305,7 @@ class PerformanceServiceTest {
     void getAverageRating_noReviews_returnsNull() {
         when(reviewRepository.getAverageRatingByEmployee(99L)).thenReturn(null);
 
-        Double avg = performanceService.getAverageRating(99L);
+        Double avg = performanceService.getAverageRating(99L, "caller@company.com");
 
         assertThat(avg).isNull();
     }

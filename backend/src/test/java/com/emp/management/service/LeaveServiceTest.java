@@ -12,6 +12,7 @@ import com.emp.management.repository.EmployeeDetailsRepository;
 import com.emp.management.repository.LeaveRepository;
 import com.emp.management.repository.TimesheetEntryRepository;
 import com.emp.management.repository.UserRepository;
+import com.emp.management.service.HolidayService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +38,7 @@ class LeaveServiceTest {
     @Mock private TimesheetEntryRepository timesheetEntryRepository;
     @Mock private UserRepository userRepository;
     @Mock private EmailService emailService;
+    @Mock private HolidayService holidayService;
 
     @InjectMocks private LeaveService leaveService;
 
@@ -75,12 +77,13 @@ class LeaveServiceTest {
 
         when(employeeDetailsRepository.findById(2L)).thenReturn(Optional.of(employee));
         when(leaveRepository.existsOverlappingLeave(anyLong(), any(), any(), anyList())).thenReturn(false);
+        when(holidayService.countDeductibleDays(any(), any(), any(), any())).thenReturn(3);
         when(leaveRepository.save(any())).thenReturn(pendingLeave);
         when(timesheetEntryRepository.existsByEmployeeIdAndProjectNameAndDate(anyLong(), anyString(), any())).thenReturn(false);
         when(timesheetEntryRepository.save(any())).thenReturn(null);
         doNothing().when(emailService).sendLeaveRequestEmail(anyString(), any(String[].class), anyString(), anyString(), anyString(), any(), any(), anyInt(), anyString());
 
-        LeaveDTO result = leaveService.applyLeave(2L, dto);
+        LeaveDTO result = leaveService.applyLeave(2L, dto, "emp@company.com");
 
         assertThat(result).isNotNull();
         verify(leaveRepository).save(any(Leave.class));
@@ -92,19 +95,19 @@ class LeaveServiceTest {
 
         when(employeeDetailsRepository.findById(2L)).thenReturn(Optional.of(employee));
 
-        assertThatThrownBy(() -> leaveService.applyLeave(2L, dto))
+        assertThatThrownBy(() -> leaveService.applyLeave(2L, dto, "emp@company.com"))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("End date cannot be before start date");
     }
 
     @Test
     void applyLeave_overlappingLeave_throwsBadRequestException() {
-        LeaveDTO dto = buildLeaveDTO(LocalDate.of(2026, 6, 10), LocalDate.of(2026, 6, 11), "Annual Leave", "Trip");
+        LeaveDTO dto = buildLeaveDTO(LocalDate.of(2026, 8, 10), LocalDate.of(2026, 8, 11), "Annual Leave", "Trip");
 
         when(employeeDetailsRepository.findById(2L)).thenReturn(Optional.of(employee));
         when(leaveRepository.existsOverlappingLeave(anyLong(), any(), any(), anyList())).thenReturn(true);
 
-        assertThatThrownBy(() -> leaveService.applyLeave(2L, dto))
+        assertThatThrownBy(() -> leaveService.applyLeave(2L, dto, "emp@company.com"))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("already have a leave application");
     }
@@ -115,7 +118,7 @@ class LeaveServiceTest {
 
         when(employeeDetailsRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> leaveService.applyLeave(99L, dto))
+        assertThatThrownBy(() -> leaveService.applyLeave(99L, dto, "emp@company.com"))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -128,13 +131,14 @@ class LeaveServiceTest {
 
         when(employeeDetailsRepository.findById(2L)).thenReturn(Optional.of(employee));
         when(leaveRepository.existsOverlappingLeave(anyLong(), any(), any(), anyList())).thenReturn(false);
+        when(holidayService.countDeductibleDays(any(), any(), any(), any())).thenReturn(1);
         when(leaveRepository.save(any())).thenReturn(pendingLeave);
         when(timesheetEntryRepository.existsByEmployeeIdAndProjectNameAndDate(anyLong(), anyString(), any())).thenReturn(false);
         when(timesheetEntryRepository.save(any())).thenReturn(null);
-        when(userRepository.findByRole(Role.ADMIN)).thenReturn(List.of(adminUser));
+        when(userRepository.findByRoleIn(anyList())).thenReturn(List.of(adminUser));
         doNothing().when(emailService).sendLeaveRequestEmail(anyString(), any(String[].class), anyString(), anyString(), anyString(), any(), any(), anyInt(), anyString());
 
-        leaveService.applyLeave(2L, dto);
+        leaveService.applyLeave(2L, dto, "emp@company.com");
 
         verify(emailService).sendLeaveRequestEmail(eq("admin@company.com"), any(String[].class), anyString(), anyString(), anyString(), any(), any(), anyInt(), anyString());
     }
@@ -144,11 +148,11 @@ class LeaveServiceTest {
     @Test
     void updateLeaveStatus_pendingToApproved_returnsApprovedDTO() {
         when(leaveRepository.findById(10L)).thenReturn(Optional.of(pendingLeave));
-        when(employeeDetailsRepository.findById(1L)).thenReturn(Optional.of(manager));
+        when(employeeDetailsRepository.findByUserEmail("mgr@company.com")).thenReturn(Optional.of(manager));
         when(leaveRepository.save(any())).thenReturn(pendingLeave);
         doNothing().when(emailService).sendLeaveDecisionEmail(anyString(), any(String[].class), anyString(), anyString(), anyString(), any(), any(), anyString(), anyString());
 
-        LeaveDTO result = leaveService.updateLeaveStatus(10L, 1L, LeaveStatus.APPROVED, "Approved");
+        LeaveDTO result = leaveService.updateLeaveStatus(10L, "mgr@company.com", LeaveStatus.APPROVED, "Approved");
 
         assertThat(result).isNotNull();
         verify(leaveRepository).save(pendingLeave);
@@ -157,12 +161,12 @@ class LeaveServiceTest {
     @Test
     void updateLeaveStatus_pendingToRejected_removesTimesheetEntries() {
         when(leaveRepository.findById(10L)).thenReturn(Optional.of(pendingLeave));
-        when(employeeDetailsRepository.findById(1L)).thenReturn(Optional.of(manager));
+        when(employeeDetailsRepository.findByUserEmail("mgr@company.com")).thenReturn(Optional.of(manager));
         when(leaveRepository.save(any())).thenReturn(pendingLeave);
         doNothing().when(timesheetEntryRepository).deleteByEmployeeIdAndProjectNameAndDateBetween(anyLong(), anyString(), any(), any());
         doNothing().when(emailService).sendLeaveDecisionEmail(anyString(), any(String[].class), anyString(), anyString(), anyString(), any(), any(), anyString(), anyString());
 
-        leaveService.updateLeaveStatus(10L, 1L, LeaveStatus.REJECTED, "Not approved");
+        leaveService.updateLeaveStatus(10L, "mgr@company.com", LeaveStatus.REJECTED, "Not approved");
 
         verify(timesheetEntryRepository).deleteByEmployeeIdAndProjectNameAndDateBetween(
                 eq(2L), eq("LEAVE"), any(LocalDate.class), any(LocalDate.class));
@@ -173,7 +177,7 @@ class LeaveServiceTest {
         pendingLeave.setStatus(LeaveStatus.APPROVED);
         when(leaveRepository.findById(10L)).thenReturn(Optional.of(pendingLeave));
 
-        assertThatThrownBy(() -> leaveService.updateLeaveStatus(10L, 1L, LeaveStatus.REJECTED, ""))
+        assertThatThrownBy(() -> leaveService.updateLeaveStatus(10L, "mgr@company.com", LeaveStatus.REJECTED, ""))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("already processed");
     }
@@ -182,7 +186,7 @@ class LeaveServiceTest {
     void updateLeaveStatus_leaveNotFound_throwsResourceNotFoundException() {
         when(leaveRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> leaveService.updateLeaveStatus(99L, 1L, LeaveStatus.APPROVED, "ok"))
+        assertThatThrownBy(() -> leaveService.updateLeaveStatus(99L, "mgr@company.com", LeaveStatus.APPROVED, "ok"))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -194,7 +198,7 @@ class LeaveServiceTest {
         doNothing().when(timesheetEntryRepository).deleteByEmployeeIdAndProjectNameAndDateBetween(anyLong(), anyString(), any(), any());
         doNothing().when(leaveRepository).delete(pendingLeave);
 
-        leaveService.deleteLeave(10L);
+        leaveService.deleteLeave(10L, "emp@company.com");
 
         verify(leaveRepository).delete(pendingLeave);
     }
@@ -204,7 +208,7 @@ class LeaveServiceTest {
         pendingLeave.setStatus(LeaveStatus.APPROVED);
         when(leaveRepository.findById(10L)).thenReturn(Optional.of(pendingLeave));
 
-        assertThatThrownBy(() -> leaveService.deleteLeave(10L))
+        assertThatThrownBy(() -> leaveService.deleteLeave(10L, "emp@company.com"))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("Only pending leaves can be deleted");
     }
@@ -213,7 +217,7 @@ class LeaveServiceTest {
     void deleteLeave_nonExistingLeave_throwsResourceNotFoundException() {
         when(leaveRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> leaveService.deleteLeave(99L))
+        assertThatThrownBy(() -> leaveService.deleteLeave(99L, "emp@company.com"))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -223,7 +227,7 @@ class LeaveServiceTest {
     void getMyLeaves_returnsLeavesForEmployee() {
         when(leaveRepository.findByEmployeeIdOrderByAppliedAtDesc(2L)).thenReturn(List.of(pendingLeave));
 
-        List<LeaveDTO> result = leaveService.getMyLeaves(2L);
+        List<LeaveDTO> result = leaveService.getMyLeaves(2L, "emp@company.com");
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getLeaveType()).isEqualTo("Annual Leave");

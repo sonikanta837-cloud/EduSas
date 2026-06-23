@@ -51,7 +51,14 @@ public class PipNotificationService {
 
     @Transactional
     public void markAsRead(Long id, String username) {
-        repo.findById(id).ifPresent(n -> { n.setRead(true); repo.save(n); });
+        EmployeeDetails emp = resolve(username);
+        if (emp == null) return;
+        repo.findById(id).ifPresent(n -> {
+            if (n.getRecipient().getId().equals(emp.getId())) { // IDOR guard
+                n.setRead(true);
+                repo.save(n);
+            }
+        });
     }
 
     @Transactional

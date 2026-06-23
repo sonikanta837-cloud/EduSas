@@ -136,21 +136,29 @@ public class ResumeService {
     // ── Text extraction ───────────────────────────────────────────────────────
 
     private String extractText(MultipartFile file) throws IOException {
-        String name = file.getOriginalFilename() != null
-                ? file.getOriginalFilename().toLowerCase() : "";
-        if (name.endsWith(".pdf")) {
-            try (PDDocument doc = Loader.loadPDF(file.getBytes())) {
+        byte[] bytes = file.getBytes();
+        if (isPdf(bytes)) {
+            try (PDDocument doc = Loader.loadPDF(bytes)) {
                 return new PDFTextStripper().getText(doc);
             }
         }
-        if (name.endsWith(".docx")) {
-            try (XWPFDocument doc = new XWPFDocument(file.getInputStream());
+        if (isDocx(bytes)) {
+            try (java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(bytes);
+                 XWPFDocument doc = new XWPFDocument(bais);
                  XWPFWordExtractor ext = new XWPFWordExtractor(doc)) {
                 return ext.getText();
             }
         }
         throw new IllegalArgumentException(
                 "Unsupported file type. Please upload a PDF or DOCX file.");
+    }
+
+    private boolean isPdf(byte[] b) {
+        return b.length >= 4 && b[0] == 0x25 && b[1] == 0x50 && b[2] == 0x44 && b[3] == 0x46; // %PDF
+    }
+
+    private boolean isDocx(byte[] b) {
+        return b.length >= 2 && b[0] == 0x50 && b[1] == 0x4B; // PK (ZIP / OOXML)
     }
 
     // ── Main orchestrator ─────────────────────────────────────────────────────

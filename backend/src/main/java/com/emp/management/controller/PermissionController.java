@@ -21,7 +21,7 @@ public class PermissionController {
 
     /** List all active users with their current allowedModules */
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<List<Map<String, Object>>> getAllUserPermissions() {
         List<Map<String, Object>> result = userRepository.findAll().stream()
             .filter(User::isActive)
@@ -42,7 +42,7 @@ public class PermissionController {
 
     /** Update allowed modules for a user. Empty/null body clears custom permissions (reverts to role defaults). */
     @PutMapping("/{userId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<Void> updatePermissions(
             @PathVariable Long userId,
             @RequestBody Map<String, String> body) {

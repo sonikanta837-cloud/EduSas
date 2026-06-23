@@ -57,7 +57,7 @@ public class AttendanceAuditService {
         boolean notifyHr         = systemSettingService.getBoolean("attendance_audit_notify_hr", false);
         boolean notifyAdmin      = systemSettingService.getBoolean("attendance_audit_notify_admin", true);
 
-        List<String> adminEmails = userRepository.findByRole(Role.ADMIN).stream()
+        List<String> adminEmails = userRepository.findByRoleIn(java.util.List.of(Role.ADMIN, Role.DIRECTOR)).stream()
                 .map(User::getEmail).filter(e -> e != null && !e.isBlank())
                 .collect(Collectors.toList());
 
@@ -68,7 +68,7 @@ public class AttendanceAuditService {
 
         int alertCount = 0;
         for (EmployeeDetails emp : employeeDetailsRepository.findByActive(true)) {
-            if (emp.getUser() == null || emp.getUser().getRole() == Role.ADMIN) continue;
+            if (emp.getUser() == null || emp.getUser().getRole() == Role.ADMIN || emp.getUser().getRole() == Role.DIRECTOR) continue;
 
             int workedMinutes = sessionRepository
                     .findByEmployeeIdAndWorkDateOrderByLoginTimeAsc(emp.getId(), today)

@@ -1,7 +1,6 @@
 package com.emp.management.security;
 
 import io.jsonwebtoken.*;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,10 +25,7 @@ public class JwtTokenProvider {
     private long refreshExpiration;
 
     private Key getSigningKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(
-            java.util.Base64.getEncoder().encodeToString(jwtSecret.getBytes())
-        );
-        return Keys.hmacShaKeyFor(keyBytes);
+        return Keys.hmacShaKeyFor(jwtSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     public String generateToken(Authentication authentication) {
@@ -56,6 +52,15 @@ public class JwtTokenProvider {
 
     public String getUsernameFromToken(String token) {
         return parseClaims(token).getSubject();
+    }
+
+    /** Extracts the username even if the token is expired (used for refresh-token lookup). */
+    public String getUsernameFromTokenIgnoreExpiry(String token) {
+        try {
+            return parseClaims(token).getSubject();
+        } catch (ExpiredJwtException e) {
+            return e.getClaims().getSubject();
+        }
     }
 
     public boolean validateToken(String token) {

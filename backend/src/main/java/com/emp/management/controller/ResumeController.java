@@ -16,7 +16,7 @@ public class ResumeController {
     private final ResumeService resumeService;
 
     @PostMapping("/parse")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<ResumeParseResponse> parse(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().build();

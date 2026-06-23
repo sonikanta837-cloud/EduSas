@@ -1,6 +1,8 @@
 package com.emp.management.config;
 
 import com.emp.management.security.JwtAuthFilter;
+import com.emp.management.security.LoginRateLimitFilter;
+import com.emp.management.security.SecurityHeadersFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -34,6 +36,8 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final LoginRateLimitFilter loginRateLimitFilter;
+    private final SecurityHeadersFilter securityHeadersFilter;
     private final UserDetailsService userDetailsService;
 
     @Value("${app.cors.allowed-origins}")
@@ -50,12 +54,14 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // Static browser requests that must never return 403
                 .requestMatchers("/favicon.ico", "/favicon.svg", "/manifest.json", "/robots.txt").permitAll()
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/manager/**").hasAnyRole("ADMIN", "MANAGER")
+                .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "DIRECTOR")
+                .requestMatchers("/api/manager/**").hasAnyRole("ADMIN", "DIRECTOR", "MANAGER")
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(securityHeadersFilter,  UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(loginRateLimitFilter,   UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(jwtAuthFilter,          UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

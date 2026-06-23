@@ -27,27 +27,27 @@ public class FaqController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','HR')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR')")
     public ResponseEntity<FAQ> create(@RequestBody Map<String, Object> body,
                                       Principal principal) {
         return ResponseEntity.ok(faqService.create(body, principal.getName()));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','HR')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR')")
     public ResponseEntity<FAQ> update(@PathVariable Long id,
                                       @RequestBody Map<String, Object> body) {
         return ResponseEntity.ok(faqService.update(id, body));
     }
 
     @PatchMapping("/{id}/toggle")
-    @PreAuthorize("hasAnyRole('ADMIN','HR')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR')")
     public ResponseEntity<FAQ> toggle(@PathVariable Long id) {
         return ResponseEntity.ok(faqService.toggleActive(id));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','HR')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         faqService.delete(id);
         return ResponseEntity.noContent().build();

@@ -76,11 +76,11 @@ public class EmployeeService {
         if (requester != null) {
             String role = requester.getUser().getRole().name();
 
-            if (!target.isActive() && !"ADMIN".equals(role)) {
+            if (!target.isActive() && !"ADMIN".equals(role) && !"DIRECTOR".equals(role)) {
                 throw new AccessDeniedException("Only admins can view inactive employee profiles");
             }
 
-            boolean isAdmin       = "ADMIN".equals(role);
+            boolean isAdmin       = "ADMIN".equals(role) || "DIRECTOR".equals(role);
             boolean isHrRole      = "HR".equals(role);
             boolean isManagerRole = "MANAGER".equals(role) || "ASSISTANT_MANAGER".equals(role);
             boolean isOwnProfile  = requester.getId().equals(id);
@@ -130,6 +130,7 @@ public class EmployeeService {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new BadRequestException("Email already registered: " + request.getEmail());
         }
+        validateDateOfBirth(request.getDateOfBirth());
 
         User user = User.builder()
                 .email(request.getEmail())
@@ -196,7 +197,7 @@ public class EmployeeService {
 
         if (requester != null) {
             String requesterRole = requester.getUser().getRole().name();
-            boolean isAdmin       = "ADMIN".equals(requesterRole);
+            boolean isAdmin       = "ADMIN".equals(requesterRole) || "DIRECTOR".equals(requesterRole);
             boolean isHrRequester = "HR".equals(requesterRole);
             boolean isAssignedHr  = isHrRequester && emp.getAssignedHr() != null
                     && emp.getAssignedHr().getId().equals(requester.getId());
@@ -220,14 +221,14 @@ public class EmployeeService {
         // Update User-level fields (role changes: admin can set any role; HR can set any role except ADMIN)
         if (dto.getRole() != null) {
             String requesterRole = requester != null ? requester.getUser().getRole().name() : "ADMIN";
-            boolean isAdminReq = "ADMIN".equals(requesterRole);
+            boolean isAdminReq = "ADMIN".equals(requesterRole) || "DIRECTOR".equals(requesterRole);
             boolean isHrReq    = "HR".equals(requesterRole);
             if (isAdminReq) {
                 user.setRole(Role.valueOf(dto.getRole()));
             } else if (isHrReq) {
-                if ("ADMIN".equals(dto.getRole()))
-                    throw new BadRequestException("HR cannot assign the Admin role");
-                if ("ADMIN".equals(user.getRole().name()))
+                if ("ADMIN".equals(dto.getRole()) || "DIRECTOR".equals(dto.getRole()))
+                    throw new BadRequestException("HR cannot assign the Admin or Director role");
+                if ("ADMIN".equals(user.getRole().name()) || "DIRECTOR".equals(user.getRole().name()))
                     throw new BadRequestException("HR cannot change the role of a director");
                 user.setRole(Role.valueOf(dto.getRole()));
             }
@@ -264,6 +265,7 @@ public class EmployeeService {
         emp.setSourceOfHire(dto.getSourceOfHire());
         if (dto.getHireDate() != null) emp.setHireDate(dto.getHireDate());
         emp.setDateOfExit(dto.getDateOfExit());
+        validateDateOfBirth(dto.getDateOfBirth());
         emp.setDateOfBirth(dto.getDateOfBirth());
         emp.setGender(dto.getGender());
         emp.setMaritalStatus(dto.getMaritalStatus());
@@ -302,7 +304,7 @@ public class EmployeeService {
 
         // Admin and HR can assign / clear assigned HR via the edit form
         String requesterRole = requester != null ? requester.getUser().getRole().name() : "ADMIN";
-        if ("ADMIN".equals(requesterRole) || "HR".equals(requesterRole)) {
+        if ("ADMIN".equals(requesterRole) || "DIRECTOR".equals(requesterRole) || "HR".equals(requesterRole)) {
             if (dto.getAssignedHrId() != null) {
                 EmployeeDetails hr = findEmployee(dto.getAssignedHrId());
                 if (!"HR".equals(hr.getUser().getRole().name())) {
@@ -468,7 +470,9 @@ public class EmployeeService {
     }
 
     private static boolean isDirector(EmployeeDetails e) {
-        return e != null && e.getUser() != null && "ADMIN".equals(e.getUser().getRole().name());
+        if (e == null || e.getUser() == null) return false;
+        String role = e.getUser().getRole().name();
+        return "ADMIN".equals(role) || "DIRECTOR".equals(role);
     }
 
     private static boolean isActiveHr(EmployeeDetails e) {
@@ -484,6 +488,12 @@ public class EmployeeService {
                 .min(Comparator.comparingLong(hr ->
                         employeeDetailsRepository.countActiveAssignmentsByHrId(hr.getId())))
                 .orElse(null);
+    }
+
+    private void validateDateOfBirth(LocalDate dob) {
+        if (dob != null && dob.isAfter(LocalDate.now())) {
+            throw new BadRequestException("Date of birth cannot be in the future");
+        }
     }
 
     private EmployeeDetails findEmployee(Long id) {

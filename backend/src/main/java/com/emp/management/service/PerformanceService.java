@@ -3,11 +3,13 @@ package com.emp.management.service;
 import com.emp.management.dto.PerformanceReviewDTO;
 import com.emp.management.entity.EmployeeDetails;
 import com.emp.management.entity.PerformanceReview;
+import com.emp.management.entity.Role;
 import com.emp.management.exception.BadRequestException;
 import com.emp.management.exception.ResourceNotFoundException;
 import com.emp.management.repository.EmployeeDetailsRepository;
 import com.emp.management.repository.PerformanceReviewRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,12 +46,14 @@ public class PerformanceService {
         return toDTO(reviewRepository.save(review));
     }
 
-    public List<PerformanceReviewDTO> getEmployeeReviews(Long employeeId) {
+    public List<PerformanceReviewDTO> getEmployeeReviews(Long employeeId, String callerEmail) {
+        requireSelfOrPrivileged(employeeId, callerEmail);
         return reviewRepository.findByEmployeeIdOrderByReviewDateDesc(employeeId).stream()
                 .map(this::toDTO).collect(Collectors.toList());
     }
 
-    public List<PerformanceReviewDTO> getReviewsByReviewer(Long reviewerId) {
+    public List<PerformanceReviewDTO> getReviewsByReviewer(Long reviewerId, String callerEmail) {
+        requireSelfOrPrivileged(reviewerId, callerEmail);
         return reviewRepository.findByReviewerIdOrderByReviewDateDesc(reviewerId).stream()
                 .map(this::toDTO).collect(Collectors.toList());
     }
@@ -59,7 +63,8 @@ public class PerformanceService {
                 .map(this::toDTO).collect(Collectors.toList());
     }
 
-    public Double getAverageRating(Long employeeId) {
+    public Double getAverageRating(Long employeeId, String callerEmail) {
+        requireSelfOrPrivileged(employeeId, callerEmail);
         return reviewRepository.getAverageRatingByEmployee(employeeId);
     }
 
@@ -84,6 +89,17 @@ public class PerformanceService {
         PerformanceReview review = reviewRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("PerformanceReview", id));
         reviewRepository.delete(review);
+    }
+
+    private void requireSelfOrPrivileged(Long targetId, String callerEmail) {
+        EmployeeDetails caller = employeeDetailsRepository.findByUserEmail(callerEmail).orElse(null);
+        if (caller == null) return;
+        Role role = caller.getUser() != null ? caller.getUser().getRole() : null;
+        boolean privileged = role == Role.ADMIN || role == Role.DIRECTOR || role == Role.HR
+                          || role == Role.MANAGER || role == Role.ASSISTANT_MANAGER;
+        if (!privileged && !caller.getId().equals(targetId)) {
+            throw new AccessDeniedException("Access denied");
+        }
     }
 
     private EmployeeDetails findEmployee(Long id) {

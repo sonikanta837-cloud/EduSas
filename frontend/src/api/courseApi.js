@@ -20,6 +20,7 @@ export const courseApi = {
   getAdminExamQuestions: (courseId) => api.get(`/courses/${courseId}/admin-exam-questions`),
   getEnrolledEmployeeIds: (courseId) => api.get(`/courses/${courseId}/enrolled-employee-ids`),
   getLearners: (courseId) => api.get(`/courses/${courseId}/learners`),
+  getAllEnrollments: () => api.get('/courses/all-enrollments'),
   getMyCertificates: () => api.get('/certificates/my'),
   getAllCertificates: () => api.get('/certificates'),
   downloadCertificatePdf: (certNo) =>

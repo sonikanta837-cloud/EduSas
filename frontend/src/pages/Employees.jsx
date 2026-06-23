@@ -42,6 +42,7 @@ import { toast }          from 'react-toastify';
 
 // ── constants ─────────────────────────────────────────────────────────────────
 const roleColors = { ADMIN: 'error', MANAGER: 'warning', ASSISTANT_MANAGER: 'warning', HR: 'secondary', EMPLOYEE: 'primary' };
+const roleCustomColors = { DIRECTOR: '#4f46e5' };
 
 const INITIAL_DEPARTMENTS = [
   'Human Resource', 'Operation', 'Management', 'Marketing', 'IT',
@@ -444,7 +445,7 @@ const EmployeeForm = ({ values, setter, isEdit, employees,
           )}
           {field('phone', 'Phone')}
           {field('personalEmail', 'Personal Email')}
-          {dateField('dateOfBirth', 'Date of Birth')}
+          {dateField('dateOfBirth', 'Date of Birth', { inputProps: { max: new Date().toISOString().split('T')[0] } })}
           {isEdit && values.dateOfBirth && (
             <TextField label="Age" size="small"
               value={Math.floor((new Date() - new Date(values.dateOfBirth)) / (365.25 * 24 * 3600 * 1000))}
@@ -1060,7 +1061,7 @@ const CoursesTab = ({ user }) => {
   const [learnersMap,    setLearnersMap]    = useState({});
   const [learnersLoading, setLearnersLoading] = useState({});
 
-  const isAdminRole   = user?.role === 'ADMIN';
+  const isAdminRole   = user?.role === 'ADMIN' || user?.role === 'DIRECTOR';
   const isManagerRole = user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER';
 
   useEffect(() => {
@@ -1633,7 +1634,10 @@ const EmployeesPage = () => {
     if (!form.firstName?.trim()) { toast.error('First name is required'); return; }
     if (!form.lastName?.trim())  { toast.error('Last name is required');  return; }
     if (!form.email?.trim())     { toast.error('Work email is required'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { toast.error('Invalid email format'); return; }
     if (!form.password?.trim())  { toast.error('Password is required — please set a login password'); return; }
+    if (form.password.length < 8) { toast.error('Password must be at least 8 characters'); return; }
+    if (form.phone && !/^[+]?[0-9]{7,15}$/.test(form.phone.trim())) { toast.error('Invalid phone number format'); return; }
     setSaving(true);
     try {
       await employeeApi.create({ ...form, managerId: form.managerId || null });
@@ -1706,7 +1710,7 @@ const EmployeesPage = () => {
   };
 
   const manageConfig = getManageConfig();
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'DIRECTOR';
 
   // ── Granular employee-action permissions ──────────────────────────────────
   // If allowedModules is stored, use the explicit emp:* keys.
@@ -1852,7 +1856,7 @@ const EmployeesPage = () => {
                       </TableCell>
                     </TableRow>
                   ) : filtered.slice(empPage * empRpp, (empPage + 1) * empRpp).map((emp) => {
-                    const viewerIsAdmin   = user?.role === 'ADMIN';
+                    const viewerIsAdmin   = user?.role === 'ADMIN' || user?.role === 'DIRECTOR';
                     const viewerIsManager = user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER';
                     const isDirectReport  = emp.managerId === user?.employeeId;
                     const canClick        = empPerms
@@ -1885,7 +1889,12 @@ const EmployeesPage = () => {
                         <TableCell sx={cell}>{emp.department || '—'}</TableCell>
                         <TableCell sx={cell}>{emp.position || '—'}</TableCell>
                         <TableCell sx={cell}>
-                          <Chip label={emp.role} size="small" color={roleColors[emp.role] || 'default'} />
+                          <Chip
+                            label={emp.role}
+                            size="small"
+                            color={roleCustomColors[emp.role] ? undefined : (roleColors[emp.role] || 'default')}
+                            sx={roleCustomColors[emp.role] ? { bgcolor: roleCustomColors[emp.role], color: '#fff', fontWeight: 600 } : {}}
+                          />
                         </TableCell>
                         <TableCell sx={cell}>{emp.managerName || '—'}</TableCell>
                         <TableCell sx={cell}>{emp.currentExperience || '—'}</TableCell>

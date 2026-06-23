@@ -27,7 +27,7 @@ public interface EmployeeDetailsRepository extends JpaRepository<EmployeeDetails
 
     List<EmployeeDetails> findByManagerIsNullAndActiveTrue();
 
-    @Query("SELECT e FROM EmployeeDetails e WHERE e.user.role = com.emp.management.entity.Role.ADMIN AND e.active = true ORDER BY e.id ASC")
+    @Query("SELECT e FROM EmployeeDetails e WHERE e.user.role IN (com.emp.management.entity.Role.ADMIN, com.emp.management.entity.Role.DIRECTOR) AND e.active = true ORDER BY e.id ASC")
     List<EmployeeDetails> findActiveAdmins();
 
     @Query("SELECT e FROM EmployeeDetails e WHERE (LOWER(e.firstName) LIKE LOWER(CONCAT('%', :q, '%')) OR LOWER(e.lastName) LIKE LOWER(CONCAT('%', :q, '%')) OR LOWER(e.department) LIKE LOWER(CONCAT('%', :q, '%')))")

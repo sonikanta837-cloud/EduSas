@@ -12,6 +12,7 @@ import com.emp.management.repository.UserRepository;
 import com.emp.management.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -36,6 +37,9 @@ public class AuthService {
     private final TimesheetService timesheetService;
     private final EmailService emailService;
 
+    @Value("${app.base-url:http://localhost:3000}")
+    private String baseUrl;
+
     @Transactional
     public LoginResponse login(LoginRequest request) {
         Authentication auth = authenticationManager.authenticate(
@@ -48,7 +52,7 @@ public class AuthService {
         String accessToken = tokenProvider.generateToken(auth);
         String refreshToken = tokenProvider.generateRefreshToken(request.getEmail());
 
-        user.setRefreshToken(refreshToken);
+        user.setRefreshToken(passwordEncoder.encode(refreshToken)); // store hash, never plain text
         userRepository.save(user);
 
         EmployeeDetails emp = user.getEmployeeDetails();
@@ -73,6 +77,7 @@ public class AuthService {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new BadRequestException("Email already registered: " + request.getEmail());
         }
+        validatePasswordStrength(request.getPassword());
 
         User user = User.builder()
                 .email(request.getEmail())
@@ -103,17 +108,26 @@ public class AuthService {
 
     @Transactional
     public LoginResponse refreshToken(String refreshToken) {
-        User user = userRepository.findByRefreshToken(refreshToken)
+        // Extract email from the token regardless of expiry to locate the user
+        String email = tokenProvider.getUsernameFromTokenIgnoreExpiry(refreshToken);
+        if (email == null) throw new BadRequestException("Invalid refresh token");
+
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new BadRequestException("Invalid refresh token"));
 
         if (!tokenProvider.validateToken(refreshToken)) {
             throw new BadRequestException("Refresh token expired");
         }
 
-        String newAccessToken = tokenProvider.generateToken(user.getEmail());
+        // Verify presented token matches the stored hash
+        if (user.getRefreshToken() == null || !passwordEncoder.matches(refreshToken, user.getRefreshToken())) {
+            throw new BadRequestException("Invalid refresh token");
+        }
+
+        String newAccessToken  = tokenProvider.generateToken(user.getEmail());
         String newRefreshToken = tokenProvider.generateRefreshToken(user.getEmail());
 
-        user.setRefreshToken(newRefreshToken);
+        user.setRefreshToken(passwordEncoder.encode(newRefreshToken));
         userRepository.save(user);
 
         EmployeeDetails emp = user.getEmployeeDetails();
@@ -131,16 +145,15 @@ public class AuthService {
 
     @Transactional
     public void forgotPassword(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("No account found with that email"));
-
-        String token = UUID.randomUUID().toString();
-        user.setResetToken(token);
-        user.setResetTokenExpiry(LocalDateTime.now().plusHours(1));
-        userRepository.save(user);
-
-        String resetUrl = "http://localhost:3000/reset-password?token=" + token;
-        emailService.sendPasswordResetEmail(email, resetUrl);
+        // Always return silently — never reveal whether an email is registered
+        userRepository.findByEmail(email).ifPresent(user -> {
+            String token = UUID.randomUUID().toString();
+            user.setResetToken(token);
+            user.setResetTokenExpiry(LocalDateTime.now().plusMinutes(30));
+            userRepository.save(user);
+            String resetUrl = baseUrl + "/reset-password?token=" + token;
+            emailService.sendPasswordResetEmail(email, resetUrl);
+        });
     }
 
     @Transactional
@@ -153,10 +166,25 @@ public class AuthService {
             throw new BadRequestException("Reset link has expired. Please request a new one.");
         }
 
+        validatePasswordStrength(newPassword);
+
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setResetToken(null);
         user.setResetTokenExpiry(null);
+        user.setRefreshToken(null); // invalidate all existing sessions on password change
         userRepository.save(user);
+    }
+
+    private void validatePasswordStrength(String password) {
+        if (password == null || password.length() < 8) {
+            throw new BadRequestException("Password must be at least 8 characters long");
+        }
+        if (password.chars().noneMatch(Character::isUpperCase)) {
+            throw new BadRequestException("Password must contain at least one uppercase letter");
+        }
+        if (password.chars().noneMatch(Character::isDigit)) {
+            throw new BadRequestException("Password must contain at least one number");
+        }
     }
 
     @Transactional

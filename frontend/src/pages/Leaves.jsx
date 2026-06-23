@@ -57,13 +57,14 @@ const LeavesPage = () => {
   const [editingLeave, setEditingLeave] = useState(null);
   const [editForm, setEditForm] = useState({ leaveType: 'ANNUAL', startDate: '', endDate: '', reason: '' });
   const [deleteDialogId, setDeleteDialogId] = useState(null);
-  const isManagerOrAdmin = ['ADMIN', 'MANAGER', 'ASSISTANT_MANAGER', 'HR'].includes(user?.role);
+  const isManagerOrAdmin = ['ADMIN','DIRECTOR', 'MANAGER', 'ASSISTANT_MANAGER', 'HR'].includes(user?.role);
 
   /* ── date range filter (Team Leaves tab) ── */
   const [filterFrom,   setFilterFrom]   = useState('');
   const [filterTo,     setFilterTo]     = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
+  const todayStr = new Date().toISOString().split('T')[0];
 
   /* A leave overlaps [filterFrom, filterTo] when:
      leave.startDate <= filterTo  AND  leave.endDate >= filterFrom */
@@ -120,7 +121,7 @@ const LeavesPage = () => {
       if (tab === 0) {
         setLeaves(await leaveApi.getMyLeaves(emp.id));
       } else {
-        if (['ADMIN', 'HR'].includes(user?.role)) setLeaves(await leaveApi.getAll());
+        if (['ADMIN', 'DIRECTOR', 'HR'].includes(user?.role)) setLeaves(await leaveApi.getAll());
         else setLeaves(await leaveApi.getLeavesForManager(emp.id));
       }
     } catch {

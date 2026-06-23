@@ -109,7 +109,7 @@ public class DailyWorkReportService {
                     reportDate, reportDate)
                     .stream().map(this::toDTO).collect(Collectors.toList());
             int consolidatedSent = 0;
-            for (User admin : userRepository.findByRole(Role.ADMIN)) {
+            for (User admin : userRepository.findByRoleIn(java.util.List.of(Role.ADMIN, Role.DIRECTOR))) {
                 if (admin.getEmail() == null || admin.getEmail().isBlank()) continue;
                 try {
                     emailService.sendConsolidatedWorkReportEmail(admin.getEmail(), reportDate, consolidatedDtos);
@@ -127,7 +127,7 @@ public class DailyWorkReportService {
             for (DailyWorkReport r : reports) {
                 try {
                     EmployeeDetails emp = r.getEmployee();
-                    if (emp.getUser() == null || emp.getUser().getRole() == Role.ADMIN) continue;
+                    if (emp.getUser() == null || emp.getUser().getRole() == Role.ADMIN || emp.getUser().getRole() == Role.DIRECTOR) continue;
                     if (emp.getUser().getEmail() == null) continue;
                     emailService.sendIndividualWorkReportEmail(
                             emp.getUser().getEmail(), emp.getFullName(),
@@ -224,7 +224,7 @@ public class DailyWorkReportService {
 
         User user = manager.getUser();
         boolean isAdminOrHr = user != null &&
-                (user.getRole() == Role.ADMIN || user.getRole() == Role.HR);
+                (user.getRole() == Role.ADMIN || user.getRole() == Role.DIRECTOR || user.getRole() == Role.HR);
 
         List<DailyWorkReport> reports = isAdminOrHr
                 ? reportRepository.findAllByDateRange(start, end)

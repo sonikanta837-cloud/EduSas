@@ -24,7 +24,7 @@ public class DailyWorkReportController {
     // ── Team / All reports (Manager / HR / Admin) ────────────────────────────
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER','ASSISTANT_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR','MANAGER','ASSISTANT_MANAGER')")
     public ResponseEntity<List<DailyWorkReportDTO>> getTeamReports(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
@@ -45,7 +45,7 @@ public class DailyWorkReportController {
     // ── On-demand generation (Admin / HR) ────────────────────────────────────
 
     @PostMapping("/generate")
-    @PreAuthorize("hasAnyRole('ADMIN','HR')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR')")
     public ResponseEntity<Void> generateReports(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         reportService.generateAllReportsForDate(date);
@@ -53,7 +53,7 @@ public class DailyWorkReportController {
     }
 
     @PostMapping("/generate/range")
-    @PreAuthorize("hasAnyRole('ADMIN','HR')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR')")
     public ResponseEntity<Void> generateReportsForRange(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
@@ -64,7 +64,7 @@ public class DailyWorkReportController {
     // ── CSV export ────────────────────────────────────────────────────────────
 
     @GetMapping("/export")
-    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER','ASSISTANT_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR','MANAGER','ASSISTANT_MANAGER')")
     public ResponseEntity<byte[]> exportCsv(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,

@@ -59,7 +59,7 @@ class EmployeeControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void getAllEmployees_asAdmin_returns200WithList() throws Exception {
-        when(employeeService.getAllEmployees()).thenReturn(List.of(sampleDTO));
+        when(employeeService.getAllEmployees(anyString())).thenReturn(List.of(sampleDTO));
 
         mockMvc.perform(get("/api/employees"))
                 .andExpect(status().isOk())
@@ -70,7 +70,7 @@ class EmployeeControllerTest {
     @Test
     @WithMockUser(roles = "EMPLOYEE")
     void getAllEmployees_asEmployee_returns200() throws Exception {
-        when(employeeService.getAllEmployees()).thenReturn(List.of(sampleDTO));
+        when(employeeService.getAllEmployees(anyString())).thenReturn(List.of(sampleDTO));
 
         mockMvc.perform(get("/api/employees"))
                 .andExpect(status().isOk());
@@ -95,7 +95,7 @@ class EmployeeControllerTest {
                 .andExpect(jsonPath("$[0].firstName").value("Alice"));
 
         verify(employeeService).searchEmployees(eq("Alice"), any());
-        verify(employeeService, never()).getAllEmployees();
+        verify(employeeService, never()).getAllEmployees(anyString());
     }
 
     // ── GET /api/employees/{id} ──────────────────────────────────────────────
@@ -148,7 +148,7 @@ class EmployeeControllerTest {
     void createEmployee_asAdmin_returns200() throws Exception {
         RegisterRequest req = new RegisterRequest();
         req.setEmail("new@company.com");
-        req.setPassword("pass");
+        req.setPassword("Password1");
         req.setFirstName("New");
         req.setLastName("Hire");
         req.setRole(Role.EMPLOYEE);
@@ -158,7 +158,7 @@ class EmployeeControllerTest {
         mockMvc.perform(post("/api/employees")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.firstName").value("Alice"));
     }
 
@@ -167,7 +167,7 @@ class EmployeeControllerTest {
     void createEmployee_asEmployee_returns403() throws Exception {
         RegisterRequest req = new RegisterRequest();
         req.setEmail("new@company.com");
-        req.setPassword("pass");
+        req.setPassword("Password1");
         req.setFirstName("New");
         req.setLastName("Hire");
         req.setRole(Role.EMPLOYEE);
@@ -183,7 +183,7 @@ class EmployeeControllerTest {
     void createEmployee_duplicateEmail_returns400() throws Exception {
         RegisterRequest req = new RegisterRequest();
         req.setEmail("existing@company.com");
-        req.setPassword("pass");
+        req.setPassword("Password1");
         req.setFirstName("Dup");
         req.setLastName("User");
         req.setRole(Role.EMPLOYEE);

@@ -303,7 +303,7 @@ const AttendancePage = () => {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [showAudit,        setShowAudit]        = useState(false);
   const [auditLogs,        setAuditLogs]        = useState([]);
-  const isManagerOrAbove = ['ADMIN','HR','MANAGER','ASSISTANT_MANAGER'].includes(user?.role);
+  const isManagerOrAbove = ['ADMIN','DIRECTOR','HR','MANAGER','ASSISTANT_MANAGER'].includes(user?.role);
 
   const weekEnd = useMemo(() => weekStart.add(6, 'day'), [weekStart]);
 
@@ -373,12 +373,13 @@ const AttendancePage = () => {
 
   useEffect(() => {
     if (!myEmployee) return;
+    if (['ADMIN', 'DIRECTOR'].includes(user?.role)) return;
     correctionApi.getPendingSessions().then(data => {
       const sessions = Array.isArray(data) ? data : [];
       setPendingSessions(sessions);
       if (sessions.length > 0) setShowCorrectionPopup(true);
     }).catch(() => {});
-  }, [myEmployee]);
+  }, [myEmployee, user?.role]);
 
   useEffect(() => {
     if (!isManagerOrAbove || !showAudit) return;

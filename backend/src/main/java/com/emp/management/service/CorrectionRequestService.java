@@ -227,7 +227,11 @@ public class CorrectionRequestService {
 
     public List<CorrectionRequestDTO> getAllPending() {
         return correctionRequestRepository.findByStatusOrderByCreatedAtDesc(CorrectionStatus.PENDING_MANAGER_APPROVAL)
-                .stream().map(this::toDTO).collect(Collectors.toList());
+                .stream()
+                .filter(r -> r.getEmployee().getUser() == null
+                        || (r.getEmployee().getUser().getRole() != Role.ADMIN
+                            && r.getEmployee().getUser().getRole() != Role.DIRECTOR))
+                .map(this::toDTO).collect(Collectors.toList());
     }
 
     public List<CorrectionRequestDTO> getPendingForTeam(String email) {
@@ -270,13 +274,19 @@ public class CorrectionRequestService {
                 .build());
     }
 
+    private static String sanitizeFilename(String name) {
+        if (name == null || name.isBlank()) return "upload";
+        return name.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
     private String saveAttachment(MultipartFile file, Long employeeId, LocalDate date) {
         try {
-            Path dir = Paths.get(uploadDir, "corrections");
+            Path dir = Paths.get(uploadDir, "corrections").toAbsolutePath().normalize();
             Files.createDirectories(dir);
             String filename = employeeId + "_" + date + "_" + System.currentTimeMillis()
-                    + "_" + file.getOriginalFilename();
-            Path dest = dir.resolve(filename);
+                    + "_" + sanitizeFilename(file.getOriginalFilename());
+            Path dest = dir.resolve(filename).normalize();
+            if (!dest.startsWith(dir)) throw new IllegalArgumentException("Invalid file name");
             Files.copy(file.getInputStream(), dest);
             return "corrections/" + filename;
         } catch (IOException e) {
@@ -359,7 +369,7 @@ public class CorrectionRequestService {
     private String resolveManagerEmail(EmployeeDetails employee) {
         if (employee.getManager() != null && employee.getManager().getUser() != null)
             return employee.getManager().getUser().getEmail();
-        return userRepository.findByRole(Role.ADMIN).stream()
+        return userRepository.findByRoleIn(java.util.List.of(Role.ADMIN, Role.DIRECTOR)).stream()
                 .map(User::getEmail).filter(e -> e != null && !e.isBlank()).findFirst().orElse(null);
     }
 

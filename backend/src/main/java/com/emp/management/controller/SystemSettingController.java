@@ -17,39 +17,39 @@ public class SystemSettingController {
     private final SystemSettingService systemSettingService;
 
     @GetMapping("/break-alert")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<BreakAlertSettingsDTO> getBreakAlertSettings() {
         return ResponseEntity.ok(systemSettingService.getBreakAlertSettings());
     }
 
     @PutMapping("/break-alert")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<BreakAlertSettingsDTO> saveBreakAlertSettings(
             @RequestBody BreakAlertSettingsDTO dto) {
         return ResponseEntity.ok(systemSettingService.saveBreakAlertSettings(dto));
     }
 
     @GetMapping("/work-report-email")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<WorkReportEmailSettingsDTO> getWorkReportEmailSettings() {
         return ResponseEntity.ok(systemSettingService.getWorkReportEmailSettings());
     }
 
     @PutMapping("/work-report-email")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<WorkReportEmailSettingsDTO> saveWorkReportEmailSettings(
             @RequestBody WorkReportEmailSettingsDTO dto) {
         return ResponseEntity.ok(systemSettingService.saveWorkReportEmailSettings(dto));
     }
 
     @GetMapping("/attendance-audit")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<AttendanceAuditSettingsDTO> getAttendanceAuditSettings() {
         return ResponseEntity.ok(systemSettingService.getAttendanceAuditSettings());
     }
 
     @PutMapping("/attendance-audit")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<AttendanceAuditSettingsDTO> saveAttendanceAuditSettings(
             @RequestBody AttendanceAuditSettingsDTO dto) {
         return ResponseEntity.ok(systemSettingService.saveAttendanceAuditSettings(dto));

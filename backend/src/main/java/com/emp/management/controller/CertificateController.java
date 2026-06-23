@@ -29,7 +29,7 @@ public class CertificateController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<List<CertificateDTO>> getAllCertificates() {
         return ResponseEntity.ok(certificateService.getAllCertificates());
     }

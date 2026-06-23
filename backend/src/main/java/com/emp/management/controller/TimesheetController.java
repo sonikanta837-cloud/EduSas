@@ -4,11 +4,17 @@ import com.emp.management.dto.AttendanceSessionDTO;
 import com.emp.management.dto.TimesheetDTO;
 import com.emp.management.dto.TimesheetEntryDTO;
 import com.emp.management.dto.WorkReportDTO;
+import com.emp.management.entity.EmployeeDetails;
+import com.emp.management.entity.Role;
+import com.emp.management.repository.EmployeeDetailsRepository;
 import com.emp.management.service.TimesheetEntryService;
 import com.emp.management.service.TimesheetService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -25,17 +31,20 @@ public class TimesheetController {
 
     private final TimesheetService timesheetService;
     private final TimesheetEntryService timesheetEntryService;
+    private final EmployeeDetailsRepository employeeDetailsRepository;
 
     // ── Manual check-in / check-out ──────────────────────────────────────────
 
     @PostMapping("/check-in/{employeeId}")
-    public ResponseEntity<Void> checkIn(@PathVariable Long employeeId) {
+    public ResponseEntity<Void> checkIn(@PathVariable Long employeeId, Authentication authentication) {
+        requireSelfOrAdmin(employeeId, authentication);
         timesheetService.checkIn(employeeId);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/check-out/{employeeId}")
-    public ResponseEntity<Void> checkOut(@PathVariable Long employeeId) {
+    public ResponseEntity<Void> checkOut(@PathVariable Long employeeId, Authentication authentication) {
+        requireSelfOrAdmin(employeeId, authentication);
         timesheetService.checkOut(employeeId);
         return ResponseEntity.ok().build();
     }
@@ -43,7 +52,9 @@ public class TimesheetController {
     // ── Attendance sessions (auto-recorded on app login/logout) ──────────────
 
     @GetMapping("/sessions/today/{employeeId}")
-    public ResponseEntity<List<AttendanceSessionDTO>> getTodaySessions(@PathVariable Long employeeId) {
+    public ResponseEntity<List<AttendanceSessionDTO>> getTodaySessions(@PathVariable Long employeeId,
+                                                                        Authentication authentication) {
+        requireSelfOrPrivileged(employeeId, authentication);
         return ResponseEntity.ok(timesheetService.getTodaySessions(employeeId));
     }
 
@@ -51,17 +62,23 @@ public class TimesheetController {
     public ResponseEntity<List<AttendanceSessionDTO>> getSessionsByRange(
             @PathVariable Long employeeId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
+            Authentication authentication) {
+        requireSelfOrPrivileged(employeeId, authentication);
         return ResponseEntity.ok(timesheetService.getSessionsByRange(employeeId, start, end));
     }
 
     @GetMapping("/today/{employeeId}")
-    public ResponseEntity<TimesheetDTO> getTodayTimesheet(@PathVariable Long employeeId) {
+    public ResponseEntity<TimesheetDTO> getTodayTimesheet(@PathVariable Long employeeId,
+                                                          Authentication authentication) {
+        requireSelfOrPrivileged(employeeId, authentication);
         return ResponseEntity.ok(timesheetService.getTodayTimesheet(employeeId));
     }
 
     @GetMapping("/attendance/{employeeId}")
-    public ResponseEntity<List<TimesheetDTO>> getAttendance(@PathVariable Long employeeId) {
+    public ResponseEntity<List<TimesheetDTO>> getAttendance(@PathVariable Long employeeId,
+                                                            Authentication authentication) {
+        requireSelfOrPrivileged(employeeId, authentication);
         return ResponseEntity.ok(timesheetService.getMyTimesheets(employeeId));
     }
 
@@ -69,12 +86,14 @@ public class TimesheetController {
     public ResponseEntity<List<TimesheetDTO>> getAttendanceByRange(
             @PathVariable Long employeeId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
+            Authentication authentication) {
+        requireSelfOrPrivileged(employeeId, authentication);
         return ResponseEntity.ok(timesheetService.getTimesheetsByDateRange(employeeId, start, end));
     }
 
     @GetMapping("/date/{date}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR', 'MANAGER', 'ASSISTANT_MANAGER')")
     public ResponseEntity<List<TimesheetDTO>> getByDate(
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return ResponseEntity.ok(timesheetService.getTimesheetsByDate(date));
@@ -87,14 +106,18 @@ public class TimesheetController {
     public ResponseEntity<List<TimesheetEntryDTO>> getEntries(
             @PathVariable Long empId,
             @RequestParam int year,
-            @RequestParam int month) {
+            @RequestParam int month,
+            Authentication authentication) {
+        requireSelfOrPrivileged(empId, authentication);
         return ResponseEntity.ok(timesheetEntryService.getMonthlyEntries(empId, year, month));
     }
 
     @PostMapping("/entries")
-    public ResponseEntity<TimesheetEntryDTO> saveEntry(@RequestBody TimesheetEntryDTO dto,
+    public ResponseEntity<TimesheetEntryDTO> saveEntry(@RequestBody @Valid TimesheetEntryDTO dto,
                                                         Authentication authentication) {
-        return ResponseEntity.ok(timesheetEntryService.saveEntry(dto, authentication.getName()));
+        TimesheetEntryDTO saved = timesheetEntryService.saveEntry(dto, authentication.getName());
+        HttpStatus status = dto.getId() == null ? HttpStatus.CREATED : HttpStatus.OK;
+        return ResponseEntity.status(status).body(saved);
     }
 
     @DeleteMapping("/entries/{id}")
@@ -114,10 +137,30 @@ public class TimesheetController {
     }
 
     @GetMapping("/work-report")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<List<WorkReportDTO>> getWorkReport(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
         return ResponseEntity.ok(timesheetEntryService.getWorkReport(start, end));
+    }
+
+    private void requireSelfOrAdmin(Long targetId, Authentication auth) {
+        EmployeeDetails caller = employeeDetailsRepository.findByUserEmail(auth.getName()).orElse(null);
+        if (caller == null) return;
+        Role role = caller.getUser() != null ? caller.getUser().getRole() : null;
+        if (role != Role.ADMIN && role != Role.DIRECTOR && !caller.getId().equals(targetId)) {
+            throw new AccessDeniedException("Access denied");
+        }
+    }
+
+    private void requireSelfOrPrivileged(Long targetId, Authentication auth) {
+        EmployeeDetails caller = employeeDetailsRepository.findByUserEmail(auth.getName()).orElse(null);
+        if (caller == null) return;
+        Role role = caller.getUser() != null ? caller.getUser().getRole() : null;
+        boolean privileged = role == Role.ADMIN || role == Role.DIRECTOR || role == Role.HR
+                          || role == Role.MANAGER || role == Role.ASSISTANT_MANAGER;
+        if (!privileged && !caller.getId().equals(targetId)) {
+            throw new AccessDeniedException("Access denied");
+        }
     }
 }

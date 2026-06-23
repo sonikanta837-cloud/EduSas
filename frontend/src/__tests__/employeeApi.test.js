@@ -60,7 +60,7 @@ describe('employeeApi', () => {
   describe('create', () => {
     it('creates a new employee', async () => {
       const newEmpData = { email: 'new@co.com', password: 'pass', firstName: 'New', lastName: 'Hire', role: 'EMPLOYEE' };
-      mock.onPost('/employees').reply(200, { ...sampleEmployee, id: 2, email: 'new@co.com' });
+      mock.onPost('/employees').reply(201, { ...sampleEmployee, id: 2, email: 'new@co.com' });
 
       const result = await employeeApi.create(newEmpData);
       expect(result.email).toBe('new@co.com');

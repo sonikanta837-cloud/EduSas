@@ -109,7 +109,7 @@ class AuthControllerTest {
     void register_asAdmin_returns200() throws Exception {
         RegisterRequest req = new RegisterRequest();
         req.setEmail("new@company.com");
-        req.setPassword("pass123");
+        req.setPassword("Password123");
         req.setFirstName("New");
         req.setLastName("User");
         req.setRole(Role.EMPLOYEE);
@@ -128,7 +128,7 @@ class AuthControllerTest {
     void register_asEmployee_returns403() throws Exception {
         RegisterRequest req = new RegisterRequest();
         req.setEmail("new@company.com");
-        req.setPassword("pass123");
+        req.setPassword("Password123");
         req.setFirstName("New");
         req.setLastName("User");
         req.setRole(Role.EMPLOYEE);
@@ -143,7 +143,7 @@ class AuthControllerTest {
     void register_unauthenticated_returns401or403() throws Exception {
         RegisterRequest req = new RegisterRequest();
         req.setEmail("new@company.com");
-        req.setPassword("pass");
+        req.setPassword("Password123");
         req.setFirstName("New");
         req.setLastName("User");
         req.setRole(Role.EMPLOYEE);
@@ -162,7 +162,7 @@ class AuthControllerTest {
     void register_duplicateEmail_returns400() throws Exception {
         RegisterRequest req = new RegisterRequest();
         req.setEmail("existing@company.com");
-        req.setPassword("pass");
+        req.setPassword("Password123");
         req.setFirstName("Dup");
         req.setLastName("User");
         req.setRole(Role.EMPLOYEE);

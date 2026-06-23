@@ -125,13 +125,13 @@ class AuthServiceTest {
     void register_newEmail_createsUserAndEmployee() {
         RegisterRequest req = new RegisterRequest();
         req.setEmail("new@company.com");
-        req.setPassword("pass");
+        req.setPassword("Password1");
         req.setFirstName("Bob");
         req.setLastName("Jones");
         req.setRole(Role.EMPLOYEE);
 
         when(userRepository.existsByEmail("new@company.com")).thenReturn(false);
-        when(passwordEncoder.encode("pass")).thenReturn("encoded");
+        when(passwordEncoder.encode("Password1")).thenReturn("encoded");
         when(userRepository.save(any())).thenReturn(testUser);
         when(employeeDetailsRepository.save(any())).thenReturn(testEmployee);
 
@@ -145,7 +145,7 @@ class AuthServiceTest {
     void register_duplicateEmail_throwsBadRequestException() {
         RegisterRequest req = new RegisterRequest();
         req.setEmail("alice@company.com");
-        req.setPassword("pass");
+        req.setPassword("Password1");
         req.setFirstName("Alice");
         req.setLastName("Smith");
         req.setRole(Role.EMPLOYEE);
@@ -161,7 +161,7 @@ class AuthServiceTest {
     void register_withManagerId_setsManager() {
         RegisterRequest req = new RegisterRequest();
         req.setEmail("new@company.com");
-        req.setPassword("pass");
+        req.setPassword("Password1");
         req.setFirstName("Bob");
         req.setLastName("Jones");
         req.setRole(Role.EMPLOYEE);
@@ -184,12 +184,15 @@ class AuthServiceTest {
 
     @Test
     void refreshToken_validToken_returnsNewTokens() {
-        testUser.setRefreshToken("old-refresh");
+        testUser.setRefreshToken("stored-hash");
 
-        when(userRepository.findByRefreshToken("old-refresh")).thenReturn(Optional.of(testUser));
+        when(tokenProvider.getUsernameFromTokenIgnoreExpiry("old-refresh")).thenReturn("alice@company.com");
+        when(userRepository.findByEmail("alice@company.com")).thenReturn(Optional.of(testUser));
         when(tokenProvider.validateToken("old-refresh")).thenReturn(true);
+        when(passwordEncoder.matches("old-refresh", "stored-hash")).thenReturn(true);
         when(tokenProvider.generateToken("alice@company.com")).thenReturn("new-access");
         when(tokenProvider.generateRefreshToken("alice@company.com")).thenReturn("new-refresh");
+        when(passwordEncoder.encode("new-refresh")).thenReturn("new-hash");
         when(userRepository.save(any())).thenReturn(testUser);
 
         LoginResponse response = authService.refreshToken("old-refresh");
@@ -200,7 +203,11 @@ class AuthServiceTest {
 
     @Test
     void refreshToken_invalidToken_throwsBadRequestException() {
-        when(userRepository.findByRefreshToken("bad-token")).thenReturn(Optional.empty());
+        testUser.setRefreshToken(null);
+
+        when(tokenProvider.getUsernameFromTokenIgnoreExpiry("bad-token")).thenReturn("alice@company.com");
+        when(userRepository.findByEmail("alice@company.com")).thenReturn(Optional.of(testUser));
+        when(tokenProvider.validateToken("bad-token")).thenReturn(true);
 
         assertThatThrownBy(() -> authService.refreshToken("bad-token"))
                 .isInstanceOf(BadRequestException.class)
@@ -209,9 +216,10 @@ class AuthServiceTest {
 
     @Test
     void refreshToken_expiredToken_throwsBadRequestException() {
-        testUser.setRefreshToken("expired-refresh");
+        testUser.setRefreshToken("stored-hash");
 
-        when(userRepository.findByRefreshToken("expired-refresh")).thenReturn(Optional.of(testUser));
+        when(tokenProvider.getUsernameFromTokenIgnoreExpiry("expired-refresh")).thenReturn("alice@company.com");
+        when(userRepository.findByEmail("alice@company.com")).thenReturn(Optional.of(testUser));
         when(tokenProvider.validateToken("expired-refresh")).thenReturn(false);
 
         assertThatThrownBy(() -> authService.refreshToken("expired-refresh"))
@@ -236,11 +244,12 @@ class AuthServiceTest {
     }
 
     @Test
-    void forgotPassword_unknownEmail_throwsResourceNotFoundException() {
+    void forgotPassword_unknownEmail_doesNothing() {
         when(userRepository.findByEmail("nobody@example.com")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.forgotPassword("nobody@example.com"))
-                .isInstanceOf(ResourceNotFoundException.class);
+        authService.forgotPassword("nobody@example.com");
+
+        verify(emailService, never()).sendPasswordResetEmail(anyString(), anyString());
     }
 
     // ── Reset Password ───────────────────────────────────────────────────────
@@ -251,14 +260,14 @@ class AuthServiceTest {
         testUser.setResetTokenExpiry(LocalDateTime.now().plusMinutes(30));
 
         when(userRepository.findByResetToken("valid-token")).thenReturn(Optional.of(testUser));
-        when(passwordEncoder.encode("newPassword")).thenReturn("encodedNew");
+        when(passwordEncoder.encode("newPassword1")).thenReturn("encodedNew");
         when(userRepository.save(any())).thenReturn(testUser);
 
-        authService.resetPassword("valid-token", "newPassword");
+        authService.resetPassword("valid-token", "newPassword1");
 
         assertThat(testUser.getResetToken()).isNull();
         assertThat(testUser.getResetTokenExpiry()).isNull();
-        verify(passwordEncoder).encode("newPassword");
+        verify(passwordEncoder).encode("newPassword1");
     }
 
     @Test

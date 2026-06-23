@@ -68,6 +68,38 @@ public class CourseService {
     }
 
     @Transactional(readOnly = true)
+    public List<CourseLearnerDTO> getAllEnrollments() {
+        return enrollmentRepository.findAll().stream()
+            .filter(e -> e.getEmployee() != null && e.getEmployee().isActive()
+                    && e.getEmployee().getUser() != null
+                    && e.getEmployee().getUser().getRole() != Role.ADMIN
+                    && e.getEmployee().getUser().getRole() != Role.DIRECTOR)
+            .map(e -> {
+                String certNo = certificateRepository
+                        .findByEmployeeIdAndCourseId(e.getEmployee().getId(), e.getCourse().getId())
+                        .map(Certificate::getCertificateNumber).orElse(null);
+                int pct = switch (e.getStatus()) {
+                    case COMPLETED   -> 100;
+                    case IN_PROGRESS -> 60;
+                    default          -> 0;
+                };
+                return CourseLearnerDTO.builder()
+                        .employeeId(e.getEmployee().getId())
+                        .employeeName(e.getEmployee().getFirstName() + " " + e.getEmployee().getLastName())
+                        .employeeCode(e.getEmployee().getEmployeeCode())
+                        .courseId(e.getCourse().getId())
+                        .courseTitle(e.getCourse().getTitle())
+                        .status(e.getStatus().name())
+                        .progressPercent(pct)
+                        .completionDate(e.getCompletionDate() != null
+                                ? e.getCompletionDate().format(DateTimeFormatter.ofPattern("MMM dd, yyyy")) : null)
+                        .certificateNumber(certNo)
+                        .examScore(e.getExamScore())
+                        .build();
+            }).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
     public List<CourseDTO> getAllCourses() {
         return courseRepository.findByActive(true).stream()
                 .map(c -> toDTO(c, null)).collect(Collectors.toList());
@@ -120,11 +152,17 @@ public class CourseService {
 
     @Transactional
     public void enrollEmployee(Long courseId, Long employeeId) {
+        EmployeeDetails employee = employeeDetailsRepository.findById(employeeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee", employeeId));
+        if (employee.getUser() != null) {
+            Role role = employee.getUser().getRole();
+            if (role == Role.ADMIN || role == Role.DIRECTOR) {
+                throw new BadRequestException("Admin and Director accounts cannot be enrolled in courses");
+            }
+        }
         if (enrollmentRepository.existsByEmployeeIdAndCourseId(employeeId, courseId)) {
             throw new BadRequestException("Already enrolled in this course");
         }
-        EmployeeDetails employee = employeeDetailsRepository.findById(employeeId)
-                .orElseThrow(() -> new ResourceNotFoundException("Employee", employeeId));
         Course course = findCourse(courseId);
         enrollmentRepository.save(Enrollment.builder()
                 .employee(employee).course(course).status(EnrollmentStatus.ENROLLED).build());
@@ -137,10 +175,23 @@ public class CourseService {
             throw new BadRequestException("Employee ID is required when not assigning to all employees");
         }
         Course course = findCourse(courseId);
-        List<EmployeeDetails> targets = assignAll
-                ? employeeDetailsRepository.findByActive(true)
-                : List.of(employeeDetailsRepository.findById(employeeId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Employee", employeeId)));
+        List<EmployeeDetails> targets;
+        if (assignAll) {
+            targets = employeeDetailsRepository.findByActive(true).stream()
+                    .filter(e -> e.getUser() == null
+                        || (e.getUser().getRole() != Role.ADMIN && e.getUser().getRole() != Role.DIRECTOR))
+                    .collect(Collectors.toList());
+        } else {
+            EmployeeDetails target = employeeDetailsRepository.findById(employeeId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Employee", employeeId));
+            if (target.getUser() != null) {
+                Role role = target.getUser().getRole();
+                if (role == Role.ADMIN || role == Role.DIRECTOR) {
+                    throw new BadRequestException("Admin and Director accounts cannot be assigned to courses");
+                }
+            }
+            targets = List.of(target);
+        }
 
         String courseLink = frontendBaseUrl + "/courses";
         LocalDate today   = LocalDate.now();
@@ -329,7 +380,10 @@ public class CourseService {
                 c.getEnrollments() != null ? c.getEnrollments() : List.of();
         List<com.emp.management.entity.Enrollment> teamEnrollments = all.stream()
                 .filter(e -> e.getEmployee() != null && e.getEmployee().isActive()
-                        && teamIds.contains(e.getEmployee().getId()))
+                        && teamIds.contains(e.getEmployee().getId())
+                        && (e.getEmployee().getUser() == null
+                            || (e.getEmployee().getUser().getRole() != Role.ADMIN
+                                && e.getEmployee().getUser().getRole() != Role.DIRECTOR)))
                 .collect(Collectors.toList());
 
         int completedCount  = (int) teamEnrollments.stream().filter(e -> e.getStatus() == EnrollmentStatus.COMPLETED).count();
@@ -382,7 +436,10 @@ public class CourseService {
         List<com.emp.management.entity.Enrollment> enrollments =
                 (c.getEnrollments() != null ? c.getEnrollments() : List.<com.emp.management.entity.Enrollment>of())
                 .stream()
-                .filter(e -> e.getEmployee() != null && e.getEmployee().isActive())
+                .filter(e -> e.getEmployee() != null && e.getEmployee().isActive()
+                        && (e.getEmployee().getUser() == null
+                            || (e.getEmployee().getUser().getRole() != Role.ADMIN
+                                && e.getEmployee().getUser().getRole() != Role.DIRECTOR)))
                 .collect(Collectors.toList());
 
         int completedCount = (int) enrollments.stream()

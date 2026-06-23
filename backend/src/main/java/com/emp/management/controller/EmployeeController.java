@@ -5,6 +5,7 @@ import com.emp.management.dto.RegisterRequest;
 import com.emp.management.service.EmployeeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -20,7 +21,7 @@ public class EmployeeController {
     private final EmployeeService employeeService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'ASSISTANT_MANAGER', 'HR', 'EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR', 'MANAGER', 'ASSISTANT_MANAGER', 'HR', 'EMPLOYEE')")
     public ResponseEntity<List<EmployeeDTO>> getAllEmployees(
             @RequestParam(required = false) String search,
             Authentication authentication) {
@@ -31,13 +32,13 @@ public class EmployeeController {
     }
 
     @GetMapping("/hr-users")
-    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR', 'HR')")
     public ResponseEntity<List<EmployeeDTO>> getHrUsers() {
         return ResponseEntity.ok(employeeService.getHrEmployees());
     }
 
     @PatchMapping("/{id}/assign-hr")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<EmployeeDTO> assignHr(@PathVariable Long id,
                                                  @RequestParam(required = false) Long hrId) {
         return ResponseEntity.ok(employeeService.assignHr(id, hrId));
@@ -59,7 +60,7 @@ public class EmployeeController {
     }
 
     @GetMapping("/ex")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<List<EmployeeDTO>> getExEmployees() {
         return ResponseEntity.ok(employeeService.getExEmployees());
     }
@@ -70,29 +71,30 @@ public class EmployeeController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<EmployeeDTO> createEmployee(@Valid @RequestBody RegisterRequest request,
                                                        Authentication authentication) {
-        return ResponseEntity.ok(employeeService.createEmployee(request, authentication.getName()));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(employeeService.createEmployee(request, authentication.getName()));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE')")
     public ResponseEntity<EmployeeDTO> updateEmployee(@PathVariable Long id,
-                                                       @RequestBody EmployeeDTO dto,
+                                                       @Valid @RequestBody EmployeeDTO dto,
                                                        Authentication authentication) {
         return ResponseEntity.ok(employeeService.updateEmployee(id, dto, authentication.getName()));
     }
 
     @PatchMapping("/{id}/toggle-status")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<String> toggleStatus(@PathVariable Long id) {
         employeeService.toggleEmployeeStatus(id);
         return ResponseEntity.ok("Status updated");
     }
 
     @PatchMapping("/{id}/clear-manager")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<String> clearManager(@PathVariable Long id) {
         employeeService.clearManager(id);
         return ResponseEntity.ok("Manager cleared");
@@ -104,7 +106,7 @@ public class EmployeeController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<String> deleteEmployee(@PathVariable Long id) {
         employeeService.deleteEmployee(id);
         return ResponseEntity.ok("Employee deactivated");

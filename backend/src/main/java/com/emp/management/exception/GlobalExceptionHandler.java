@@ -37,12 +37,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(LockedException.class)
     public ResponseEntity<ErrorResponse> handleLocked(LockedException ex) {
-        return buildError(HttpStatus.FORBIDDEN, "Your account has been deactivated. Please contact your administrator.");
+        // Return 401 with the same message as bad credentials — do not reveal that the account exists
+        return buildError(HttpStatus.UNAUTHORIZED, "Invalid email or password");
     }
 
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<ErrorResponse> handleDisabled(DisabledException ex) {
-        return buildError(HttpStatus.FORBIDDEN, "Your account has been deactivated. Please contact your administrator.");
+        return buildError(HttpStatus.UNAUTHORIZED, "Invalid email or password");
     }
 
     @ExceptionHandler(AccessDeniedException.class)

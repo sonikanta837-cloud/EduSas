@@ -23,7 +23,7 @@ const STATUS_CFG = {
 
 const CorrectionHistory = () => {
   const { user } = useSelector((s) => s.auth);
-  const isManagerOrAbove = ['ADMIN', 'HR', 'MANAGER', 'ASSISTANT_MANAGER'].includes(user?.role);
+  const isManagerOrAbove = ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER'].includes(user?.role);
 
   const [myRequests,   setMyRequests]   = useState([]);
   const [teamRequests, setTeamRequests] = useState([]);
@@ -108,7 +108,7 @@ const CorrectionHistory = () => {
       <Typography variant="h5" fontWeight={700} mb={3}>Timesheet Correction History</Typography>
 
       {/* ── My Requests — hidden for pure admin accounts ── */}
-      {user?.role !== 'ADMIN' && <Paper sx={{ mb: 3, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+      {user?.role !== 'ADMIN' && user?.role !== 'DIRECTOR' && <Paper sx={{ mb: 3, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
         <Box sx={{ px: 2.5, py: 1.75, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
           <Typography fontWeight={700} fontSize={14} color="#0f172a">My Correction Requests</Typography>
         </Box>
