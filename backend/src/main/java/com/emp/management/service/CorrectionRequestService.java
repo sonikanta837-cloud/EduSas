@@ -55,9 +55,25 @@ public class CorrectionRequestService {
 
     // ── Pending sessions for the popup ───────────────────────────────────────
 
+    @Transactional
     public List<AttendanceSessionDTO> getPendingSessions(String email) {
         EmployeeDetails employee = employeeDetailsRepository.findByUserEmail(email).orElse(null);
         if (employee == null) return List.of();
+
+        // Run detection inline so it works even when the scheduled cron didn't fire
+        // (e.g. Railway sleeping at midnight). Marks any past sessions missing a logout.
+        if (correctionEnabled) {
+            LocalDate todayIst = LocalDate.now(java.time.ZoneId.of("Asia/Kolkata"));
+            sessionRepository
+                    .findByWorkDateBeforeAndLogoutTimeIsNullAndStatus(todayIst, AttendanceSessionStatus.COMPLETE)
+                    .forEach(s -> {
+                        java.time.DayOfWeek dow = s.getWorkDate().getDayOfWeek();
+                        if (dow != java.time.DayOfWeek.SATURDAY && dow != java.time.DayOfWeek.SUNDAY) {
+                            s.setStatus(AttendanceSessionStatus.PENDING_LOGOUT_CONFIRMATION);
+                            sessionRepository.save(s);
+                        }
+                    });
+        }
 
         return sessionRepository
                 .findByEmployeeIdAndStatusOrderByWorkDateDesc(

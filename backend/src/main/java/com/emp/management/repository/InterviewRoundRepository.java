@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -27,4 +28,16 @@ public interface InterviewRoundRepository extends JpaRepository<InterviewRound, 
     List<InterviewRound> findByStatusOrderByScheduledAtAsc(RoundStatus status);
 
     long countByStatus(RoundStatus status);
+
+    @Query("SELECT r FROM InterviewRound r " +
+           "JOIN FETCH r.interviewer i " +
+           "JOIN FETCH i.user " +
+           "JOIN FETCH r.candidate " +
+           "WHERE r.status = :status " +
+           "AND r.reminderSent = false " +
+           "AND r.scheduledAt BETWEEN :from AND :to")
+    List<InterviewRound> findRoundsDueForReminder(
+            @Param("status") RoundStatus status,
+            @Param("from")   LocalDateTime from,
+            @Param("to")     LocalDateTime to);
 }

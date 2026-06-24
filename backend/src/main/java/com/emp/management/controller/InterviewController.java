@@ -3,6 +3,7 @@ package com.emp.management.controller;
 import com.emp.management.dto.InterviewAuditLogDTO;
 import com.emp.management.dto.InterviewCandidateDTO;
 import com.emp.management.dto.InterviewFeedbackDTO;
+import com.emp.management.dto.InterviewNotificationDTO;
 import com.emp.management.dto.InterviewRoundDTO;
 import com.emp.management.service.InterviewService;
 import lombok.RequiredArgsConstructor;
@@ -159,5 +160,34 @@ public class InterviewController {
     @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR', 'MANAGER', 'ASSISTANT_MANAGER', 'HR')")
     public ResponseEntity<List<InterviewAuditLogDTO>> getAuditLogsForCandidate(@PathVariable Long id) {
         return ResponseEntity.ok(interviewService.getAuditLogsForCandidate(id));
+    }
+
+    // ── Notifications ─────────────────────────────────────────────────────────
+
+    @GetMapping("/notifications")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<InterviewNotificationDTO>> getMyNotifications(Authentication auth) {
+        return ResponseEntity.ok(interviewService.getMyNotifications(auth.getName()));
+    }
+
+    @GetMapping("/notifications/unread-count")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, Long>> getUnreadCount(Authentication auth) {
+        return ResponseEntity.ok(Map.of("count", interviewService.getUnreadCount(auth.getName())));
+    }
+
+    @PostMapping("/notifications/mark-read")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> markAllRead(Authentication auth) {
+        interviewService.markAllRead(auth.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    // ── Calendar (.ics) download ──────────────────────────────────────────────
+
+    @GetMapping("/rounds/{id}/ics")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<byte[]> downloadRoundIcs(@PathVariable Long id, Authentication auth) {
+        return interviewService.downloadRoundIcs(id, auth.getName());
     }
 }

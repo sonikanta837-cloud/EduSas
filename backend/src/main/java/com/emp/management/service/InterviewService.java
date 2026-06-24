@@ -3,6 +3,7 @@ package com.emp.management.service;
 import com.emp.management.dto.InterviewAuditLogDTO;
 import com.emp.management.dto.InterviewCandidateDTO;
 import com.emp.management.dto.InterviewFeedbackDTO;
+import com.emp.management.dto.InterviewNotificationDTO;
 import com.emp.management.dto.InterviewRoundDTO;
 import com.emp.management.entity.*;
 import com.emp.management.exception.BadRequestException;
@@ -10,9 +11,13 @@ import com.emp.management.exception.ResourceNotFoundException;
 import com.emp.management.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -26,6 +31,7 @@ public class InterviewService {
     private final InterviewRoundRepository roundRepo;
     private final InterviewFeedbackRepository feedbackRepo;
     private final InterviewAuditLogRepository auditRepo;
+    private final InterviewNotificationRepository notifRepo;
     private final EmployeeDetailsRepository employeeRepo;
     private final UserRepository userRepo;
     private final EmailService emailService;
@@ -104,6 +110,14 @@ public class InterviewService {
     public void deleteCandidate(Long id, String callerEmail) {
         EmployeeDetails caller = getEmployeeByEmail(callerEmail);
         InterviewCandidate candidate = findCandidate(id);
+
+        // Delete notifications that reference this candidate's rounds before cascade-deleting rounds
+        List<Long> roundIds = roundRepo.findByCandidateIdOrderByRoundNumberAsc(id)
+                .stream().map(InterviewRound::getId).collect(Collectors.toList());
+        if (!roundIds.isEmpty()) {
+            notifRepo.deleteByRoundIdIn(roundIds);
+        }
+
         audit("CANDIDATE", id, "CANDIDATE_DELETED", caller, "Deleted candidate: " + candidate.getName());
         candidateRepo.delete(candidate);
     }
@@ -178,10 +192,24 @@ public class InterviewService {
               "Round " + nextRound + " (" + roundType + ") scheduled for " + candidate.getName()
               + " — Interviewer: " + interviewer.getFirstName() + " " + interviewer.getLastName());
 
-        // Email the interviewer
+        // In-app notification for the interviewer
+        notifRepo.save(InterviewNotification.builder()
+                .recipient(interviewer)
+                .round(round)
+                .title("Interview Assigned: " + candidate.getName())
+                .message("You have been assigned as interviewer for " + candidate.getName()
+                         + " (" + candidate.getPosition() + ") — "
+                         + roundType.name().replace("_", " ") + " Round"
+                         + (dto.getScheduledAt() != null ? " on " + dto.getScheduledAt().format(DT_FMT) : "")
+                         + (dto.getLocation() != null && !dto.getLocation().isBlank()
+                            ? " at " + dto.getLocation() : ""))
+                .build());
+
+        // Email with calendar invite (.ics attachment)
         try {
             String interviewerEmail = interviewer.getUser() != null ? interviewer.getUser().getEmail() : null;
             if (interviewerEmail != null) {
+                String assignedByName = caller.getFirstName() + " " + caller.getLastName();
                 emailService.sendInterviewAssignedEmail(
                         interviewerEmail,
                         interviewer.getFirstName() + " " + interviewer.getLastName(),
@@ -190,7 +218,11 @@ public class InterviewService {
                         roundType.name(),
                         dto.getScheduledAt() != null ? dto.getScheduledAt().format(DT_FMT) : "TBD",
                         dto.getLocation(),
-                        dto.getManagerNotes()
+                        dto.getManagerNotes(),
+                        round.getId(),
+                        dto.getScheduledAt(),
+                        dto.getDurationMinutes(),
+                        assignedByName
                 );
             }
         } catch (Exception e) {
@@ -429,6 +461,75 @@ public class InterviewService {
     public List<InterviewAuditLogDTO> getAuditLogsForCandidate(Long candidateId) {
         return auditRepo.findByEntityTypeAndEntityIdOrderByCreatedAtDesc("CANDIDATE", candidateId)
                 .stream().map(this::toAuditDTO).collect(Collectors.toList());
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Notifications
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public List<InterviewNotificationDTO> getMyNotifications(String callerEmail) {
+        EmployeeDetails emp = getEmployeeByEmail(callerEmail);
+        return notifRepo.findByRecipientIdOrderByCreatedAtDesc(emp.getId())
+                .stream().map(this::toNotifDTO).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public long getUnreadCount(String callerEmail) {
+        EmployeeDetails emp = getEmployeeByEmail(callerEmail);
+        return notifRepo.countByRecipientIdAndReadFalse(emp.getId());
+    }
+
+    @Transactional
+    public void markAllRead(String callerEmail) {
+        EmployeeDetails emp = getEmployeeByEmail(callerEmail);
+        notifRepo.markAllReadByRecipientId(emp.getId());
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // ICS download
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public ResponseEntity<byte[]> downloadRoundIcs(Long roundId, String callerEmail) {
+        InterviewRound round = findRound(roundId);
+        EmployeeDetails caller = getEmployeeByEmail(callerEmail);
+        String attendeeEmail = caller.getUser() != null ? caller.getUser().getEmail() : "";
+        String attendeeName  = caller.getFirstName() + " " + caller.getLastName();
+        InterviewCandidate c = round.getCandidate();
+        String ics = emailService.generateInterviewIcs(
+                round.getId(), attendeeEmail, attendeeName,
+                c.getName(), c.getPosition(),
+                round.getRoundType() != null ? round.getRoundType().name() : "INTERVIEW",
+                round.getScheduledAt(), round.getDurationMinutes(),
+                round.getLocation(), round.getManagerNotes(),
+                round.getAssignedBy() != null
+                        ? round.getAssignedBy().getFirstName() + " " + round.getAssignedBy().getLastName()
+                        : "EmpSAS");
+        byte[] bytes = ics.getBytes(StandardCharsets.UTF_8);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"interview-" + roundId + ".ics\"")
+                .contentType(MediaType.parseMediaType("text/calendar"))
+                .contentLength(bytes.length)
+                .body(bytes);
+    }
+
+    private InterviewNotificationDTO toNotifDTO(InterviewNotification n) {
+        InterviewRound r = n.getRound();
+        InterviewCandidate c = r != null ? r.getCandidate() : null;
+        return InterviewNotificationDTO.builder()
+                .id(n.getId())
+                .roundId(r != null ? r.getId() : null)
+                .title(n.getTitle())
+                .message(n.getMessage())
+                .read(n.isRead())
+                .createdAt(n.getCreatedAt())
+                .scheduledAt(r != null ? r.getScheduledAt() : null)
+                .candidateName(c != null ? c.getName() : null)
+                .candidatePosition(c != null ? c.getPosition() : null)
+                .roundType(r != null && r.getRoundType() != null ? r.getRoundType().name() : null)
+                .location(r != null ? r.getLocation() : null)
+                .build();
     }
 
     // ─────────────────────────────────────────────────────────────────────────

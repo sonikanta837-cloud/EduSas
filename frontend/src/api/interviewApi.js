@@ -27,4 +27,12 @@ export const interviewApi = {
   getStats: () => api.get('/interviews/stats'),
   getAuditLogs: () => api.get('/interviews/audit-logs'),
   getAuditLogsForCandidate: (id) => api.get(`/interviews/candidates/${id}/audit-logs`),
+
+  // Notifications
+  getMyNotifications: () => api.get('/interviews/notifications'),
+  getUnreadCount: () => api.get('/interviews/notifications/unread-count'),
+  markAllRead: () => api.post('/interviews/notifications/mark-read'),
+
+  // Calendar (.ics) download — use downloadIcs() helper in the component (needs auth header)
+  getRoundIcsUrl: (id) => `${process.env.REACT_APP_API_URL || '/api'}/interviews/rounds/${id}/ics`,
 };

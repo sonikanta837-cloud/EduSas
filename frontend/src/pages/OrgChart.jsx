@@ -46,6 +46,7 @@ import ChatIcon            from '@mui/icons-material/Chat';
 import { employeeApi }      from '../api/employeeApi';
 import { announcementApi }  from '../api/announcementApi';
 import { holidayApi }       from '../api/holidayApi';
+import { interviewApi }     from '../api/interviewApi';
 import { toast }            from 'react-toastify';
 
 // ── Layout constants ──────────────────────────────────────────────────────────
@@ -1647,12 +1648,19 @@ const CalendarTab = ({ employees }) => {
   const [year,     setYear]     = useState(now.getFullYear());
   const [month,    setMonth]    = useState(now.getMonth());
   const [holidays, setHolidays] = useState([]);
+  const [myRounds, setMyRounds] = useState([]);
 
   useEffect(() => {
     holidayApi.getMy(year)
       .then(list => setHolidays(list.filter(h => h.active)))
       .catch(() => {});
   }, [year]);
+
+  useEffect(() => {
+    interviewApi.getMyRounds()
+      .then(rounds => setMyRounds(rounds || []))
+      .catch(() => {});
+  }, []);
 
   // birthdays for current month
   const bdaysByDay = useMemo(() => {
@@ -1681,6 +1689,21 @@ const CalendarTab = ({ employees }) => {
     });
     return m;
   }, [holidays, month, year]);
+
+  // interview rounds for current month+year — scheduledAt is ISO datetime
+  const interviewsByDay = useMemo(() => {
+    const m = new Map();
+    myRounds.forEach((r) => {
+      if (!r.scheduledAt || r.status === 'CANCELLED') return;
+      const dt = new Date(r.scheduledAt);
+      if (dt.getFullYear() === year && dt.getMonth() === month) {
+        const d = dt.getDate();
+        if (!m.has(d)) m.set(d, []);
+        m.get(d).push(r);
+      }
+    });
+    return m;
+  }, [myRounds, month, year]);
 
   const firstDay    = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -1719,6 +1742,10 @@ const CalendarTab = ({ employees }) => {
             <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: '#fef9c3' }} />
             <Typography fontSize={11} color="text.secondary">Birthday</Typography>
           </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: '#dbeafe' }} />
+            <Typography fontSize={11} color="text.secondary">Interview</Typography>
+          </Box>
         </Box>
       </Box>
 
@@ -1733,10 +1760,11 @@ const CalendarTab = ({ employees }) => {
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0.5 }}>
         {cells.map((day, i) => {
           if (!day) return <Box key={`e${i}`} sx={{ minHeight: 76 }} />;
-          const isToday  = day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
-          const bdays    = bdaysByDay.get(day)   || [];
-          const hols     = holidaysByDay.get(day) || [];
-          const isHoliday = hols.length > 0;
+          const isToday    = day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
+          const bdays      = bdaysByDay.get(day)      || [];
+          const hols       = holidaysByDay.get(day)   || [];
+          const interviews = interviewsByDay.get(day) || [];
+          const isHoliday  = hols.length > 0;
           return (
             <Box key={day} sx={{
               minHeight: 76, p: '6px 8px', borderRadius: 1.5,
@@ -1765,6 +1793,21 @@ const CalendarTab = ({ employees }) => {
               ))}
               {bdays.length > 2 && (
                 <Typography fontSize={9} color="text.secondary">+{bdays.length - 2} more</Typography>
+              )}
+              {/* Interviews */}
+              {interviews.slice(0, 2).map((r) => {
+                const timeStr = new Date(r.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const label   = `${r.roundType?.replace('_', ' ')} — ${r.candidateName}`;
+                return (
+                  <Tooltip key={r.id} title={`📋 ${label} at ${timeStr}${r.location ? ` · ${r.location}` : ''}`} arrow>
+                    <Box sx={{ fontSize: 9.5, fontWeight: 600, bgcolor: '#dbeafe', color: '#1e40af', borderRadius: 0.5, px: 0.5, py: 0.1, mb: 0.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'default' }}>
+                      📋 {timeStr} {r.candidateName?.split(' ')[0]}
+                    </Box>
+                  </Tooltip>
+                );
+              })}
+              {interviews.length > 2 && (
+                <Typography fontSize={9} color="text.secondary">+{interviews.length - 2} more</Typography>
               )}
             </Box>
           );

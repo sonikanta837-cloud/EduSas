@@ -41,6 +41,9 @@ public class InterviewRound {
     @Column(columnDefinition = "VARCHAR(30)", nullable = false)
     private RoundStatus status;
 
+    @Column(nullable = false, columnDefinition = "BIT(1) NOT NULL DEFAULT 0")
+    private boolean reminderSent = false;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "interviewer_id")
     @ToString.Exclude

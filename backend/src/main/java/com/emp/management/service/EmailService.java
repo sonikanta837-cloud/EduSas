@@ -3,14 +3,17 @@ package com.emp.management.service;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -80,8 +83,10 @@ public class EmailService {
             h.setText(html, true);
             mailSender.send(msg);
         } catch (Exception e) {
-            log.error("Failed to send email to {}: {}", to, e.getMessage());
-            throw new RuntimeException("Email send failed", e);
+            Throwable root = e;
+            while (root.getCause() != null) root = root.getCause();
+            log.error("SMTP send failed to {} — {}: {}", to, root.getClass().getSimpleName(), root.getMessage());
+            throw new RuntimeException("Email send failed: " + root.getMessage(), e);
         }
     }
 
@@ -120,7 +125,7 @@ public class EmailService {
             log.info("Password reset email sent to {}", to);
         } catch (Exception e) {
             log.error("Failed to send reset email to {}: {}", to, e.getMessage());
-            throw new RuntimeException("Failed to send reset email");
+            throw new RuntimeException("Failed to send reset email: " + e.getMessage(), e);
         }
     }
 
@@ -713,8 +718,10 @@ public class EmailService {
 
     public void sendInterviewAssignedEmail(String to, String interviewerName,
                                            String candidateName, String candidatePosition,
-                                           String roundType, String scheduledAt,
-                                           String location, String managerNotes) {
+                                           String roundType, String scheduledAtFormatted,
+                                           String location, String managerNotes,
+                                           Long roundId, LocalDateTime scheduledAt,
+                                           Integer durationMinutes, String assignedByName) {
         String body =
                 "<p>Dear <strong>" + interviewerName + "</strong>,</p>" +
                         "<p>You have been assigned to conduct an interview. Please find the details below:</p>" +
@@ -722,19 +729,92 @@ public class EmailService {
                         row("Candidate",     candidateName) +
                         row("Position",      candidatePosition) +
                         row("Round Type",    roundType.replace("_", " ")) +
-                        row("Scheduled At",  scheduledAt) +
-                        row("Location/Link", location) +
-                        row("Notes",         managerNotes) +
+                        row("Scheduled At",  scheduledAtFormatted) +
+                        row("Location/Link", location != null ? location : "—") +
+                        row("Notes",         managerNotes != null ? managerNotes : "—") +
                         tableClose() +
+                        "<p style='margin:16px 0;font-size:13px;color:#475569;'>" +
+                        "&#128197; A calendar invite is attached. Open it to add this interview to your calendar with reminders.</p>" +
                         note("Please log in to EmpSAS to view full candidate details and submit your feedback after the interview.");
 
+        String subject = "Interview Assignment: " + candidateName + " – " + roundType.replace("_", " ") + " Round – EmpSAS";
+        String html    = wrap("&#128101;", "Interview Round Assignment", body);
+        String ics     = generateInterviewIcs(roundId, to, interviewerName, candidateName,
+                                              candidatePosition, roundType, scheduledAt,
+                                              durationMinutes, location, managerNotes, assignedByName);
         try {
-            send(to, null, "Interview Assignment: " + candidateName + " – " + roundType.replace("_", " ") + " Round – EmpSAS",
-                    wrap("&#128101;", "Interview Round Assignment", body));
-            log.info("Interview assignment email sent to {}", to);
+            sendWithCalendarAttachment(to, subject, html, ics);
+            log.info("Interview assignment email with calendar invite sent to {}", to);
         } catch (Exception e) {
             log.error("Failed to send interview assignment email to {}: {}", to, e.getMessage());
         }
+    }
+
+    /** Builds a VCALENDAR/VEVENT ICS string for an interview round. */
+    public String generateInterviewIcs(Long roundId, String attendeeEmail, String attendeeName,
+                                        String candidateName, String candidatePosition,
+                                        String roundType, LocalDateTime scheduledAt,
+                                        Integer durationMinutes, String location,
+                                        String notes, String organizerName) {
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss");
+        String now   = LocalDateTime.now().format(fmt);
+        String start = scheduledAt != null ? scheduledAt.format(fmt) : LocalDateTime.now().plusDays(1).format(fmt);
+        int    mins  = durationMinutes != null && durationMinutes > 0 ? durationMinutes : 60;
+        String end   = (scheduledAt != null ? scheduledAt.plusMinutes(mins) : LocalDateTime.now().plusDays(1).plusHours(1)).format(fmt);
+
+        String uid     = "interview-round-" + roundId + "-" + UUID.randomUUID() + "@empsas";
+        String summary = "Interview: " + candidateName + " – " + roundType.replace("_", " ") + " Round";
+        String desc    = "Candidate: " + candidateName + "\\n" +
+                         "Position: " + candidatePosition + "\\n" +
+                         "Round Type: " + roundType.replace("_", " ") + "\\n" +
+                         "Assigned By: " + (organizerName != null ? organizerName : "EmpSAS") +
+                         (notes != null && !notes.isBlank() ? "\\nNotes: " + notes : "");
+
+        StringBuilder ics = new StringBuilder();
+        ics.append("BEGIN:VCALENDAR\r\n");
+        ics.append("VERSION:2.0\r\n");
+        ics.append("PRODID:-//EmpSAS//Interview Management//EN\r\n");
+        ics.append("METHOD:REQUEST\r\n");
+        ics.append("CALSCALE:GREGORIAN\r\n");
+        ics.append("BEGIN:VEVENT\r\n");
+        ics.append("UID:").append(uid).append("\r\n");
+        ics.append("DTSTAMP:").append(now).append("\r\n");
+        ics.append("DTSTART:").append(start).append("\r\n");
+        ics.append("DTEND:").append(end).append("\r\n");
+        ics.append("SUMMARY:").append(summary).append("\r\n");
+        ics.append("DESCRIPTION:").append(desc).append("\r\n");
+        if (location != null && !location.isBlank()) {
+            ics.append("LOCATION:").append(location).append("\r\n");
+        }
+        ics.append("ORGANIZER;CN=EmpSAS:mailto:noreply@empsas.com\r\n");
+        ics.append("ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;CN=")
+           .append(attendeeName).append(":mailto:").append(attendeeEmail).append("\r\n");
+        ics.append("BEGIN:VALARM\r\n");
+        ics.append("TRIGGER:-PT1H\r\n");
+        ics.append("ACTION:DISPLAY\r\n");
+        ics.append("DESCRIPTION:Interview in 1 hour – ").append(candidateName).append("\r\n");
+        ics.append("END:VALARM\r\n");
+        ics.append("BEGIN:VALARM\r\n");
+        ics.append("TRIGGER:-PT15M\r\n");
+        ics.append("ACTION:DISPLAY\r\n");
+        ics.append("DESCRIPTION:Interview in 15 minutes – ").append(candidateName).append("\r\n");
+        ics.append("END:VALARM\r\n");
+        ics.append("END:VEVENT\r\n");
+        ics.append("END:VCALENDAR\r\n");
+        return ics.toString();
+    }
+
+    /** Sends an HTML email with a .ics calendar invite attached. */
+    private void sendWithCalendarAttachment(String to, String subject, String html, String icsContent) throws Exception {
+        MimeMessage msg = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(msg, true, "UTF-8");
+        helper.setTo(to);
+        helper.setSubject(subject);
+        helper.setText(html, true);
+        byte[] icsBytes = icsContent.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        helper.addAttachment("interview-invite.ics",
+                new ByteArrayResource(icsBytes), "text/calendar; method=REQUEST");
+        mailSender.send(msg);
     }
 
     // ── Interview: feedback submitted (To: manager) ───────────────────────────
@@ -807,6 +887,36 @@ public class EmailService {
             log.info("Candidate decision email sent for {}", candidateName);
         } catch (Exception e) {
             log.error("Failed to send candidate decision email: {}", e.getMessage());
+        }
+    }
+
+    // ── Interview: 30-minute reminder (To: interviewer) ───────────────────────
+
+    public void sendInterviewReminderEmail(String to, String interviewerName,
+                                           String candidateName, String candidatePosition,
+                                           String roundType, LocalDateTime scheduledAt,
+                                           String location) {
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
+        String timeStr = scheduledAt != null ? scheduledAt.format(fmt) : "—";
+
+        String body =
+                "<p>Dear <strong>" + interviewerName + "</strong>,</p>" +
+                "<p>&#9203; This is a reminder that your interview is starting in <strong>30 minutes</strong>.</p>" +
+                tableOpen() +
+                row("Candidate",     candidateName) +
+                row("Position",      candidatePosition) +
+                row("Round Type",    roundType.replace("_", " ")) +
+                row("Scheduled At",  timeStr) +
+                row("Location/Link", location != null && !location.isBlank() ? location : "—") +
+                tableClose() +
+                note("Please log in to EmpSAS to review the candidate profile before the interview.");
+
+        String subject = "Reminder: Interview in 30 Minutes — " + candidateName + " (" + roundType.replace("_", " ") + ") – EmpSAS";
+        try {
+            send(to, null, subject, wrap("&#128276;", "Interview Reminder", body));
+            log.info("Interview reminder email sent to {}", to);
+        } catch (Exception e) {
+            log.error("Failed to send interview reminder email to {}: {}", to, e.getMessage());
         }
     }
 }

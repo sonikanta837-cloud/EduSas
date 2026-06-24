@@ -9,26 +9,30 @@ import {
   MenuItem, Grid, Rating, LinearProgress, Collapse, Avatar,
   Radio, RadioGroup, FormControlLabel, FormLabel, FormControl
 } from '@mui/material';
-import AddIcon            from '@mui/icons-material/Add';
-import SearchIcon         from '@mui/icons-material/Search';
-import ArrowBackIcon      from '@mui/icons-material/ArrowBack';
-import EditIcon           from '@mui/icons-material/Edit';
-import DeleteIcon         from '@mui/icons-material/Delete';
-import PersonAddIcon      from '@mui/icons-material/PersonAdd';
-import CheckCircleIcon    from '@mui/icons-material/CheckCircle';
-import CancelIcon         from '@mui/icons-material/Cancel';
-import PauseCircleIcon    from '@mui/icons-material/PauseCircle';
-import ExpandMoreIcon     from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon     from '@mui/icons-material/ExpandLess';
-import WorkIcon           from '@mui/icons-material/Work';
-import CalendarMonthIcon  from '@mui/icons-material/CalendarMonth';
-import LocationOnIcon     from '@mui/icons-material/LocationOn';
-import AccessTimeIcon     from '@mui/icons-material/AccessTime';
-import StarIcon           from '@mui/icons-material/Star';
-import AssessmentIcon     from '@mui/icons-material/Assessment';
-import HistoryIcon        from '@mui/icons-material/History';
-import PlayArrowIcon      from '@mui/icons-material/PlayArrow';
-import RefreshIcon        from '@mui/icons-material/Refresh';
+import AddIcon              from '@mui/icons-material/Add';
+import SearchIcon           from '@mui/icons-material/Search';
+import ArrowBackIcon        from '@mui/icons-material/ArrowBack';
+import EditIcon             from '@mui/icons-material/Edit';
+import DeleteIcon           from '@mui/icons-material/Delete';
+import PersonAddIcon        from '@mui/icons-material/PersonAdd';
+import CheckCircleIcon      from '@mui/icons-material/CheckCircle';
+import CancelIcon           from '@mui/icons-material/Cancel';
+import PauseCircleIcon      from '@mui/icons-material/PauseCircle';
+import ExpandMoreIcon       from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon       from '@mui/icons-material/ExpandLess';
+import WorkIcon             from '@mui/icons-material/Work';
+import CalendarMonthIcon    from '@mui/icons-material/CalendarMonth';
+import LocationOnIcon       from '@mui/icons-material/LocationOn';
+import AccessTimeIcon       from '@mui/icons-material/AccessTime';
+import StarIcon             from '@mui/icons-material/Star';
+import AssessmentIcon       from '@mui/icons-material/Assessment';
+import HistoryIcon          from '@mui/icons-material/History';
+import PlayArrowIcon        from '@mui/icons-material/PlayArrow';
+import RefreshIcon          from '@mui/icons-material/Refresh';
+import NotificationsIcon    from '@mui/icons-material/Notifications';
+import DownloadIcon         from '@mui/icons-material/Download';
+import TodayIcon            from '@mui/icons-material/Today';
+import Badge                from '@mui/material/Badge';
 import { interviewApi }  from '../api/interviewApi';
 import { employeeApi }   from '../api/employeeApi';
 import { toast }         from 'react-toastify';
@@ -166,12 +170,38 @@ const InterviewsPage = () => {
   const [myRoundFilter,   setMyRoundFilter]   = useState('ALL');
   const [pipelineFilter,  setPipelineFilter]  = useState('ALL');
 
+  /* ── notifications ────────────────────────────────────────────────────── */
+  const [notifications,    setNotifications]    = useState([]);
+  const [unreadCount,      setUnreadCount]      = useState(0);
+  const [notifOpen,        setNotifOpen]        = useState(false);
+
+  const downloadIcs = async (roundId) => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const base = process.env.REACT_APP_API_URL || '/api';
+      const res = await fetch(`${base}/interviews/rounds/${roundId}/ics`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `interview-${roundId}.ics`; a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Could not download calendar invite');
+    }
+  };
+
   /* ── init ─────────────────────────────────────────────────────────────── */
   useEffect(() => {
     const init = async () => {
-      // Fetch myRounds independently so a failure in management APIs doesn't wipe it out
+      // Fetch myRounds and notifications independently
       const myRoundsPromise = interviewApi.getMyRounds()
         .then(r => setMyRounds(Array.isArray(r) ? r : []))
+        .catch(() => {});
+      interviewApi.getMyNotifications()
+        .then(n => { setNotifications(Array.isArray(n) ? n : []); setUnreadCount((Array.isArray(n) ? n : []).filter(x => !x.read).length); })
         .catch(() => {});
 
       if (canManage) {
@@ -1557,6 +1587,96 @@ const InterviewsPage = () => {
       {/* ════════════════════════════════════════════════════════════════════ */}
       {tab === 'my-rounds' && (
         <Box>
+          {/* Notification bell + panel */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+            <Tooltip title={unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}` : 'Notifications'}>
+              <IconButton onClick={async () => {
+                setNotifOpen(o => !o);
+                if (unreadCount > 0) {
+                  await interviewApi.markAllRead().catch(() => {});
+                  setUnreadCount(0);
+                  setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+                }
+              }}>
+                <Badge badgeContent={unreadCount} color="error">
+                  <NotificationsIcon sx={{ color: '#1e3a5f' }} />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+          </Box>
+
+          {/* Notification panel */}
+          {notifOpen && (
+            <Card sx={{ mb: 3, border: '1px solid #e2e8f0', borderRadius: 3 }}>
+              <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography fontWeight={700} fontSize={14}>Interview Notifications</Typography>
+                <IconButton size="small" onClick={() => setNotifOpen(false)}><CancelIcon fontSize="small" /></IconButton>
+              </Box>
+              {notifications.length === 0 ? (
+                <Box sx={{ py: 3, textAlign: 'center' }}>
+                  <Typography variant="body2" color="text.secondary">No notifications yet</Typography>
+                </Box>
+              ) : (
+                <Box sx={{ maxHeight: 320, overflowY: 'auto' }}>
+                  {notifications.map(n => (
+                    <Box key={n.id} sx={{ px: 2, py: 1.5, borderBottom: '1px solid #f1f5f9',
+                      bgcolor: n.read ? '#fff' : '#eff6ff' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Typography variant="body2" fontWeight={700}>{n.title}</Typography>
+                        {!n.read && <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#3b82f6', mt: 0.5 }} />}
+                      </Box>
+                      <Typography variant="caption" color="text.secondary">{n.message}</Typography>
+                      {n.scheduledAt && (
+                        <Typography variant="caption" display="block" color="primary" mt={0.5}>
+                          {new Date(n.scheduledAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                        </Typography>
+                      )}
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Card>
+          )}
+
+          {/* Today's interviews banner */}
+          {(() => {
+            const today = new Date(); today.setHours(0,0,0,0);
+            const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+            const todayRounds = myRounds.filter(r => {
+              if (!r.scheduledAt || r.status === 'CANCELLED') return false;
+              const d = new Date(r.scheduledAt); return d >= today && d < tomorrow;
+            });
+            if (todayRounds.length === 0) return null;
+            return (
+              <Card sx={{ mb: 3, border: '2px solid #f59e0b', bgcolor: '#fffbeb', borderRadius: 3 }}>
+                <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <TodayIcon sx={{ color: '#d97706' }} />
+                  <Typography fontWeight={700} color="warning.dark">
+                    Today's Interviews ({todayRounds.length})
+                  </Typography>
+                </Box>
+                <Divider />
+                {todayRounds.map(r => (
+                  <Box key={r.id} sx={{ px: 2, py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    borderBottom: '1px solid #fde68a' }}>
+                    <Box>
+                      <Typography variant="body2" fontWeight={700}>{r.candidateName}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {r.roundType?.replace('_',' ')} · {new Date(r.scheduledAt).toLocaleTimeString('en-IN', { timeStyle: 'short' })}
+                        {r.location ? ` · ${r.location}` : ''}
+                      </Typography>
+                    </Box>
+                    <Tooltip title="Download calendar invite (.ics)">
+                      <IconButton size="small" onClick={() => downloadIcs(r.id)} sx={{ color: '#d97706' }}>
+                        <DownloadIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                ))}
+              </Card>
+            );
+          })()}
+
           {/* Filter chips */}
           <Box sx={{ display: 'flex', gap: 1, mb: 3, flexWrap: 'wrap' }}>
             {[
@@ -1668,7 +1788,7 @@ const InterviewsPage = () => {
                       </CardContent>
 
                       {/* Card actions */}
-                      <Box sx={{ p: 2, pt: 0 }}>
+                      <Box sx={{ p: 2, pt: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
                         {round.status === 'SCHEDULED' && (
                           <Button fullWidth variant="contained" startIcon={<PlayArrowIcon />}
                             onClick={() => handleStartRound(round.id)}
@@ -1688,6 +1808,14 @@ const InterviewsPage = () => {
                             onClick={() => navigate(`/interviews/feedback/${round.id}`, { state: { round, existingFeedback: round.feedbacks[0] } })}
                             sx={{ textTransform: 'none' }}>
                             Edit Feedback
+                          </Button>
+                        )}
+                        {round.status !== 'CANCELLED' && round.scheduledAt && (
+                          <Button fullWidth variant="outlined" size="small" startIcon={<DownloadIcon />}
+                            onClick={() => downloadIcs(round.id)}
+                            sx={{ textTransform: 'none', borderColor: '#94a3b8', color: '#475569',
+                              '&:hover': { borderColor: '#1e3a5f', color: '#1e3a5f' } }}>
+                            Add to Calendar
                           </Button>
                         )}
                         {round.status === 'CANCELLED' && (

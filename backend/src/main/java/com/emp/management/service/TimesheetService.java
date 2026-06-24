@@ -507,14 +507,15 @@ public class TimesheetService {
         );
     }
 
-    // ── Midnight: mark sessions with missing logout as PENDING_LOGOUT_CONFIRMATION ─
+    // ── Hourly: mark sessions with missing logout as PENDING_LOGOUT_CONFIRMATION ─
+    // Runs every hour so Railway sleeping at midnight doesn't skip the detection.
 
-    @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Kolkata")
+    @Scheduled(cron = "0 0 * * * *", zone = "Asia/Kolkata")
     @Transactional
     public void runMissingLogoutDetection() {
         if (!correctionEnabled) return;
 
-        // Find past sessions (before today) with no logout that haven't been flagged yet
+        // Find past sessions (before today IST) with no logout that haven't been flagged yet
         List<AttendanceSession> openSessions = sessionRepository
                 .findByWorkDateBeforeAndLogoutTimeIsNullAndStatus(
                         LocalDate.now(java.time.ZoneId.of("Asia/Kolkata")), AttendanceSessionStatus.COMPLETE);
