@@ -242,12 +242,14 @@ public class CorrectionRequestService {
                 .stream().map(this::toDTO).collect(Collectors.toList());
     }
 
-    public List<CorrectionRequestDTO> getAllPending() {
+    public List<CorrectionRequestDTO> getAllPending(String callerEmail) {
         return correctionRequestRepository.findByStatusOrderByCreatedAtDesc(CorrectionStatus.PENDING_MANAGER_APPROVAL)
                 .stream()
                 .filter(r -> r.getEmployee().getUser() == null
                         || (r.getEmployee().getUser().getRole() != Role.ADMIN
                             && r.getEmployee().getUser().getRole() != Role.DIRECTOR))
+                .filter(r -> r.getEmployee().getUser() == null
+                        || !r.getEmployee().getUser().getEmail().equalsIgnoreCase(callerEmail))
                 .map(this::toDTO).collect(Collectors.toList());
     }
 

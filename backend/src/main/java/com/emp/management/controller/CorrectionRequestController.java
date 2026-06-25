@@ -62,8 +62,8 @@ public class CorrectionRequestController {
 
     @GetMapping("/pending")
     @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR')")
-    public ResponseEntity<List<CorrectionRequestDTO>> getAllPending() {
-        return ResponseEntity.ok(correctionRequestService.getAllPending());
+    public ResponseEntity<List<CorrectionRequestDTO>> getAllPending(Authentication auth) {
+        return ResponseEntity.ok(correctionRequestService.getAllPending(auth.getName()));
     }
 
     // ── Approve ──────────────────────────────────────────────────────────────
