@@ -296,6 +296,7 @@ const AttendancePage = () => {
 
   // Correction history (for this employee)
   const [myCorrections,    setMyCorrections]    = useState([]);
+  const [ownCorrections,   setOwnCorrections]   = useState([]);
   const [reviewOpen,       setReviewOpen]       = useState(false);
   const [reviewTarget,     setReviewTarget]     = useState(null);
   const [reviewAction,     setReviewAction]     = useState('approve');
@@ -388,12 +389,15 @@ const AttendancePage = () => {
 
   useEffect(() => {
     if (activeTab !== 1) return;
-    const loadFn = isManagerOrAbove
-      ? (user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER'
-          ? correctionApi.getPendingTeam
-          : correctionApi.getPending)
-      : correctionApi.getMy;
-    loadFn().then(data => setMyCorrections(Array.isArray(data) ? data : [])).catch(() => {});
+    if (isManagerOrAbove) {
+      const teamFn = (user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER')
+        ? correctionApi.getPendingTeam
+        : correctionApi.getPending;
+      teamFn().then(data => setMyCorrections(Array.isArray(data) ? data : [])).catch(() => {});
+      correctionApi.getMy().then(data => setOwnCorrections(Array.isArray(data) ? data : [])).catch(() => {});
+    } else {
+      correctionApi.getMy().then(data => setMyCorrections(Array.isArray(data) ? data : [])).catch(() => {});
+    }
   }, [activeTab, isManagerOrAbove, user?.role]);
 
   const openReview = (req, action) => {
@@ -646,6 +650,61 @@ const AttendancePage = () => {
       {/* ── Tab 1: Correction History ── */}
       {activeTab === 1 && (
         <Box>
+          {/* My own correction requests (visible to manager-and-above who also have their own requests) */}
+          {isManagerOrAbove && (
+            <Paper sx={{ mb: 3, overflow: 'hidden', border: '1px solid #e2e8f0', borderRadius: 2 }}>
+              <Box sx={{ px: 2.5, py: 1.75, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0',
+                display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Typography fontWeight={700} fontSize={14} color="#0f172a">My Correction Requests</Typography>
+                {ownCorrections.length > 0 && (
+                  <Chip label={ownCorrections.length} size="small"
+                    sx={{ bgcolor: '#eff6ff', color: '#1d4ed8', fontWeight: 700, fontSize: 11, height: 20 }} />
+                )}
+              </Box>
+              {ownCorrections.length === 0 ? (
+                <Box sx={{ py: 4, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                  No correction requests submitted yet
+                </Box>
+              ) : (
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                      {['Date', 'First Login', 'Requested Logout', 'Reason', 'Submitted', 'Status', 'Resolved By', 'Remarks'].map(h => (
+                        <TableCell key={h} sx={{ fontWeight: 700, fontSize: 12, color: '#374151', py: 1.25 }}>{h}</TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {ownCorrections.map(r => {
+                      const cfg = STATUS_CFG[r.status] || STATUS_CFG.PENDING_MANAGER_APPROVAL;
+                      return (
+                        <TableRow key={r.id} hover sx={{ '&:last-child td': { border: 0 } }}>
+                          <TableCell sx={{ fontSize: 13, fontWeight: 600 }}>{dayjs(r.workDate).format('DD MMM YYYY')}</TableCell>
+                          <TableCell sx={{ fontSize: 13 }}>{r.firstLoginTime?.slice(0,5) || r.loginTime?.slice(0,5) || '—'}</TableCell>
+                          <TableCell sx={{ fontSize: 13 }}>{r.requestedLogoutTime?.slice(0,5) || '—'}</TableCell>
+                          <TableCell sx={{ maxWidth: 160 }}>
+                            <Typography noWrap sx={{ fontSize: 12, color: '#64748b', maxWidth: 160 }}>{r.reason}</Typography>
+                          </TableCell>
+                          <TableCell sx={{ fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                            {r.createdAt ? dayjs(r.createdAt).format('DD MMM, HH:mm') : '—'}
+                          </TableCell>
+                          <TableCell>
+                            <Chip label={cfg.label} size="small"
+                              sx={{ fontSize: 11, fontWeight: 700, bgcolor: cfg.bg, color: cfg.color }} />
+                          </TableCell>
+                          <TableCell sx={{ fontSize: 12, color: '#64748b' }}>{r.resolvedBy || '—'}</TableCell>
+                          <TableCell sx={{ fontSize: 12, color: '#64748b', maxWidth: 160 }}>
+                            <Typography noWrap sx={{ fontSize: 12, maxWidth: 160 }}>{r.resolverComment || '—'}</Typography>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </Paper>
+          )}
+
           {/* Correction requests + audit log */}
           <Paper sx={{ mb: 3, overflow: 'hidden', border: '1px solid #e2e8f0', borderRadius: 2 }}>
             <Box sx={{ px: 2.5, py: 1.75, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0',

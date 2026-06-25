@@ -80,6 +80,7 @@ public class CorrectionRequestService {
                         employee.getId(), AttendanceSessionStatus.PENDING_LOGOUT_CONFIRMATION)
                 .stream()
                 .filter(s -> ChronoUnit.DAYS.between(s.getWorkDate(), LocalDate.now()) <= correctionWindowDays)
+                .filter(s -> !correctionRequestRepository.existsBySessionIdAndStatus(s.getId(), CorrectionStatus.PENDING_MANAGER_APPROVAL))
                 .map(this::toSessionDTO)
                 .collect(Collectors.toList());
     }
