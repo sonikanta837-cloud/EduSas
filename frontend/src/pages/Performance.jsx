@@ -981,7 +981,7 @@ const PerformancePage = () => {
                 isManager={isManager}
                 myEmployeeId={myEmployee?.id}
                 onViewDetails={rev => { setSelectedRev(rev); setDetailOpen(true); }}
-                onEdit={rev => { setEditForm({ rating: rev.rating, comments: rev.comments || '', strengths: rev.strengths || '', areasOfImprovement: rev.areasOfImprovement || '', reviewDate: rev.reviewDate || new Date().toISOString().split('T')[0], reviewPeriod: rev.reviewPeriod || '' }); setEditTarget(rev); setEditOpen(true); }}
+                onEdit={rev => { setEditForm({ employeeId: rev.employeeId, reviewerId: rev.reviewerId, rating: rev.rating, comments: rev.comments || '', strengths: rev.strengths || '', areasOfImprovement: rev.areasOfImprovement || '', reviewDate: rev.reviewDate || new Date().toISOString().split('T')[0], reviewPeriod: rev.reviewPeriod || '' }); setEditTarget(rev); setEditOpen(true); }}
                 onDelete={rev => setDeleteTarget(rev)}
               />
             </Grid>

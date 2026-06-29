@@ -704,7 +704,6 @@ const TimesheetTab = ({ employees, user }) => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: '#f1f5f9' }}>
-                <TableCell sx={hdrCell}>#</TableCell>
                 <TableCell sx={hdrCell}>Employee</TableCell>
                 <TableCell sx={hdrCell}>Project Name</TableCell>
                 <TableCell sx={hdrCell}>Time Spent</TableCell>
@@ -717,13 +716,13 @@ const TimesheetTab = ({ employees, user }) => {
             <TableBody>
               {loading && rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                     <CircularProgress size={32} />
                   </TableCell>
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                     No active employees found
                   </TableCell>
                 </TableRow>
@@ -738,11 +737,6 @@ const TimesheetTab = ({ employees, user }) => {
                   return (
                     <TableRow key={`${r._emp.id}-${i}`} hover sx={{ bgcolor: bgColor }}>
                       {r._first && (
-                        <TableCell rowSpan={r._rowSpan || 1} sx={{ ...cell, color: '#94a3b8', verticalAlign: 'middle' }}>
-                          {serial}
-                        </TableCell>
-                      )}
-                      {r._first && (
                         <TableCell rowSpan={r._rowSpan || 1} sx={{ ...cell, verticalAlign: 'middle' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Avatar sx={{ width: 28, height: 28, bgcolor: '#14b8a6', fontSize: '0.72rem', flexShrink: 0 }}>
@@ -751,9 +745,6 @@ const TimesheetTab = ({ employees, user }) => {
                             <Box>
                               <Typography variant="body2" fontWeight={600} sx={{ fontSize: 12.5 }}>
                                 {r._emp.fullName}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
-                                {r._emp.employeeCode}
                               </Typography>
                             </Box>
                           </Box>
@@ -869,6 +860,7 @@ const PerformanceTab = ({ employees }) => {
   const [loaded,    setLoaded]    = useState(false);
   const [perfPage,  setPerfPage]  = useState(0);
   const [perfRpp,   setPerfRpp]   = useState(10);
+  const [expandedComments, setExpandedComments] = useState(new Set());
 
   useEffect(() => {
     if (loaded) return;
@@ -973,10 +965,10 @@ const PerformanceTab = ({ employees }) => {
             <TableHead>
               <TableRow sx={{ bgcolor: '#f1f5f9' }}>
                 <TableCell sx={hdrCell}>Employee</TableCell>
-                <TableCell sx={{ ...hdrCell, textAlign: 'center' }}>{selectedQ} Rating</TableCell>
+                <TableCell sx={{ ...hdrCell, textAlign: 'center' }}>Rating</TableCell>
                 <TableCell sx={hdrCell}>Comments</TableCell>
                 <TableCell sx={hdrCell}>Strengths</TableCell>
-                <TableCell sx={hdrCell}>Area of Improvement</TableCell>
+                <TableCell sx={hdrCell}>Improvement Area</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1000,9 +992,6 @@ const PerformanceTab = ({ employees }) => {
                           <Typography variant="body2" fontWeight={600} sx={{ fontSize: 12.5 }}>
                             {emp.fullName}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
-                            {emp.employeeCode}
-                          </Typography>
                         </Box>
                       </Box>
                     </TableCell>
@@ -1015,10 +1004,36 @@ const PerformanceTab = ({ employees }) => {
                         <Typography variant="caption" color="#cbd5e1">—</Typography>
                       )}
                     </TableCell>
-                    <TableCell sx={{ ...cell, maxWidth: 220, whiteSpace: 'normal', lineHeight: 1.5 }}>
-                      {review?.comments
-                        ? <Typography variant="body2" sx={{ fontSize: 12 }}>{review.comments}</Typography>
-                        : <Typography variant="caption" color="text.secondary">—</Typography>}
+                    <TableCell sx={{ ...cell, whiteSpace: 'normal', lineHeight: 1.5 }}>
+                      {review?.comments ? (() => {
+                        const isExpanded = expandedComments.has(emp.id);
+                        const isLong = review.comments.length > 45;
+                        return (
+                          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, flexWrap: 'wrap' }}>
+                            <Typography variant="body2" sx={{ fontSize: 12 }}>
+                              {isLong && !isExpanded
+                                ? `${review.comments.slice(0, 45)}...`
+                                : review.comments}
+                            </Typography>
+                            {isLong && (
+                              <Typography
+                                component="span"
+                                sx={{ fontSize: 11, color: '#6366f1', cursor: 'pointer', fontWeight: 600,
+                                  whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' } }}
+                                onClick={() => setExpandedComments(prev => {
+                                  const next = new Set(prev);
+                                  isExpanded ? next.delete(emp.id) : next.add(emp.id);
+                                  return next;
+                                })}
+                              >
+                                {isExpanded ? 'Hide' : 'View'}
+                              </Typography>
+                            )}
+                          </Box>
+                        );
+                      })() : (
+                        <Typography variant="caption" color="text.secondary">—</Typography>
+                      )}
                     </TableCell>
                     <TableCell sx={{ ...cell, maxWidth: 200, whiteSpace: 'normal', lineHeight: 1.5 }}>
                       {review?.strengths
@@ -1046,6 +1061,7 @@ const PerformanceTab = ({ employees }) => {
           rowsPerPageOptions={[10, 25, 50]}
         />
       </Card>
+
     </Box>
   );
 };
@@ -1901,7 +1917,6 @@ const EmployeesPage = () => {
             <Table size="small" sx={{ minWidth: 900 }}>
               <TableHead>
                 <TableRow sx={{ bgcolor: '#fef2f2' }}>
-                  <TableCell sx={{ ...hdrCell, color: '#991b1b' }}>#</TableCell>
                   <TableCell sx={{ ...hdrCell, color: '#991b1b' }}>Emp ID</TableCell>
                   <TableCell sx={{ ...hdrCell, color: '#991b1b' }}>Employee Name</TableCell>
                   <TableCell sx={{ ...hdrCell, color: '#991b1b' }}>Department</TableCell>
@@ -1915,13 +1930,13 @@ const EmployeesPage = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                       <CircularProgress />
                     </TableCell>
                   </TableRow>
                 ) : exEmployees.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                       No ex-employees found
                     </TableCell>
                   </TableRow>
@@ -1931,7 +1946,6 @@ const EmployeesPage = () => {
                     onClick={() => navigate(`/employees/${emp.id}`)}
                     sx={{ bgcolor: i % 2 === 0 ? 'white' : '#fff5f5', cursor: 'pointer' }}
                   >
-                    <TableCell sx={{ ...cell, color: '#94a3b8' }}>{exPage * exRpp + i + 1}</TableCell>
                     <TableCell sx={cell}>
                       <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: '#dc2626' }}>
                         {emp.employeeCode || '—'}
