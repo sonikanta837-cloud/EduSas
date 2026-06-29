@@ -1155,15 +1155,11 @@ const CoursesTab = ({ user }) => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: '#f1f5f9' }}>
-                <TableCell sx={{ ...hdrCell, width: 40, p: '6px 8px' }} />
-                <TableCell sx={hdrCell}>#</TableCell>
                 <TableCell sx={hdrCell}>Course Title</TableCell>
                 <TableCell sx={hdrCell}>Duration</TableCell>
-                <TableCell sx={hdrCell} align="center">Enrolled</TableCell>
+                <TableCell sx={hdrCell} align="center">Assigned</TableCell>
                 <TableCell sx={hdrCell} align="center">In Progress</TableCell>
                 <TableCell sx={hdrCell} align="center">Completed</TableCell>
-                <TableCell sx={hdrCell} align="center">Certificates</TableCell>
-                <TableCell sx={hdrCell}>Enrolled Employees</TableCell>
                 <TableCell sx={hdrCell}>Completion %</TableCell>
                 <TableCell sx={hdrCell} align="center">Actions</TableCell>
               </TableRow>
@@ -1171,7 +1167,7 @@ const CoursesTab = ({ user }) => {
             <TableBody>
               {courses.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                     No courses found
                   </TableCell>
                 </TableRow>
@@ -1197,14 +1193,6 @@ const CoursesTab = ({ user }) => {
                   <React.Fragment key={course.id}>
                     {/* ── Main row ── */}
                     <TableRow hover sx={{ bgcolor: i % 2 === 0 ? 'white' : '#f8fafc', cursor: 'pointer' }}>
-                      {/* Expand toggle */}
-                      <TableCell sx={{ p: '4px 8px', width: 40 }}>
-                        <IconButton size="small" onClick={() => toggleExpand(course.id)}
-                          sx={{ color: isExpanded ? '#6366f1' : '#94a3b8' }}>
-                          {isExpanded ? <KeyboardArrowUpIcon fontSize="small" /> : <KeyboardArrowDownIcon fontSize="small" />}
-                        </IconButton>
-                      </TableCell>
-                      <TableCell sx={{ ...cell, color: '#94a3b8' }}>{coursePage * courseRpp + i + 1}</TableCell>
                       <TableCell sx={cell}>
                         <Typography variant="body2" fontWeight={600} sx={{ fontSize: 12.5 }}>{course.title}</Typography>
                         {course.description && (
@@ -1229,28 +1217,6 @@ const CoursesTab = ({ user }) => {
                         {completed > 0 ? <Chip label={completed} size="small" color="success" sx={{ fontSize: 11 }} />
                           : <Typography variant="caption" color="text.secondary">0</Typography>}
                       </TableCell>
-                      <TableCell align="center" sx={cell}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'center' }}>
-                          <EmojiEventsIcon sx={{ fontSize: 14, color: '#f59e0b' }} />
-                          <Typography variant="body2" sx={{ fontSize: 12 }}>{completed}</Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell sx={{ ...cell, minWidth: 180 }}>
-                        {names.length === 0 ? <Typography variant="caption" color="text.secondary">—</Typography> : (
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                            {names.slice(0, SHOW_MAX).map((name, ni) => (
-                              <Chip key={ni} label={name} size="small"
-                                sx={{ fontSize: 10, height: 20, bgcolor: '#eff6ff', color: '#1d4ed8' }} />
-                            ))}
-                            {names.length > SHOW_MAX && (
-                              <Tooltip title={names.slice(SHOW_MAX).join(', ')}>
-                                <Chip label={`+${names.length - SHOW_MAX} more`} size="small"
-                                  sx={{ fontSize: 10, height: 20, bgcolor: '#f1f5f9', color: '#64748b', cursor: 'pointer' }} />
-                              </Tooltip>
-                            )}
-                          </Box>
-                        )}
-                      </TableCell>
                       <TableCell sx={{ ...cell, minWidth: 120 }}>
                         <Box>
                           <LinearProgress variant="determinate" value={pct}
@@ -1271,7 +1237,7 @@ const CoursesTab = ({ user }) => {
 
                     {/* ── Expanded learner detail row ── */}
                     <TableRow>
-                      <TableCell colSpan={11} sx={{ p: 0, borderBottom: isExpanded ? '1px solid #e2e8f0' : 'none' }}>
+                      <TableCell colSpan={7} sx={{ p: 0, borderBottom: isExpanded ? '1px solid #e2e8f0' : 'none' }}>
                         <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                           <Box sx={{ px: 3, py: 2, bgcolor: '#f8faff', borderLeft: '3px solid #6366f1' }}>
                             <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#3730a3', fontSize: 12.5 }}>
@@ -1288,7 +1254,6 @@ const CoursesTab = ({ user }) => {
                                 '& .MuiTableCell-root': { fontSize: 12, py: '6px' } }}>
                                 <TableHead>
                                   <TableRow sx={{ bgcolor: '#eef2ff' }}>
-                                    <TableCell sx={{ fontWeight: 700, color: '#3730a3', fontSize: 11.5 }}>#</TableCell>
                                     <TableCell sx={{ fontWeight: 700, color: '#3730a3', fontSize: 11.5 }}>Employee</TableCell>
                                     <TableCell sx={{ fontWeight: 700, color: '#3730a3', fontSize: 11.5 }}>Status</TableCell>
                                     <TableCell sx={{ fontWeight: 700, color: '#3730a3', fontSize: 11.5, minWidth: 140 }}>Progress</TableCell>
@@ -1301,7 +1266,6 @@ const CoursesTab = ({ user }) => {
                                     const sm = statusMeta(l.status);
                                     return (
                                       <TableRow key={l.employeeId} hover>
-                                        <TableCell sx={{ color: '#94a3b8', fontSize: 11 }}>{idx + 1}</TableCell>
                                         <TableCell>
                                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                             <Avatar sx={{ width: 24, height: 24, fontSize: 10,
@@ -1312,9 +1276,6 @@ const CoursesTab = ({ user }) => {
                                               <Typography sx={{ fontSize: 12, fontWeight: 600, lineHeight: 1.2 }}>
                                                 {l.employeeName}
                                               </Typography>
-                                              {l.employeeCode && (
-                                                <Typography sx={{ fontSize: 10, color: '#94a3b8' }}>{l.employeeCode}</Typography>
-                                              )}
                                             </Box>
                                           </Box>
                                         </TableCell>
@@ -1342,13 +1303,13 @@ const CoursesTab = ({ user }) => {
                                         </TableCell>
                                         <TableCell align="center">
                                           {l.certificateNumber ? (
-                                            <Button size="small" variant="outlined" startIcon={<DownloadIcon sx={{ fontSize: 12 }} />}
-                                              onClick={() => downloadCert(l.certificateNumber, l.employeeName)}
-                                              sx={{ fontSize: 10, py: 0.25, px: 1, borderRadius: 1.5,
-                                                borderColor: '#10b981', color: '#10b981',
-                                                '&:hover': { bgcolor: '#f0fdf4', borderColor: '#10b981' } }}>
-                                              Certificate
-                                            </Button>
+                                            <Tooltip title="Download Certificate">
+                                              <IconButton size="small"
+                                                onClick={() => downloadCert(l.certificateNumber, l.employeeName)}
+                                                sx={{ color: '#10b981', '&:hover': { bgcolor: '#f0fdf4' } }}>
+                                                <DownloadIcon sx={{ fontSize: 16 }} />
+                                              </IconButton>
+                                            </Tooltip>
                                           ) : (
                                             <Typography variant="caption" color="text.disabled">—</Typography>
                                           )}
