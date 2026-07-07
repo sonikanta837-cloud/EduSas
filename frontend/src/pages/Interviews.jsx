@@ -1741,7 +1741,7 @@ const ATSPage = () => {
 
   /* Stats data for CV Bank header */
   const statCards = stats ? [
-    { label: 'Total',                value: stats.total,             color: '#1e3a5f' },
+    { label: 'Total Candidates',     value: stats.total,             color: '#1e3a5f' },
     { label: 'New',                  value: stats.new,               color: '#475569' },
     { label: 'Under HR Review',      value: stats.underHrReview,     color: '#1d4ed8' },
     { label: 'Technical Pending',    value: stats.technicalPending,  color: '#d97706' },
@@ -1832,6 +1832,8 @@ const ATSPage = () => {
 
   return (
     <Box sx={{ bgcolor: '#f8fafc', minHeight: '100%' }}>
+      {/* ── Sticky header: title, stats, tabs, and (for CV Bank) the filter row ── */}
+      <Box sx={{ position: 'sticky', top: 64, zIndex: 2, bgcolor: '#f8fafc', pb: 1 }}>
       {/* ── Page header ── */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Box>
@@ -1845,7 +1847,7 @@ const ATSPage = () => {
             <Button variant="contained" startIcon={<CloudUploadIcon />}
               onClick={() => { setUploadForm(EMPTY_UPLOAD); setUploadFile(null); setStoredResume(null); setUploadDialog(true); }}
               sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, textTransform: 'none', borderRadius: 2 }}>
-              Upload CV
+              Upload Resume
             </Button>
           )}
           {canManage && (
@@ -1867,18 +1869,18 @@ const ATSPage = () => {
 
       {/* ── Stats (CV Bank only) ── */}
       {tab === 'cvbank' && stats && (
-        <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid container spacing={1.5} sx={{ mb: 3 }}>
           {statCards.map(s => (
             <Grid item xs={6} sm={4} md key={s.label}>
               <Card sx={{ borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.05)', height: '100%' }}>
-                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                  <Box sx={{ minHeight: 32, display: 'flex', alignItems: 'flex-start' }}>
+                <CardContent sx={{ p: 1.25, '&:last-child': { pb: 1.25 } }}>
+                  <Box sx={{ minHeight: 18, display: 'flex', alignItems: 'flex-start' }}>
                     <Typography variant="caption" color="text.secondary" fontWeight={600}
-                      sx={{ textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.5, lineHeight: 1.4 }}>
+                      sx={{ textTransform: 'uppercase', fontSize: 9.5, letterSpacing: 0.5, lineHeight: 1.3 }}>
                       {s.label}
                     </Typography>
                   </Box>
-                  <Typography variant="h4" fontWeight={800} sx={{ color: s.color, mt: 0.5 }}>{s.value}</Typography>
+                  <Typography variant="h5" fontWeight={800} sx={{ color: s.color, mt: 0.25 }}>{s.value}</Typography>
                 </CardContent>
               </Card>
             </Grid>
@@ -1887,92 +1889,109 @@ const ATSPage = () => {
       )}
 
       {/* ── Tabs ── */}
-      <Tabs value={tab} onChange={(_, v) => { setTab(v); setPage(0); setHrPage(0); setSearch(''); setStatusFilter('ALL'); setLocationFilter('ALL'); setProfileFilter('ALL'); }}
-        sx={{ mb: 3, borderBottom: '1px solid #e2e8f0',
-              '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, minWidth: 'auto', px: 2 },
-              '& .MuiTabs-indicator': { bgcolor: '#1e3a5f' } }}>
-        {canManage && (
-          <Tab icon={<GroupIcon fontSize="small" />} iconPosition="start"
-            label={`CV Bank (${candidates.length})`} value="cvbank" />
-        )}
-        {canManage && (
-          <Tab icon={<AssignmentIcon fontSize="small" />} iconPosition="start"
-            label={`HR Screening (${hrCands.length})`} value="hr" />
-        )}
-        <Tab icon={<WorkIcon fontSize="small" />} iconPosition="start"
-          label={isManager && !canManage
-            ? `My Assignments (${myAssignments.length})`
-            : `Technical (${canManage ? techCands.length : myAssignments.length})`}
-          value="technical" />
-        {isAdmin && (
-          <Tab icon={<EmojiEventsIcon fontSize="small" />} iconPosition="start"
-            label={`Final Round (${finalCands.length})`} value="final" />
-        )}
-      </Tabs>
+      {(() => {
+        const tabLabel = (title, n) => (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, lineHeight: 1.3 }}>
+            <Box component="span">{title}</Box>
+            <Box component="span" sx={{ fontSize: 11, fontWeight: 500, color: '#94a3b8', textTransform: 'none' }}>
+              ({n} candidate{n === 1 ? '' : 's'})
+            </Box>
+          </Box>
+        );
+        const techCount = canManage ? techCands.length : myAssignments.length;
+        return (
+          <Tabs value={tab} onChange={(_, v) => { setTab(v); setPage(0); setHrPage(0); setSearch(''); setStatusFilter('ALL'); setLocationFilter('ALL'); setProfileFilter('ALL'); }}
+            sx={{ mb: 4.5, borderBottom: '1px solid #e2e8f0',
+                  '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, minWidth: 'auto', px: 2, py: 1.5 },
+                  '& .MuiTabs-indicator': { bgcolor: '#1e3a5f' } }}>
+            {canManage && (
+              <Tab icon={<GroupIcon fontSize="small" />} iconPosition="start"
+                label={tabLabel('CV Bank', candidates.length)} value="cvbank" />
+            )}
+            {canManage && (
+              <Tab icon={<AssignmentIcon fontSize="small" />} iconPosition="start"
+                label={tabLabel('HR Screening', hrCands.length)} value="hr" />
+            )}
+            <Tab icon={<WorkIcon fontSize="small" />} iconPosition="start"
+              label={isManager && !canManage
+                ? tabLabel('My Assignments', myAssignments.length)
+                : tabLabel('Technical', techCount)}
+              value="technical" />
+            {isAdmin && (
+              <Tab icon={<EmojiEventsIcon fontSize="small" />} iconPosition="start"
+                label={tabLabel('Final Round', finalCands.length)} value="final" />
+            )}
+          </Tabs>
+        );
+      })()}
+
+      {/* ── Search + Dropdowns row (CV Bank only) — part of the sticky header ── */}
+      {tab === 'cvbank' && canManage && (
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField placeholder="Search by name, profile, or Cand ID…" value={search} size="small"
+            onChange={e => { setSearch(e.target.value); setPage(0); }}
+            InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: '#94a3b8' }} /></InputAdornment> }}
+            sx={{ width: 260, bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+
+          <FormControl size="small" sx={{ width: 155, bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
+            <InputLabel sx={{ fontSize: 13 }}>Office Location</InputLabel>
+            <Select
+              value={locationFilter}
+              label="Office Location"
+              onChange={e => { setLocationFilter(e.target.value); setPage(0); }}
+              sx={{ fontSize: 13 }}>
+              <MenuItem value="ALL"><em>All Locations</em></MenuItem>
+              {allLocations.map(l => <MenuItem key={l} value={l} sx={{ fontSize: 13 }}>{l}</MenuItem>)}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ width: 155, bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
+            <InputLabel sx={{ fontSize: 13 }}>Applied Profile</InputLabel>
+            <Select
+              value={profileFilter}
+              label="Applied Profile"
+              onChange={e => { setProfileFilter(e.target.value); setPage(0); }}
+              sx={{ fontSize: 13 }}>
+              <MenuItem value="ALL"><em>All Profiles</em></MenuItem>
+              {allProfiles.map(p => <MenuItem key={p} value={p} sx={{ fontSize: 13 }}>{p}</MenuItem>)}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ width: 185, bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
+            <InputLabel sx={{ fontSize: 13 }}>Status</InputLabel>
+            <Select
+              value={statusFilter}
+              label="Status"
+              onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
+              sx={{ fontSize: 13 }}>
+              <MenuItem value="ALL" sx={{ fontSize: 13 }}><em>All</em></MenuItem>
+              <MenuItem value="NEW"                 sx={{ fontSize: 13 }}>New</MenuItem>
+              <MenuItem value="UNDER_HR_REVIEW"     sx={{ fontSize: 13 }}>Under HR Review</MenuItem>
+              <MenuItem value="TECHNICAL_PENDING"   sx={{ fontSize: 13 }}>Technical Pending</MenuItem>
+              <MenuItem value="FINAL_ROUND_PENDING" sx={{ fontSize: 13 }}>Final Round Pending</MenuItem>
+              <MenuItem value="SELECTED"            sx={{ fontSize: 13 }}>Selected</MenuItem>
+              <MenuItem value="HR_REJECTED"         sx={{ fontSize: 13 }}>HR Rejected</MenuItem>
+              <MenuItem value="TECHNICAL_REJECTED"  sx={{ fontSize: 13 }}>Technical Rejected</MenuItem>
+              <MenuItem value="REJECTED"            sx={{ fontSize: 13 }}>Rejected</MenuItem>
+            </Select>
+          </FormControl>
+
+          {(locationFilter !== 'ALL' || profileFilter !== 'ALL' || statusFilter !== 'ALL' || search) && (
+            <Button size="small" variant="outlined"
+              onClick={() => { setSearch(''); setLocationFilter('ALL'); setProfileFilter('ALL'); setStatusFilter('ALL'); setPage(0); }}
+              sx={{ textTransform: 'none', fontSize: 12, borderColor: '#e2e8f0', color: '#64748b',
+                    borderRadius: 2, height: 40, whiteSpace: 'nowrap' }}>
+              Clear Filters
+            </Button>
+          )}
+        </Box>
+      )}
+      </Box>
+      {/* ── /Sticky header ── */}
 
       {/* ═══ CV BANK TAB ════════════════════════════════════════════════════ */}
       {tab === 'cvbank' && canManage && (
-        <Box>
-          {/* ── Search + Dropdowns row ── */}
-          <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-            <TextField placeholder="Search by name, profile, or Cand ID…" value={search} size="small"
-              onChange={e => { setSearch(e.target.value); setPage(0); }}
-              InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: '#94a3b8' }} /></InputAdornment> }}
-              sx={{ width: 260, bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-
-            <FormControl size="small" sx={{ width: 155, bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
-              <InputLabel sx={{ fontSize: 13 }}>Office Location</InputLabel>
-              <Select
-                value={locationFilter}
-                label="Office Location"
-                onChange={e => { setLocationFilter(e.target.value); setPage(0); }}
-                sx={{ fontSize: 13 }}>
-                <MenuItem value="ALL"><em>All Locations</em></MenuItem>
-                {allLocations.map(l => <MenuItem key={l} value={l} sx={{ fontSize: 13 }}>{l}</MenuItem>)}
-              </Select>
-            </FormControl>
-
-            <FormControl size="small" sx={{ width: 155, bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
-              <InputLabel sx={{ fontSize: 13 }}>Applied Profile</InputLabel>
-              <Select
-                value={profileFilter}
-                label="Applied Profile"
-                onChange={e => { setProfileFilter(e.target.value); setPage(0); }}
-                sx={{ fontSize: 13 }}>
-                <MenuItem value="ALL"><em>All Profiles</em></MenuItem>
-                {allProfiles.map(p => <MenuItem key={p} value={p} sx={{ fontSize: 13 }}>{p}</MenuItem>)}
-              </Select>
-            </FormControl>
-
-            <FormControl size="small" sx={{ width: 185, bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
-              <InputLabel sx={{ fontSize: 13 }}>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
-                sx={{ fontSize: 13 }}>
-                <MenuItem value="ALL" sx={{ fontSize: 13 }}><em>All</em></MenuItem>
-                <MenuItem value="NEW"                 sx={{ fontSize: 13 }}>New</MenuItem>
-                <MenuItem value="UNDER_HR_REVIEW"     sx={{ fontSize: 13 }}>Under HR Review</MenuItem>
-                <MenuItem value="TECHNICAL_PENDING"   sx={{ fontSize: 13 }}>Technical Pending</MenuItem>
-                <MenuItem value="FINAL_ROUND_PENDING" sx={{ fontSize: 13 }}>Final Round Pending</MenuItem>
-                <MenuItem value="SELECTED"            sx={{ fontSize: 13 }}>Selected</MenuItem>
-                <MenuItem value="HR_REJECTED"         sx={{ fontSize: 13 }}>HR Rejected</MenuItem>
-                <MenuItem value="TECHNICAL_REJECTED"  sx={{ fontSize: 13 }}>Technical Rejected</MenuItem>
-                <MenuItem value="REJECTED"            sx={{ fontSize: 13 }}>Rejected</MenuItem>
-              </Select>
-            </FormControl>
-
-            {(locationFilter !== 'ALL' || profileFilter !== 'ALL' || statusFilter !== 'ALL' || search) && (
-              <Button size="small" variant="outlined"
-                onClick={() => { setSearch(''); setLocationFilter('ALL'); setProfileFilter('ALL'); setStatusFilter('ALL'); setPage(0); }}
-                sx={{ textTransform: 'none', fontSize: 12, borderColor: '#e2e8f0', color: '#64748b',
-                      borderRadius: 2, height: 40, whiteSpace: 'nowrap' }}>
-                Clear Filters
-              </Button>
-            )}
-          </Box>
-
+        <Box sx={{ pt: 2 }}>
           <CandidateTable rows={filteredCands} emptyMsg="No candidates match the selected filters" />
         </Box>
       )}
