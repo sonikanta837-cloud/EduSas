@@ -229,7 +229,7 @@ const InterviewFeedbackPage = () => {
             sx={{ textTransform: 'none', borderColor: '#e2e8f0', color: '#64748b' }}>
             Back
           </Button>
-          <Button variant="contained" size="small" onClick={handleSubmit} disabled={saving}
+          <Button variant="contained" size="small" onClick={handleSubmit} disabled={saving || !form.recommendation}
             sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, textTransform: 'none', px: 2.5 }}>
             {saving ? <CircularProgress size={14} color="inherit" sx={{ mr: 0.75 }} /> : null}
             {isEdit ? 'Update' : 'Submit Feedback'}
@@ -471,7 +471,7 @@ const InterviewFeedbackPage = () => {
                 sx={{ textTransform: 'none', borderColor: '#e2e8f0', color: '#64748b' }}>
                 Cancel
               </Button>
-              <Button variant="contained" onClick={handleSubmit} disabled={saving}
+              <Button variant="contained" onClick={handleSubmit} disabled={saving || !form.recommendation}
                 sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, textTransform: 'none', px: 3 }}>
                 {saving && <CircularProgress size={14} color="inherit" sx={{ mr: 0.75 }} />}
                 {isEdit ? 'Update Feedback' : 'Submit Feedback'}

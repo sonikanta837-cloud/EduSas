@@ -207,7 +207,8 @@ const LoginPage = () => {
             }}
           />
 
-          <Button type="submit" fullWidth variant="contained" size="large" disabled={loading}
+          <Button type="submit" fullWidth variant="contained" size="large"
+            disabled={loading || !form.email.trim() || !form.password}
             sx={{
               py: 1.5, fontSize: '1rem', fontWeight: 700,
               bgcolor: GOLD, color: '#1a1a1a',
@@ -269,7 +270,8 @@ const LoginPage = () => {
             {forgotSuccess ? 'Close' : 'Cancel'}
           </Button>
           {!forgotSuccess && (
-            <Button variant="contained" onClick={handleForgotSubmit} disabled={forgotLoading}
+            <Button variant="contained" onClick={handleForgotSubmit}
+              disabled={forgotLoading || !forgotEmail.trim()}
               sx={{ bgcolor: GOLD, color: '#1a1a1a', '&:hover': { bgcolor: GOLD_DARK, color: 'white' } }}>
               {forgotLoading ? <CircularProgress size={20} color="inherit" /> : 'Send Reset Link'}
             </Button>

@@ -83,6 +83,7 @@ const CorrectionHistory = () => {
         await correctionApi.approve(reviewTarget.id, reviewForm.logoutTime, reviewForm.comment);
         toast.success('Correction approved — attendance updated');
       } else {
+        if (!reviewForm.comment?.trim()) { toast.error('Reason for rejection is required'); setReviewSubmitting(false); return; }
         await correctionApi.reject(reviewTarget.id, reviewForm.comment);
         toast.success('Correction request rejected');
       }
@@ -322,7 +323,9 @@ const CorrectionHistory = () => {
         <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
           <Button onClick={() => setReviewOpen(false)} disabled={reviewSubmitting}
             sx={{ textTransform: 'none', borderRadius: '8px' }}>Cancel</Button>
-          <Button variant="contained" onClick={handleReview} disabled={reviewSubmitting}
+          <Button variant="contained" onClick={handleReview}
+            disabled={reviewSubmitting
+              || (reviewAction === 'approve' ? !reviewForm.logoutTime : !reviewForm.comment?.trim())}
             sx={{
               textTransform: 'none', borderRadius: '8px', minWidth: 120,
               bgcolor: reviewAction === 'approve' ? '#16a34a' : '#dc2626',

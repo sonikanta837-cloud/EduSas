@@ -576,7 +576,8 @@ const HolidaysPage = () => {
         <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
           <Button onClick={() => setFormOpen(false)} disabled={saving}
             sx={{ textTransform: 'none', borderRadius: '8px' }}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={saving}
+          <Button variant="contained" onClick={handleSave}
+            disabled={saving || !form.name.trim() || !form.date}
             sx={{ textTransform: 'none', borderRadius: '8px', bgcolor: '#1e3a5f', minWidth: 100 }}>
             {saving ? <CircularProgress size={18} color="inherit" /> : editTarget ? 'Save Changes' : 'Create'}
           </Button>

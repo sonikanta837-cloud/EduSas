@@ -1,2073 +1,3003 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
 import {
   Box, Card, CardContent, Typography, Button, Chip, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, CircularProgress, IconButton,
-  Tooltip, Divider, Tabs, Tab, Table, TableHead, TableBody, TableRow,
-  TableCell, TableContainer, TablePagination, Stack, InputAdornment,
-  MenuItem, Grid, Rating, LinearProgress, Collapse, Avatar,
-  Radio, RadioGroup, FormControlLabel, FormLabel, FormControl
+  Tooltip, Tabs, Tab, Table, TableHead, TableBody, TableRow, TableCell,
+  TableContainer, TablePagination, Stack, InputAdornment, MenuItem, Grid,
+  Rating, Avatar, LinearProgress, Divider, Alert, Stepper, Step, StepLabel,
+  Paper, FormControl, InputLabel, Select, Popover
 } from '@mui/material';
-import AddIcon              from '@mui/icons-material/Add';
-import SearchIcon           from '@mui/icons-material/Search';
-import ArrowBackIcon        from '@mui/icons-material/ArrowBack';
-import EditIcon             from '@mui/icons-material/Edit';
-import DeleteIcon           from '@mui/icons-material/Delete';
-import PersonAddIcon        from '@mui/icons-material/PersonAdd';
-import CheckCircleIcon      from '@mui/icons-material/CheckCircle';
-import CancelIcon           from '@mui/icons-material/Cancel';
-import PauseCircleIcon      from '@mui/icons-material/PauseCircle';
-import ExpandMoreIcon       from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon       from '@mui/icons-material/ExpandLess';
-import WorkIcon             from '@mui/icons-material/Work';
-import CalendarMonthIcon    from '@mui/icons-material/CalendarMonth';
-import LocationOnIcon       from '@mui/icons-material/LocationOn';
-import AccessTimeIcon       from '@mui/icons-material/AccessTime';
-import StarIcon             from '@mui/icons-material/Star';
-import AssessmentIcon       from '@mui/icons-material/Assessment';
-import HistoryIcon          from '@mui/icons-material/History';
-import PlayArrowIcon        from '@mui/icons-material/PlayArrow';
-import RefreshIcon          from '@mui/icons-material/Refresh';
-import NotificationsIcon    from '@mui/icons-material/Notifications';
-import DownloadIcon         from '@mui/icons-material/Download';
-import TodayIcon            from '@mui/icons-material/Today';
-import Badge                from '@mui/material/Badge';
-import { interviewApi }  from '../api/interviewApi';
-import { employeeApi }   from '../api/employeeApi';
-import { toast }         from 'react-toastify';
+import CloudUploadIcon    from '@mui/icons-material/CloudUpload';
+import WarningAmberIcon   from '@mui/icons-material/WarningAmber';
+import TuneIcon           from '@mui/icons-material/Tune';
+import SearchIcon         from '@mui/icons-material/Search';
+import ArrowBackIcon      from '@mui/icons-material/ArrowBack';
+import CheckCircleIcon    from '@mui/icons-material/CheckCircle';
+import CancelIcon         from '@mui/icons-material/Cancel';
+import EditIcon           from '@mui/icons-material/Edit';
+import DeleteIcon         from '@mui/icons-material/Delete';
+import OpenInNewIcon      from '@mui/icons-material/OpenInNew';
+import RefreshIcon        from '@mui/icons-material/Refresh';
+import DescriptionIcon    from '@mui/icons-material/Description';
+import PersonAddIcon      from '@mui/icons-material/PersonAdd';
+import WorkIcon           from '@mui/icons-material/Work';
+import AssignmentIcon     from '@mui/icons-material/Assignment';
+import HowToRegIcon       from '@mui/icons-material/HowToReg';
+import EmojiEventsIcon    from '@mui/icons-material/EmojiEvents';
+import GroupIcon          from '@mui/icons-material/Group';
+import { interviewApi }   from '../api/interviewApi';
+import { employeeApi }    from '../api/employeeApi';
+import { toast }          from 'react-toastify';
 
-/* ── colour maps ─────────────────────────────────────────────────────────── */
-const STATUS_COLOR = {
-  PENDING:     { bg: '#f1f5f9', color: '#475569', label: 'Pending' },
-  IN_PROGRESS: { bg: '#dbeafe', color: '#1d4ed8', label: 'In Progress' },
-  SELECTED:    { bg: '#dcfce7', color: '#16a34a', label: 'Selected' },
-  REJECTED:    { bg: '#fee2e2', color: '#dc2626', label: 'Rejected' },
-  ON_HOLD:     { bg: '#fff7ed', color: '#c2410c', label: 'On Hold' },
-  WITHDRAWN:   { bg: '#f3f4f6', color: '#6b7280', label: 'Withdrawn' },
-};
-const ROUND_STATUS_COLOR = {
-  SCHEDULED:   { bg: '#dbeafe', color: '#1d4ed8' },
-  IN_PROGRESS: { bg: '#fef3c7', color: '#d97706' },
-  COMPLETED:   { bg: '#dcfce7', color: '#16a34a' },
-  CANCELLED:   { bg: '#fee2e2', color: '#dc2626' },
-  RESCHEDULED: { bg: '#f3e8ff', color: '#7c3aed' },
-};
-const ROUND_TYPE_COLOR = {
-  TECHNICAL:    '#3b82f6',
-  HR:           '#10b981',
-  MANAGERIAL:   '#8b5cf6',
-  CULTURAL_FIT: '#f59e0b',
-  FINAL:        '#ef4444',
-};
-const REC_COLOR = {
-  STRONG_HIRE:    { bg: '#dcfce7', color: '#16a34a' },
-  HIRE:           { bg: '#d1fae5', color: '#059669' },
-  MAYBE:          { bg: '#fff7ed', color: '#d97706' },
-  NO_HIRE:        { bg: '#fee2e2', color: '#dc2626' },
-  STRONG_NO_HIRE: { bg: '#fecaca', color: '#991b1b' },
+/* ── Constants ─────────────────────────────────────────────────────────────── */
+const OFFICE_LOCATIONS  = ['Mandsaur', 'Jamnagar', 'Ahmedabad', 'WFH'];
+const CANDIDATE_SOURCES = ['LinkedIn', 'Naukri', 'Referral', 'Company Website', 'Walk-in', 'Consultant', 'Whatsapp', 'Outlook', 'Other'];
+const APPLIED_PROFILES  = ['Accounts', 'Book Keeper', 'Personal Tax', 'Corporate Tax', 'Payroll'];
+const STAGE_STEPS       = ['CV Bank', 'HR Screening', 'Technical Interview', 'Final Round'];
+
+const STATUS_CFG = {
+  NEW:                 { label: 'New',                  bg: '#f1f5f9', color: '#475569' },
+  UNDER_HR_REVIEW:     { label: 'Under HR Review',      bg: '#dbeafe', color: '#1d4ed8' },
+  HR_REJECTED:         { label: 'HR Rejected',          bg: '#fee2e2', color: '#dc2626' },
+  TECHNICAL_PENDING:   { label: 'Technical Pending',    bg: '#fef3c7', color: '#d97706' },
+  TECHNICAL_REJECTED:  { label: 'Technical Rejected',   bg: '#fee2e2', color: '#dc2626' },
+  FINAL_ROUND_PENDING: { label: 'Final Round Pending',  bg: '#f3e8ff', color: '#7c3aed' },
+  SELECTED:            { label: 'Selected',             bg: '#dcfce7', color: '#16a34a' },
+  REJECTED:            { label: 'Rejected',             bg: '#fee2e2', color: '#dc2626' },
 };
 
-const ROUND_TYPES  = ['TECHNICAL', 'HR', 'MANAGERIAL', 'CULTURAL_FIT', 'FINAL'];
-const SOURCES      = ['LinkedIn', 'Referral', 'Job Board', 'Direct Application', 'Recruitment Agency', 'Other'];
-
-const PIPELINE_STATUS = {
-  PENDING:          { label: 'Pending',         bg: '#f1f5f9', color: '#475569' },
-  ASSIGNED:         { label: 'Assigned',         bg: '#dbeafe', color: '#1d4ed8' },
-  INTERVIEWING:     { label: 'Interviewing',     bg: '#fef3c7', color: '#d97706' },
-  FEEDBACK_PENDING: { label: 'Feedback Pending', bg: '#f3e8ff', color: '#7c3aed' },
-  SELECTED:         { label: 'Selected',         bg: '#dcfce7', color: '#16a34a' },
-  REJECTED:         { label: 'Rejected',         bg: '#fee2e2', color: '#dc2626' },
-  ON_HOLD:          { label: 'On Hold',          bg: '#fff7ed', color: '#c2410c' },
+const statusToStep = (s) => {
+  if (!s || s === 'NEW')                                        return 0;
+  if (s === 'UNDER_HR_REVIEW' || s === 'HR_REJECTED')          return 1;
+  if (s === 'TECHNICAL_PENDING' || s === 'TECHNICAL_REJECTED') return 2;
+  return 3;
 };
 
-const fmtDt = (v) => v ? new Date(v).toLocaleString('en-US', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
-const fmtDate = (v) => v ? new Date(v).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+const EMPTY_UPLOAD = {
+  name: '', email: '', phone: '',
+  address: '', addressStreet: '', addressArea: '', addressLandmark: '',
+  addressCity: '', addressDistrict: '', addressState: '', addressPostalCode: '', addressCountry: '',
+  appliedProfile: '', officeLocation: '', source: '',
+  skills: '', totalExperienceYears: '', linkedinUrl: '', githubUrl: '',
+};
+const EMPTY_HR     = { currentRoleResponsibilities: '', reasonForChange: '', currentCtc: '', expectedCtc: '', noticePeriod: '', preferredLocation: '', workBase: '', totalExperience: '', currentCompany: '', screeningDate: '', communicationSkills: '', hrComments: '', rejectionReason: '', relevantExperience: '', availability: '' };
+const EMPTY_TECH   = { technicalSkillsRating: 3, communicationRating: 3, problemSolvingRating: 3, codingAbilityRating: 3, architectureKnowledgeRating: 3, comments: '', decision: '' };
+const EMPTY_FINAL  = { finalInterviewDate: '', finalRemarks: '', salaryRecommendation: '', joiningDate: '' };
+
+const fmtDate = (v) => v ? new Date(v).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+const fmtDt   = (v) => v ? new Date(v).toLocaleString('en-IN',  { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+
+const timeAgo = (v) => {
+  if (!v) return '';
+  const days   = Math.floor((Date.now() - new Date(v).getTime()) / 86400000);
+  const months = Math.floor(days / 30);
+  if (months >= 1) return `${months} month${months > 1 ? 's' : ''} ago`;
+  if (days   >= 1) return `${days} day${days > 1 ? 's' : ''} ago`;
+  return 'today';
+};
 
 const StatusChip = ({ status }) => {
-  const s = STATUS_COLOR[status] || { bg: '#f1f5f9', color: '#475569', label: status };
-  return <Chip label={s.label} size="small" sx={{ bgcolor: s.bg, color: s.color, fontWeight: 700, fontSize: 11.5 }} />;
+  const c = STATUS_CFG[status] || { label: status, bg: '#f1f5f9', color: '#475569' };
+  return <Chip label={c.label} size="small" sx={{ bgcolor: c.bg, color: c.color, fontWeight: 700, fontSize: 11 }} />;
 };
 
-const RoundStatusChip = ({ status }) => {
-  const s = ROUND_STATUS_COLOR[status] || { bg: '#f1f5f9', color: '#475569' };
-  return <Chip label={(status || '').replace('_', ' ')} size="small" sx={{ bgcolor: s.bg, color: s.color, fontWeight: 700, fontSize: 11 }} />;
-};
-
-const RatingStars = ({ value }) => (
-  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-    <Rating value={value || 0} readOnly size="small" precision={0.5} />
-    {value != null && <Typography variant="caption" fontWeight={700}>{value}</Typography>}
-  </Box>
+const SectionTitle = ({ children }) => (
+  <Typography variant="subtitle2" fontWeight={700} color="text.secondary"
+    sx={{ textTransform: 'uppercase', letterSpacing: 0.6, fontSize: 11, mb: 1.5 }}>
+    {children}
+  </Typography>
 );
 
-/* ── Empty form constants ────────────────────────────────────────────────── */
-const EMPTY_CANDIDATE = { name: '', email: '', phone: '', position: '', department: '', source: '', notes: '' };
-const EMPTY_ROUND     = { roundType: 'TECHNICAL', interviewerId: '', scheduledAt: '', durationMinutes: 60, location: '', managerNotes: '' };
-const EMPTY_ASSIGN    = { candidateId: '', interviewerId: '', roundType: 'TECHNICAL', date: '', time: '', durationMinutes: '60', instructions: '' };
-const EMPTY_FEEDBACK  = {
-  overallRating: 3, technicalRating: 3, communicationRating: 3,
-  problemSolvingRating: 3, cultureFitRating: 3,
-  strengths: '', weaknesses: '', comments: '', recommendation: 'HIRE',
+const SKILL_COLORS = [
+  { bg: '#dbeafe', color: '#1e40af' }, { bg: '#dcfce7', color: '#15803d' },
+  { bg: '#fef9c3', color: '#854d0e' }, { bg: '#f3e8ff', color: '#6b21a8' },
+  { bg: '#ffedd5', color: '#9a3412' }, { bg: '#e0f2fe', color: '#0369a1' },
+];
+
+const SkillChips = ({ skills, max = 40 }) => {
+  if (!skills) return null;
+  const list = skills.split(',').map(s => s.trim()).filter(Boolean).slice(0, max);
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+      {list.map((s, i) => {
+        const clr = SKILL_COLORS[i % SKILL_COLORS.length];
+        return (
+          <Chip key={s} label={s} size="small"
+            sx={{ bgcolor: clr.bg, color: clr.color, fontWeight: 600, fontSize: 11, height: 24, borderRadius: 1.5 }} />
+        );
+      })}
+    </Box>
+  );
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
-const InterviewsPage = () => {
+const ATSPage = () => {
   const { user } = useSelector((s) => s.auth);
-  const navigate  = useNavigate();
-  const isAdmin   = user?.role === 'ADMIN'    || user?.role === 'DIRECTOR';
-  const isManager = user?.role === 'MANAGER'  || user?.role === 'ASSISTANT_MANAGER';
+  const isAdmin   = ['ADMIN', 'DIRECTOR'].includes(user?.role);
   const isHR      = user?.role === 'HR';
-  const canManage   = isAdmin || isManager || isHR;
-  const canSchedule = isAdmin || isHR;   // only ADMIN/DIRECTOR/HR may schedule/edit/cancel rounds
+  const isManager = ['MANAGER', 'ASSISTANT_MANAGER'].includes(user?.role);
+  const canManage = isAdmin || isHR;
 
-  /* ── top-level state ──────────────────────────────────────────────────── */
-  // Managers get assigned as interviewers; default to 'my-rounds' so they see assigned rounds immediately.
-  // Admin/HR primarily manage candidates so they default to 'candidates'.
-  const [tab,        setTab]        = useState((isAdmin || isHR) ? 'candidates' : 'my-rounds');
-  const [loading,    setLoading]    = useState(true);
-  const [candidates, setCandidates] = useState([]);
-  const [myRounds,   setMyRounds]   = useState([]);
-  const [stats,      setStats]      = useState(null);
-  const [auditLogs,  setAuditLogs]  = useState([]);
-  const [allEmployees, setAllEmployees] = useState([]);
+  /* ── Main state ────────────────────────────────────────────────────────── */
+  const [tab,           setTab]          = useState(isManager && !canManage ? 'technical' : 'cvbank');
+  const [candidates,    setCandidates]   = useState([]);
+  const [myAssignments, setMyAssignments]= useState([]);
+  const [stats,         setStats]        = useState(null);
+  const [allEmployees,  setAllEmployees] = useState([]);
+  const [directors,     setDirectors]    = useState([]);
+  const [loading,       setLoading]      = useState(true);
 
-  /* ── candidates list state ────────────────────────────────────────────── */
-  const [search,      setSearch]      = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
-  const [candPage,    setCandPage]    = useState(0);
-  const [candRpp,     setCandRpp]     = useState(10);
+  /* ── Detail view ───────────────────────────────────────────────────────── */
+  const [selectedCand,  setSelectedCand]  = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [stageTab,      setStageTab]      = useState(0);
 
-  /* ── detail view ──────────────────────────────────────────────────────── */
-  const [detailCandidate, setDetailCandidate] = useState(null);
-  const [detailLoading,   setDetailLoading]   = useState(false);
-  const [expandedRound,   setExpandedRound]   = useState(null);
-  const [candidateAudit,  setCandidateAudit]  = useState([]);
+  /* ── Profile dropdown ─────────────────────────────────────────────────── */
+  const [extraProfiles,    setExtraProfiles]    = useState([]);
+  const [profileAnchor,    setProfileAnchor]    = useState(null);
+  const [newProfileInput,  setNewProfileInput]  = useState('');
+  const allProfiles = [...APPLIED_PROFILES, ...extraProfiles];
 
-  /* ── dialogs ──────────────────────────────────────────────────────────── */
-  const [candDialog,     setCandDialog]     = useState(false);
-  const [editCandidate,  setEditCandidate]  = useState(null);
-  const [candForm,       setCandForm]       = useState(EMPTY_CANDIDATE);
+  /* ── Location dropdown ─────────────────────────────────────────────────── */
+  const [extraLocations,   setExtraLocations]   = useState([]);
+  const [locationAnchor,   setLocationAnchor]   = useState(null);
+  const [newLocationInput, setNewLocationInput] = useState('');
+  const allLocations = [...OFFICE_LOCATIONS, ...extraLocations];
 
-  const [roundDialog,    setRoundDialog]    = useState(false);
-  const [editRound,      setEditRound]      = useState(null);
-  const [roundForm,      setRoundForm]      = useState(EMPTY_ROUND);
+  /* ── Source dropdown ───────────────────────────────────────────────────── */
+  const [extraSources,    setExtraSources]    = useState([]);
+  const [sourceAnchor,    setSourceAnchor]    = useState(null);
+  const [newSourceInput,  setNewSourceInput]  = useState('');
+  const allSources = [...CANDIDATE_SOURCES, ...extraSources];
 
-  const [feedbackDialog, setFeedbackDialog] = useState(false);
-  const [feedbackRound,  setFeedbackRound]  = useState(null);
-  const [feedbackForm,   setFeedbackForm]   = useState(EMPTY_FEEDBACK);
-  const [editFeedbackId, setEditFeedbackId] = useState(null);
+  /* ── Upload dialog ─────────────────────────────────────────────────────── */
+  const [uploadDialog,   setUploadDialog]  = useState(false);
+  const [uploadFile,     setUploadFile]    = useState(null);
+  const [uploadStoring,  setUploadStoring] = useState(false);   // Step 1: storing file
+  const [storedResume,   setStoredResume]  = useState(null);    // { resumePath, resumeOriginalName, ...parsed }
+  const [uploadForm,     setUploadForm]    = useState(EMPTY_UPLOAD);
+  const [uploadSaving,   setUploadSaving]  = useState(false);   // Step 2: saving candidate
+  const fileInputRef = useRef(null);
 
-  const [statusDialog,   setStatusDialog]   = useState(false);
-  const [newStatus,      setNewStatus]      = useState('');
+  /* ── Duplicate warning dialog ──────────────────────────────────────────── */
+  const [dupDialog,    setDupDialog]    = useState(false);
+  const [dupCandidate, setDupCandidate] = useState(null);
+  const [dupReplacing, setDupReplacing] = useState(false);
 
-  const [assignDialog,   setAssignDialog]   = useState(false);
-  const [assignForm,     setAssignForm]     = useState(EMPTY_ASSIGN);
+  /* ── HR Screening inline form ──────────────────────────────────────────── */
+  const [hrForm,   setHrForm]   = useState(EMPTY_HR);
+  const [hrSaving, setHrSaving] = useState(false);
 
-  const [saving, setSaving] = useState(false);
+  /* ── HR Screening spreadsheet table view ───────────────────────────────── */
+  const [hrTableForms,    setHrTableForms]    = useState({});
+  const [hrTableSavingId, setHrTableSavingId] = useState(null); // eslint-disable-line no-unused-vars
 
-  /* ── my-rounds filter ─────────────────────────────────────────────────── */
-  const [myRoundFilter,   setMyRoundFilter]   = useState('ALL');
-  const [pipelineFilter,  setPipelineFilter]  = useState('ALL');
+  /* ── Assign Technical Dialog ───────────────────────────────────────────── */
+  const [assignDialog, setAssignDialog] = useState(false);
+  const [assignForm,   setAssignForm]   = useState({ interviewerId: '', scheduledAt: '' });
+  const [assigning,    setAssigning]    = useState(false);
 
-  /* ── notifications ────────────────────────────────────────────────────── */
-  const [notifications,    setNotifications]    = useState([]);
-  const [unreadCount,      setUnreadCount]      = useState(0);
-  const [notifOpen,        setNotifOpen]        = useState(false);
+  /* ── Technical Feedback Dialog ─────────────────────────────────────────── */
+  const [techDialog, setTechDialog] = useState(false);
+  const [selTech,    setSelTech]    = useState(null);
+  const [techForm,   setTechForm]   = useState(EMPTY_TECH);
+  const [techSaving, setTechSaving] = useState(false);
 
-  const downloadIcs = async (roundId) => {
+  /* ── Generate Interview Link Dialog ─────────────────────────────────────── */
+  const [linkDialog,      setLinkDialog]      = useState(false);
+  const [linkTechId,      setLinkTechId]      = useState(null);
+  const [linkForm,        setLinkForm]        = useState({ technology: '', questionCount: 20 });
+  const [linkGenerating,  setLinkGenerating]  = useState(false);
+  const [generatedLink,   setGeneratedLink]   = useState('');
+
+  /* ── Final Round form ──────────────────────────────────────────────────── */
+  const [finalForm,        setFinalForm]        = useState(EMPTY_FINAL);
+  const [finalSaving,      setFinalSaving]      = useState(false);
+  const [finalLinkDialog,  setFinalLinkDialog]  = useState(false);
+  const [finalLinkCandId,  setFinalLinkCandId]  = useState(null);
+  const [finalLinkForm,    setFinalLinkForm]     = useState({ directorId: '' });
+  const [finalLinkGenerating, setFinalLinkGenerating] = useState(false);
+
+  /* ── Edit Candidate ────────────────────────────────────────────────────── */
+  const [editDialog, setEditDialog] = useState(false);
+  const [editForm,   setEditForm]   = useState({});
+  const [editSaving, setEditSaving] = useState(false);
+
+  /* ── List filters ──────────────────────────────────────────────────────── */
+  const [search,         setSearch]         = useState('');
+  const [statusFilter,   setStatusFilter]   = useState('ALL');
+  const [locationFilter, setLocationFilter] = useState('ALL');
+  const [profileFilter,  setProfileFilter]  = useState('ALL');
+  const [page,           setPage]           = useState(0);
+  const RPP = 10;
+  const [hrPage,         setHrPage]         = useState(0);
+  const HR_RPP = 5;
+
+  /* ── Init ──────────────────────────────────────────────────────────────── */
+  useEffect(() => { loadAll(); }, [canManage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadAll = async () => {
+    setLoading(true);
     try {
-      const token = localStorage.getItem('accessToken');
-      const base = process.env.REACT_APP_API_URL || '/api';
-      const res = await fetch(`${base}/interviews/rounds/${roundId}/ics`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Download failed');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = `interview-${roundId}.ics`; a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      toast.error('Could not download calendar invite');
-    }
-  };
-
-  /* ── init ─────────────────────────────────────────────────────────────── */
-  useEffect(() => {
-    const init = async () => {
-      // Fetch myRounds and notifications independently
-      const myRoundsPromise = interviewApi.getMyRounds()
-        .then(r => setMyRounds(Array.isArray(r) ? r : []))
-        .catch(() => {});
-      interviewApi.getMyNotifications()
-        .then(n => { setNotifications(Array.isArray(n) ? n : []); setUnreadCount((Array.isArray(n) ? n : []).filter(x => !x.read).length); })
-        .catch(() => {});
-
+      const promises = [
+        interviewApi.getMyAssignments().then(a => setMyAssignments(Array.isArray(a) ? a : [])).catch(() => {}),
+      ];
       if (canManage) {
-        try {
-          const [cands, st, emps] = await Promise.all([
-            interviewApi.getAllCandidates(),
-            interviewApi.getStats(),
-            employeeApi.getAll(),
-          ]);
-          setCandidates(Array.isArray(cands) ? cands : []);
-          setStats(st);
-          setAllEmployees(Array.isArray(emps) ? emps : []);
-        } catch (err) {
-          toast.error(err?.response?.status === 404
-            ? 'Interview module not available — please restart the backend server'
-            : 'Failed to load interview data');
-        }
+        promises.push(
+          interviewApi.getAllCandidates().then(c => setCandidates(Array.isArray(c) ? c : [])),
+          interviewApi.getStats().then(s => setStats(s)),
+          employeeApi.getAll().then(e => setAllEmployees(Array.isArray(e) ? e : [])),
+          interviewApi.getDirectors().then(d => setDirectors(Array.isArray(d) ? d : [])).catch(() => {}),
+        );
       }
-
-      await myRoundsPromise;
-      setLoading(false);
-    };
-    init();
-  }, [canManage]);
-
-  /* ── refresh helpers ──────────────────────────────────────────────────── */
-  const refreshCandidates = async () => {
-    const [cands, st] = await Promise.all([interviewApi.getAllCandidates(), interviewApi.getStats()]);
-    setCandidates(Array.isArray(cands) ? cands : []);
-    setStats(st);
+      await Promise.all(promises);
+    } catch (err) {
+      toast.error(err?.response?.status === 404
+        ? 'Interview module not available — please restart the backend'
+        : 'Failed to load data');
+    } finally { setLoading(false); }
   };
 
-  const refreshMyRounds = async () => {
-    const rounds = await interviewApi.getMyRounds();
-    setMyRounds(Array.isArray(rounds) ? rounds : []);
+  const refreshCandidates = async () => {
+    try {
+      const [c, s] = await Promise.all([interviewApi.getAllCandidates(), interviewApi.getStats()]);
+      setCandidates(Array.isArray(c) ? c : []);
+      setStats(s);
+    } catch { toast.error('Refresh failed'); }
   };
 
   const refreshDetail = async (id) => {
     setDetailLoading(true);
     try {
-      const [c, logs] = await Promise.all([
-        interviewApi.getCandidate(id),
-        interviewApi.getAuditLogsForCandidate(id),
-      ]);
-      setDetailCandidate(c);
-      setCandidateAudit(Array.isArray(logs) ? logs : []);
-    } catch {
-      toast.error('Failed to refresh candidate');
-    } finally {
-      setDetailLoading(false);
+      const c = await interviewApi.getCandidate(id);
+      setSelectedCand(c);
+      populateForms(c);
+    } catch { toast.error('Failed to refresh'); }
+    finally { setDetailLoading(false); }
+  };
+
+  const populateForms = (c) => {
+    const s = c.hrScreening;
+    setHrForm(s ? {
+      currentRoleResponsibilities: s.currentRoleResponsibilities || '',
+      reasonForChange:             s.reasonForChange             || '',
+      currentCtc:                  s.currentCtc                  || '',
+      expectedCtc:                 s.expectedCtc                 || '',
+      noticePeriod:                s.noticePeriod                || '',
+      preferredLocation:           s.preferredLocation           || '',
+      workBase:                    s.workBase                    || '',
+      totalExperience:             s.totalExperience             || '',
+      currentCompany:              s.currentCompany              || '',
+      screeningDate:               s.screeningDate               || '',
+      communicationSkills:         s.communicationSkills         || '',
+      hrComments:                  s.hrComments                  || '',
+      rejectionReason:             s.rejectionReason             || '',
+      relevantExperience:          s.relevantExperience          || '',
+      availability:                s.availability                || '',
+    } : EMPTY_HR);
+    const f = c.finalRound;
+    setFinalForm(f ? {
+      finalInterviewDate:   f.finalInterviewDate   || '',
+      finalRemarks:         f.finalRemarks         || '',
+      salaryRecommendation: f.salaryRecommendation || '',
+      joiningDate:          f.joiningDate          || '',
+    } : EMPTY_FINAL);
+    setStageTab(statusToStep(c.status));
+  };
+
+  /* ── Upload ─────────────────────────────────────────────────────────────── */
+
+  const closeUploadDialog = () => {
+    setUploadDialog(false);
+    setUploadFile(null);
+    setStoredResume(null);
+    setUploadForm(EMPTY_UPLOAD);
+  };
+
+  /**
+   * Step 1 — called the instant the user selects a file.
+   * Sends the file to the server immediately so it's stored on disk,
+   * then pre-fills the form with every field the parser extracted.
+   */
+  const handleFileSelect = async (file) => {
+    if (!file) return;
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!['pdf', 'doc', 'docx'].includes(ext)) {
+      toast.error('Only PDF, DOC, DOCX files are accepted');
+      return;
     }
-  };
-
-  /* ── candidate CRUD ───────────────────────────────────────────────────── */
-  const openAddCandidate = () => {
-    setEditCandidate(null);
-    setCandForm(EMPTY_CANDIDATE);
-    setCandDialog(true);
-  };
-
-  const openEditCandidate = (c, e) => {
-    e?.stopPropagation();
-    setEditCandidate(c);
-    setCandForm({ name: c.name, email: c.email || '', phone: c.phone || '', position: c.position,
-                  department: c.department || '', source: c.source || '', notes: c.notes || '' });
-    setCandDialog(true);
-  };
-
-  const handleSaveCandidate = async () => {
-    if (!candForm.name.trim() || !candForm.position.trim()) {
-      toast.error('Name and Position are required'); return;
-    }
-    setSaving(true);
+    setUploadFile(file);
+    setStoredResume(null);
+    setUploadStoring(true);
     try {
-      if (editCandidate) {
-        await interviewApi.updateCandidate(editCandidate.id, candForm);
-        toast.success('Candidate updated');
-        if (detailCandidate?.id === editCandidate.id) await refreshDetail(editCandidate.id);
-      } else {
-        await interviewApi.createCandidate(candForm);
-        toast.success('Candidate added');
-      }
-      setCandDialog(false);
-      await refreshCandidates();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to save candidate');
-    } finally {
-      setSaving(false);
-    }
-  };
+      const result = await interviewApi.storeResume(file);
 
-  const handleDeleteCandidate = async (id, e) => {
-    e?.stopPropagation();
-    if (!window.confirm('Delete this candidate and all interview records?')) return;
-    try {
-      await interviewApi.deleteCandidate(id);
-      toast.success('Candidate deleted');
-      if (detailCandidate?.id === id) setDetailCandidate(null);
-      await refreshCandidates();
-    } catch {
-      toast.error('Failed to delete candidate');
-    }
-  };
-
-  const openStatusDialog = (c) => {
-    setNewStatus(c.status);
-    setStatusDialog(true);
-  };
-
-  const openAssignDialog = (preselectedCandidate = null) => {
-    setAssignForm({
-      ...EMPTY_ASSIGN,
-      candidateId: preselectedCandidate ? String(preselectedCandidate.id) : '',
-    });
-    setAssignDialog(true);
-  };
-
-  const handleAssignSubmit = async () => {
-    const { candidateId, interviewerId, roundType, date, time, durationMinutes, instructions } = assignForm;
-    if (!candidateId)   { toast.error('Select a candidate');   return; }
-    if (!interviewerId) { toast.error('Select an interviewer'); return; }
-    if (!date || !time) { toast.error('Set interview date and time'); return; }
-    setSaving(true);
-    try {
-      const scheduledAt = new Date(`${date}T${time}`).toISOString();
-      await interviewApi.scheduleRound(Number(candidateId), {
-        roundType,
-        interviewerId: Number(interviewerId),
-        scheduledAt,
-        durationMinutes: Number(durationMinutes) || 60,
-        managerNotes: instructions,
+      setStoredResume({
+        resumePath:         result.resumePath,
+        resumeOriginalName: result.resumeOriginalName,
+        rawResumeText:      result.rawResumeText || '',
+        educationSummary:   result.educationSummary   || '',
+        currentDesignation: result.currentDesignation || '',
+        currentCompanyCv:   result.currentCompanyCv   || '',
       });
-      toast.success('Interview assigned — interviewer notified');
-      setAssignDialog(false);
-      await refreshCandidates();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to assign interview');
-    } finally {
-      setSaving(false);
-    }
-  };
 
-  const handleStatusChange = async () => {
-    if (!newStatus || !detailCandidate) return;
-    setSaving(true);
-    try {
-      await interviewApi.updateCandidateStatus(detailCandidate.id, newStatus);
-      toast.success('Status updated');
-      setStatusDialog(false);
-      await Promise.all([refreshDetail(detailCandidate.id), refreshCandidates()]);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to update status');
-    } finally {
-      setSaving(false);
-    }
-  };
+      let parsed = result;
+      // For image PDFs we track OCR-parsed fields separately so we never fall back
+      // to a stale form value or an unreliable PDFBox guess for contact fields.
+      let ocrParsed = null;
 
-  /* ── round scheduling ─────────────────────────────────────────────────── */
-  const openScheduleRound = () => {
-    setEditRound(null);
-    setRoundForm(EMPTY_ROUND);
-    setRoundDialog(true);
-  };
-
-  const openEditRound = (round) => {
-    setEditRound(round);
-    setRoundForm({
-      roundType: round.roundType || 'TECHNICAL',
-      interviewerId: round.interviewerId || '',
-      scheduledAt: round.scheduledAt ? round.scheduledAt.slice(0, 16) : '',
-      durationMinutes: round.durationMinutes || 60,
-      location: round.location || '',
-      managerNotes: round.managerNotes || '',
-      status: round.status,
-    });
-    setRoundDialog(true);
-  };
-
-  const handleSaveRound = async () => {
-    if (!roundForm.interviewerId) { toast.error('Select an interviewer'); return; }
-    setSaving(true);
-    try {
-      const payload = {
-        ...roundForm,
-        interviewerId: Number(roundForm.interviewerId),
-        scheduledAt: roundForm.scheduledAt ? new Date(roundForm.scheduledAt).toISOString() : null,
-      };
-      if (editRound) {
-        await interviewApi.updateRound(editRound.id, payload);
-        toast.success('Round updated');
-      } else {
-        await interviewApi.scheduleRound(detailCandidate.id, payload);
-        toast.success('Round scheduled — interviewer notified');
+      // If backend extracted little/no text (image-based or complex-layout PDF), run browser OCR
+      const isImagePdf = ext === 'pdf' && (!result.rawResumeText || result.rawResumeText.trim().length < 100);
+      if (isImagePdf) {
+        toast.info('Image-based CV detected — running OCR in browser, please wait...', { autoClose: false, toastId: 'ocr' });
+        try {
+          const { ocrPdfFile } = await import('../utils/ocrPdf');
+          const ocrText = await ocrPdfFile(file, p => {
+            if (p % 25 === 0) toast.update('ocr', { render: `OCR in progress: ${p}%` });
+          });
+          console.log('[OCR] text length:', ocrText.trim().length);
+          if (ocrText.trim().length > 50) {
+            ocrParsed = await interviewApi.parseText(ocrText);
+            console.log('[OCR] parsed fields:', ocrParsed);
+            parsed = { ...result, ...ocrParsed };
+          }
+          toast.dismiss('ocr');
+        } catch (ocrErr) {
+          toast.dismiss('ocr');
+          console.warn('Browser OCR failed:', ocrErr);
+        }
       }
-      setRoundDialog(false);
-      await refreshDetail(detailCandidate.id);
-      await refreshCandidates();
+
+      const extractedName    = isImagePdf ? (ocrParsed?.name    || '') : (parsed.name    || '');
+      const extractedEmail   = isImagePdf ? (ocrParsed?.email   || '') : (parsed.email   || '');
+      const extractedPhone   = isImagePdf ? (ocrParsed?.phone   || '') : (parsed.phone   || '');
+      const extractedAddress = isImagePdf ? (ocrParsed?.address || '') : (parsed.address || '');
+
+      setUploadForm(f => ({
+        ...f,
+        // For image PDFs: use OCR result only — empty string if not found (user types it).
+        // Never fall back to PDFBox's guess or a stale previous-upload form value.
+        name:                 extractedName    || f.name    || '',
+        email:                extractedEmail   || f.email   || '',
+        phone:                extractedPhone   || f.phone   || '',
+        address:              extractedAddress || f.address || '',
+        addressStreet:        parsed.addressStreet        || '',
+        addressArea:          parsed.addressArea          || '',
+        addressLandmark:      parsed.addressLandmark      || '',
+        addressCity:          parsed.addressCity          || '',
+        addressDistrict:      parsed.addressDistrict      || '',
+        addressState:         parsed.addressState         || '',
+        addressPostalCode:    parsed.addressPostalCode    || '',
+        addressCountry:       parsed.addressCountry       || '',
+        skills:               parsed.skills               || f.skills               || '',
+        totalExperienceYears: parsed.totalExperienceYears || f.totalExperienceYears || '',
+        linkedinUrl:          parsed.linkedinUrl          || f.linkedinUrl          || '',
+        githubUrl:            parsed.githubUrl            || f.githubUrl            || '',
+      }));
+
+      toast.success('CV stored — details auto-extracted. Review and confirm.');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to save round');
+      toast.error(err?.message || 'Failed to store CV on server');
+      setUploadFile(null);
     } finally {
-      setSaving(false);
+      setUploadStoring(false);
     }
   };
 
-  const handleCancelRound = async (roundId) => {
-    if (!window.confirm('Cancel this interview round?')) return;
+  /** Builds the shared FormData payload used by both create and replace-resume flows. */
+  const buildCandidateFormData = () => {
+    const fd = new FormData();
+    fd.append('resumePath',         storedResume.resumePath);
+    fd.append('resumeOriginalName', storedResume.resumeOriginalName);
+    fd.append('rawResumeText',      storedResume.rawResumeText      || '');
+    fd.append('educationSummary',   storedResume.educationSummary   || '');
+    fd.append('currentDesignation', storedResume.currentDesignation || '');
+    fd.append('currentCompanyCv',   storedResume.currentCompanyCv   || '');
+    ['name','email','phone',
+     'address','addressStreet','addressArea','addressLandmark',
+     'addressCity','addressDistrict','addressState','addressPostalCode','addressCountry',
+     'appliedProfile','officeLocation','source',
+     'skills','totalExperienceYears','linkedinUrl','githubUrl']
+      .forEach(k => fd.append(k, uploadForm[k] || ''));
+    return fd;
+  };
+
+  /**
+   * Step 2 — called when the user clicks "Add to CV Bank".
+   * Before creating a new record, checks for a duplicate candidate.
+   * If one is found, shows the replacement confirmation dialog instead.
+   */
+  const handleUploadSubmit = async () => {
+    if (!uploadForm.name.trim())           { toast.error('Candidate name is required');   return; }
+    if (!uploadForm.appliedProfile.trim()) { toast.error('Applied Profile is required');  return; }
+    if (!uploadForm.officeLocation)        { toast.error('Office Location is required');  return; }
+    if (!storedResume)                     { toast.error('Please upload a CV first');     return; }
+
+    setUploadSaving(true);
     try {
-      await interviewApi.cancelRound(roundId);
-      toast.success('Round cancelled');
-      await refreshDetail(detailCandidate.id);
-    } catch {
-      toast.error('Failed to cancel round');
-    }
-  };
-
-  const handleStartRound = async (roundId) => {
-    try {
-      await interviewApi.startRound(roundId);
-      toast.success('Interview started');
-      await refreshMyRounds();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to start round');
-    }
-  };
-
-  /* ── feedback ─────────────────────────────────────────────────────────── */
-  const openFeedback = (round, existingFeedback) => {
-    setFeedbackRound(round);
-    if (existingFeedback) {
-      setEditFeedbackId(existingFeedback.id);
-      setFeedbackForm({
-        overallRating: existingFeedback.overallRating || 3,
-        technicalRating: existingFeedback.technicalRating || 3,
-        communicationRating: existingFeedback.communicationRating || 3,
-        problemSolvingRating: existingFeedback.problemSolvingRating || 3,
-        cultureFitRating: existingFeedback.cultureFitRating || 3,
-        strengths: existingFeedback.strengths || '',
-        weaknesses: existingFeedback.weaknesses || '',
-        comments: existingFeedback.comments || '',
-        recommendation: existingFeedback.recommendation || 'HIRE',
+      const existing = await interviewApi.checkDuplicate({
+        email: uploadForm.email,
+        phone: uploadForm.phone,
+        name:  uploadForm.name,
       });
-    } else {
-      setEditFeedbackId(null);
-      setFeedbackForm(EMPTY_FEEDBACK);
-    }
-    setFeedbackDialog(true);
-  };
 
-  const handleSubmitFeedback = async () => {
-    if (!feedbackForm.recommendation) { toast.error('Select a recommendation'); return; }
-    setSaving(true);
-    try {
-      if (editFeedbackId) {
-        await interviewApi.updateFeedback(editFeedbackId, feedbackForm);
-        toast.success('Feedback updated');
-      } else {
-        await interviewApi.submitFeedback(feedbackRound.id, feedbackForm);
-        toast.success('Feedback submitted — manager notified');
+      if (existing?.id) {
+        setDupCandidate(existing);
+        setDupDialog(true);
+        return; // wait for user choice in the duplicate dialog
       }
-      setFeedbackDialog(false);
-      await refreshMyRounds();
-      if (detailCandidate) await refreshDetail(detailCandidate.id);
+
+      await interviewApi.uploadCandidate(buildCandidateFormData());
+      toast.success(`${uploadForm.name} added to CV Bank`);
+      closeUploadDialog();
+      await refreshCandidates();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to submit feedback');
+      toast.error(err?.message || 'Failed to save candidate');
     } finally {
-      setSaving(false);
+      setUploadSaving(false);
     }
   };
 
-  /* ── candidate detail open ────────────────────────────────────────────── */
+  /** User clicked "Replace Resume" in the duplicate warning dialog. */
+  const handleReplaceResume = async () => {
+    if (!dupCandidate || !storedResume) return;
+    setDupReplacing(true);
+    try {
+      await interviewApi.replaceResume(dupCandidate.id, buildCandidateFormData());
+      toast.success(`CV replaced for ${dupCandidate.name} — previous version archived`);
+      setDupDialog(false);
+      setDupCandidate(null);
+      closeUploadDialog();
+      await refreshCandidates();
+    } catch (err) {
+      toast.error(err?.message || 'Failed to replace CV');
+    } finally {
+      setDupReplacing(false);
+    }
+  };
+
+  /** User clicked "Cancel" in the duplicate warning dialog — keep the upload form open. */
+  const handleDupCancel = () => {
+    setDupDialog(false);
+    setDupCandidate(null);
+  };
+
+  /* ── Detail open ───────────────────────────────────────────────────────── */
   const openDetail = async (c) => {
-    setDetailCandidate(null);
-    setExpandedRound(null);
+    setSelectedCand(null);
+    setHrForm(EMPTY_HR);
+    setFinalForm(EMPTY_FINAL);
     setDetailLoading(true);
     try {
-      const [detail, logs] = await Promise.all([
-        interviewApi.getCandidate(c.id),
-        interviewApi.getAuditLogsForCandidate(c.id),
+      const full = await interviewApi.getCandidate(c.id);
+      setSelectedCand(full);
+      populateForms(full);
+    } catch { toast.error('Failed to load candidate'); }
+    finally { setDetailLoading(false); }
+  };
+
+  const openDetailAtHrTab = (c) => openDetail(c).then(() => setStageTab(1));
+
+  /* ── Resume viewer ─────────────────────────────────────────────────────── */
+  const openResume = async (candidateId) => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const BASE = process.env.REACT_APP_API_URL || '/api';
+      const res = await fetch(`${BASE}/interviews/candidates/${candidateId}/resume`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) { toast.error('Could not load resume'); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch { toast.error('Could not open resume'); }
+  };
+
+  /* ── CV Bank actions ───────────────────────────────────────────────────── */
+  const handleOpenHrScreening = async (c) => {
+    try {
+      await interviewApi.openHrScreening(c.id);
+      toast.success('Moved to HR Review');
+      await refreshCandidates();
+      openDetail(c);
+    } catch (err) { toast.error(err?.response?.data?.message || 'Failed'); }
+  };
+
+  const handleReject = async (id) => {
+    try {
+      await interviewApi.rejectFromCvBank(id);
+      toast.success('Candidate rejected');
+      if (selectedCand?.id === id) await refreshDetail(id);
+      await refreshCandidates();
+    } catch { toast.error('Failed to reject'); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Permanently delete this candidate and all records?')) return;
+    try {
+      await interviewApi.deleteCandidate(id);
+      toast.success('Deleted');
+      if (selectedCand?.id === id) setSelectedCand(null);
+      await refreshCandidates();
+    } catch { toast.error('Failed to delete'); }
+  };
+
+  /* ── Edit ──────────────────────────────────────────────────────────────── */
+  const openEdit = (c) => {
+    setEditForm({
+      name: c.name, email: c.email || '', phone: c.phone || '', address: c.address || '',
+      addressStreet: c.addressStreet || '', addressArea: c.addressArea || '',
+      addressLandmark: c.addressLandmark || '', addressCity: c.addressCity || '',
+      addressDistrict: c.addressDistrict || '', addressState: c.addressState || '',
+      addressPostalCode: c.addressPostalCode || '', addressCountry: c.addressCountry || '',
+      appliedProfile: c.appliedProfile, officeLocation: c.officeLocation || '', source: c.source || '',
+      skills: c.skills || '', totalExperienceYears: c.totalExperienceYears || '',
+      currentDesignation: c.currentDesignation || '', currentCompanyCv: c.currentCompanyCv || '',
+      educationSummary: c.educationSummary || '', linkedinUrl: c.linkedinUrl || '', githubUrl: c.githubUrl || '',
+    });
+    setEditDialog(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!editForm.name?.trim() || !editForm.appliedProfile?.trim()) { toast.error('Name & Applied Profile required'); return; }
+    setEditSaving(true);
+    try {
+      await interviewApi.updateCandidate(selectedCand.id, editForm);
+      toast.success('Updated');
+      setEditDialog(false);
+      await refreshDetail(selectedCand.id);
+      await refreshCandidates();
+    } catch { toast.error('Failed to update'); }
+    finally { setEditSaving(false); }
+  };
+
+  /* ── HR Screening ──────────────────────────────────────────────────────── */
+  const handleSaveHr = async () => {
+    setHrSaving(true);
+    try {
+      await interviewApi.saveHrScreening(selectedCand.id, hrForm);
+      toast.success('Screening form saved');
+      await Promise.all([
+        refreshDetail(selectedCand.id),
+        refreshCandidates(),
       ]);
-      setDetailCandidate(detail);
-      setCandidateAudit(Array.isArray(logs) ? logs : []);
-      // Auto-expand the most recent round that has submitted feedback so it's immediately visible
-      const roundWithFeedback = [...(detail.rounds || [])]
-        .reverse()
-        .find(r => r.feedbackSubmitted || (r.feedbacks || []).length > 0);
-      if (roundWithFeedback) setExpandedRound(roundWithFeedback.id);
-    } catch {
-      toast.error('Failed to load candidate details');
-    } finally {
-      setDetailLoading(false);
+    } catch { toast.error('Failed to save'); }
+    finally { setHrSaving(false); }
+  };
+
+  const handleHrDecision = async (decision) => {
+    if (decision === 'SUITABLE') {
+      setAssignForm({ interviewerId: '', scheduledAt: '' });
+      setAssignDialog(true);
+    } else {
+      if (!hrForm.rejectionReason?.trim()) {
+        toast.error('Rejection reason is mandatory before marking Not Suitable');
+        return;
+      }
+      setHrSaving(true);
+      try {
+        const updated = await interviewApi.submitHrDecision(selectedCand.id, { ...hrForm, decision: 'NOT_SUITABLE' });
+        toast.success('Marked Not Suitable — rejection email sent');
+        setSelectedCand(updated);
+        populateForms(updated);
+        await refreshCandidates();
+      } catch (err) { toast.error(err?.message || 'Failed to submit decision'); }
+      finally { setHrSaving(false); }
     }
   };
 
-  /* ── computed ─────────────────────────────────────────────────────────── */
-  const filteredCandidates = useMemo(() => {
-    const q = search.toLowerCase();
-    return candidates.filter(c => {
-      const matchSearch = !q || c.name?.toLowerCase().includes(q)
-        || c.position?.toLowerCase().includes(q) || c.department?.toLowerCase().includes(q)
-        || c.email?.toLowerCase().includes(q);
-      const matchStatus = statusFilter === 'ALL' || c.status === statusFilter;
-      return matchSearch && matchStatus;
-    });
-  }, [candidates, search, statusFilter]);
 
-  const filteredMyRounds = useMemo(() => {
-    if (myRoundFilter === 'ALL') return myRounds;
-    return myRounds.filter(r => r.status === myRoundFilter);
-  }, [myRounds, myRoundFilter]);
-
-  const myEmployee = useMemo(() => {
-    if (!user) return null;
-    return allEmployees.find(e => e.userId === user.userId) || null;
-  }, [allEmployees, user]);
-
-  /* ── director pipeline helpers ────────────────────────────────────────── */
-  const getPipelineStatus = (c) => {
-    if (c.status === 'SELECTED') return 'SELECTED';
-    if (c.status === 'REJECTED') return 'REJECTED';
-    if (c.status === 'ON_HOLD')  return 'ON_HOLD';
-    const rounds = (c.rounds || []).filter(r => r.status !== 'CANCELLED');
-    if (!rounds.length) return 'PENDING';
-    const latest = rounds[rounds.length - 1];
-    if (latest.status === 'SCHEDULED')   return 'ASSIGNED';
-    if (latest.status === 'IN_PROGRESS') return 'INTERVIEWING';
-    if (latest.status === 'COMPLETED')   return 'FEEDBACK_PENDING';
-    return 'PENDING';
+  const handleAssignTechnical = async () => {
+    if (!assignForm.interviewerId) { toast.error('Please select an interviewer'); return; }
+    setAssigning(true);
+    try {
+      const updated = await interviewApi.submitHrDecision(selectedCand.id, {
+        ...hrForm,
+        decision:     'SUITABLE',
+        interviewerId: Number(assignForm.interviewerId),
+        scheduledAt:   assignForm.scheduledAt ? new Date(assignForm.scheduledAt).toISOString() : null,
+      });
+      toast.success('Marked Suitable — Technical interview assigned, manager notified');
+      setAssignDialog(false);
+      setSelectedCand(updated);
+      populateForms(updated);
+      await refreshCandidates();
+    } catch (err) { toast.error(err?.response?.data?.message || 'Failed'); }
+    finally { setAssigning(false); }
   };
 
-  const getCurrentRound = (c) => {
-    const rounds = (c.rounds || []).filter(r => r.status !== 'CANCELLED');
-    if (!rounds.length) return null;
-    return rounds.find(r => ['SCHEDULED', 'IN_PROGRESS'].includes(r.status)) || rounds[rounds.length - 1];
+  /* ── Technical Feedback ────────────────────────────────────────────────── */
+  const openTechFeedback = (tech) => {
+    setSelTech(tech);
+    setTechForm({
+      technicalSkillsRating:      tech.technicalSkillsRating      || 3,
+      communicationRating:         tech.communicationRating         || 3,
+      problemSolvingRating:        tech.problemSolvingRating        || 3,
+      codingAbilityRating:         tech.codingAbilityRating         || 3,
+      architectureKnowledgeRating: tech.architectureKnowledgeRating || 3,
+      comments: tech.comments || '',
+      decision: (tech.decision && tech.decision !== 'PENDING') ? tech.decision : '',
+    });
+    setTechDialog(true);
   };
 
-  const pipelineStats = useMemo(() => ({
-    total:          candidates.length,
-    assigned:       candidates.filter(c => (c.rounds || []).some(r => ['SCHEDULED', 'IN_PROGRESS'].includes(r.status))).length,
-    pendingFeedback: candidates.filter(c => {
-      const rounds = (c.rounds || []).filter(r => r.status !== 'CANCELLED');
-      return rounds.length > 0 && rounds[rounds.length - 1].status === 'COMPLETED' && c.status === 'IN_PROGRESS';
-    }).length,
-    selected:       candidates.filter(c => c.status === 'SELECTED').length,
-    rejected:       candidates.filter(c => c.status === 'REJECTED').length,
-  }), [candidates]);
+  const openGenerateLinkDialog = (tech) => {
+    setLinkTechId(tech.id);
+    setLinkForm({ technology: tech.interviewTechnology || tech.candidateAppliedProfile || '', questionCount: tech.questionCount || 20 });
+    setGeneratedLink(tech.interviewLink || '');
+    setLinkDialog(true);
+  };
 
-  const filteredPipeline = useMemo(() => {
+  const handleGenerateLink = async () => {
+    setLinkGenerating(true);
+    try {
+      const updated = await interviewApi.generateInterviewLink(linkTechId, {
+        technology: linkForm.technology, questionCount: linkForm.questionCount,
+      });
+      setGeneratedLink(updated.interviewLink || '');
+      toast.success('Interview link generated and emailed to candidate!');
+      await refreshCandidates();
+      if (selectedCand) {
+        const fresh = await interviewApi.getCandidate(selectedCand.id).catch(() => null);
+        if (fresh) { setSelectedCand(fresh); populateForms(fresh); }
+      }
+    } catch (err) { toast.error(err?.response?.data?.message || 'Failed to generate link'); }
+    finally { setLinkGenerating(false); }
+  };
+
+  const handleTechFeedbackSubmit = async () => {
+    if (!techForm.decision) { toast.error('Select Approve or Reject'); return; }
+    setTechSaving(true);
+    try {
+      const updated = await interviewApi.submitTechnicalFeedback(selTech.id, techForm);
+      toast.success(techForm.decision === 'APPROVE'
+        ? 'Approved — moved to Final Round, director notified'
+        : 'Rejected — rejection email sent');
+      setTechDialog(false);
+      const assigns = await interviewApi.getMyAssignments().catch(() => myAssignments);
+      setMyAssignments(Array.isArray(assigns) ? assigns : myAssignments);
+      if (selectedCand) { setSelectedCand(updated); populateForms(updated); }
+      await refreshCandidates();
+    } catch (err) { toast.error(err?.response?.data?.message || 'Failed'); }
+    finally { setTechSaving(false); }
+  };
+
+  /* ── Final Round ───────────────────────────────────────────────────────── */
+  const handleSaveFinal = async () => {
+    if (!finalForm.finalInterviewDate) { toast.error('Final Interview Date is required'); return; }
+    setFinalSaving(true);
+    try {
+      await interviewApi.saveFinalRound(selectedCand.id, finalForm);
+      toast.success('Final round details saved');
+      await refreshDetail(selectedCand.id);
+    } catch { toast.error('Failed to save'); }
+    finally { setFinalSaving(false); }
+  };
+
+  const handleFinalDecision = async (decision) => {
+    if (!selectedCand.finalRound?.id) { toast.error('Save final round details first'); return; }
+    setFinalSaving(true);
+    try {
+      const updated = await interviewApi.submitFinalDecision(selectedCand.finalRound.id, { ...finalForm, finalDecision: decision });
+      toast.success(decision === 'APPROVE' ? 'Candidate Selected — offer email sent!' : 'Candidate rejected');
+      setSelectedCand(updated);
+      populateForms(updated);
+      await refreshCandidates();
+    } catch (err) { toast.error(err?.response?.data?.message || 'Failed'); }
+    finally { setFinalSaving(false); }
+  };
+
+  const handleGenerateFinalLink = async () => {
+    setFinalLinkGenerating(true);
+    try {
+      const updated = await interviewApi.generateFinalInterviewLink(finalLinkCandId, {
+        directorId: finalLinkForm.directorId ? Number(finalLinkForm.directorId) : null,
+      });
+      toast.success('Final interview link generated — email sent to candidate');
+      setFinalLinkDialog(false);
+      await refreshDetail(finalLinkCandId);
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Failed to generate link');
+    } finally {
+      setFinalLinkGenerating(false);
+    }
+  };
+
+  /* ── Filters ───────────────────────────────────────────────────────────── */
+  // Pre-filtered by search + location + profile (status chip applied separately below)
+  const preFilteredCands = useMemo(() => {
     const q = search.toLowerCase();
     return candidates.filter(c => {
-      const matchSearch = !q || c.name?.toLowerCase().includes(q)
-        || c.position?.toLowerCase().includes(q) || c.department?.toLowerCase().includes(q);
-      if (!matchSearch) return false;
-      if (pipelineFilter === 'ALL') return true;
-      return getPipelineStatus(c) === pipelineFilter;
+      const ms = !q || c.name?.toLowerCase().includes(q) || c.appliedProfile?.toLowerCase().includes(q) || c.candidateId?.toLowerCase().includes(q);
+      const ml = locationFilter === 'ALL' || c.officeLocation === locationFilter;
+      const mp = profileFilter  === 'ALL' || c.appliedProfile === profileFilter;
+      return ms && ml && mp;
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candidates, search, pipelineFilter]);
+  }, [candidates, search, locationFilter, profileFilter]);
 
+  const filteredCands = useMemo(() =>
+    statusFilter === 'ALL'
+      ? preFilteredCands
+      : preFilteredCands.filter(c => c.status === statusFilter),
+  [preFilteredCands, statusFilter]);
+
+  const hrCands    = useMemo(() =>
+    candidates.filter(c => c.status === 'UNDER_HR_REVIEW' || c.hrScreening),
+  [candidates]);
+  const pagedHrCands = useMemo(() =>
+    hrCands.slice(hrPage * HR_RPP, (hrPage + 1) * HR_RPP),
+  [hrCands, hrPage]);
+  const techCands  = useMemo(() => candidates.filter(c => c.status === 'TECHNICAL_PENDING'), [candidates]);
+  const finalCands = useMemo(() => candidates.filter(c => c.status === 'FINAL_ROUND_PENDING'), [candidates]);
+
+  /* ── Sync hrTableForms whenever the HR tab is active or hrCands changes ── */
+  useEffect(() => { // eslint-disable-line react-hooks/exhaustive-deps
+    if (tab !== 'hr') return;
+    const forms = {};
+    hrCands.forEach(c => {
+      const s = c.hrScreening || {};
+      forms[c.id] = {
+        currentRoleResponsibilities: s.currentRoleResponsibilities || '',
+        reasonForChange:             s.reasonForChange             || '',
+        currentCtc:                  s.currentCtc                  || '',
+        expectedCtc:                 s.expectedCtc                 || '',
+        noticePeriod:                s.noticePeriod                || '',
+        preferredLocation:           s.preferredLocation           || '',
+        workBase:                    s.workBase                    || '',
+        totalExperience:             s.totalExperience             || '',
+        currentCompany:              s.currentCompany              || '',
+        screeningDate:               s.screeningDate               || '',
+        communicationSkills:         s.communicationSkills         || '',
+        hrComments:                  s.hrComments                  || '',
+        rejectionReason:             s.rejectionReason             || '',
+      };
+    });
+    setHrTableForms(forms);
+  }, [tab, hrCands]);
+
+  /* ── Loading ───────────────────────────────────────────────────────────── */
   if (loading) return (
     <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}>
       <CircularProgress sx={{ color: '#1e3a5f' }} />
     </Box>
   );
 
-  /* ═══════════════════════════════════════════════════════════════════════ */
-  /* CANDIDATE DETAIL VIEW                                                  */
-  /* ═══════════════════════════════════════════════════════════════════════ */
-  if (detailCandidate && tab === 'candidates') {
-    const c = detailCandidate;
-    const rounds = c.rounds || [];
-    const canDecide = canSchedule;
+  /* ══════════════════════════════════════════════════════════════════════════ */
+  /* CANDIDATE DETAIL VIEW                                                      */
+  /* ══════════════════════════════════════════════════════════════════════════ */
+  if (selectedCand) {
+    const c          = selectedCand;
+    const step       = statusToStep(c.status);
+    const rejected   = ['HR_REJECTED', 'TECHNICAL_REJECTED', 'REJECTED'].includes(c.status);
+    const selected   = c.status === 'SELECTED';
+    const techs      = c.technicalInterviews || [];
+    const finalData  = c.finalRound;
+    const hrData     = c.hrScreening;
+    const canHrAct   = canManage && c.status === 'UNDER_HR_REVIEW';
+    const canFinalAct= isAdmin   && c.status === 'FINAL_ROUND_PENDING';
 
     return (
       <Box sx={{ bgcolor: '#f8fafc', minHeight: '100%' }}>
         {detailLoading && <LinearProgress sx={{ mb: 1 }} />}
 
-        {/* ── header ── */}
+        {/* ── Header ── */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
           <Box>
-            <Button startIcon={<ArrowBackIcon />} size="small" onClick={() => setDetailCandidate(null)}
+            <Button startIcon={<ArrowBackIcon />} size="small" onClick={() => setSelectedCand(null)}
               sx={{ color: '#64748b', textTransform: 'none', mb: 1 }}>
-              Back to Candidates
+              Back to {tab === 'cvbank' ? 'CV Bank' : tab === 'hr' ? 'HR Screening' : tab === 'final' ? 'Final Round' : 'List'}
             </Button>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Avatar sx={{ bgcolor: '#1e3a5f', width: 48, height: 48, fontSize: 20 }}>
-                {c.name?.charAt(0).toUpperCase()}
+                {c.name?.charAt(0)?.toUpperCase()}
               </Avatar>
               <Box>
-                <Typography variant="h5" fontWeight={700}>{c.name}</Typography>
-                <Typography variant="body2" color="text.secondary">{c.position}
-                  {c.department && ` · ${c.department}`}</Typography>
+                <Box>
+                  <Typography variant="h5" fontWeight={700}>{c.name}</Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary">
+                  {c.appliedProfile}{c.officeLocation ? ` · ${c.officeLocation}` : ''}
+                </Typography>
               </Box>
               <StatusChip status={c.status} />
             </Box>
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            {canSchedule && (
-              <Button variant="outlined" startIcon={<EditIcon />} size="small"
-                onClick={() => openEditCandidate(c)}
-                sx={{ textTransform: 'none', borderColor: '#e2e8f0' }}>
-                Edit
-              </Button>
+            <Tooltip title="Back to Dashboard">
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setSelectedCand(null);
+                  setTab(isManager && !canManage ? 'technical' : 'cvbank');
+                  setPage(0);
+                  loadAll();
+                }}
+                sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                <RefreshIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            {canManage && (
+              <Tooltip title="Edit">
+                <IconButton size="small" onClick={() => openEdit(c)} sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             )}
-            {canDecide && (
-              <Button variant="outlined" size="small" onClick={() => openStatusDialog(c)}
-                sx={{ textTransform: 'none', borderColor: '#e2e8f0' }}>
-                Change Status
-              </Button>
+            {isAdmin && (
+              <Tooltip title="Delete">
+                <IconButton size="small" color="error" onClick={() => handleDelete(c.id)} sx={{ border: '1px solid #fecaca', borderRadius: 2 }}>
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             )}
-            {canSchedule && (
-              <Button variant="contained" startIcon={<AddIcon />} size="small"
-                onClick={openScheduleRound}
-                sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, textTransform: 'none' }}>
-                Schedule Round
+            {c.resumeOriginalName && (
+              <Button variant="outlined" startIcon={<DescriptionIcon />} size="small"
+                onClick={() => openResume(c.id)}
+                sx={{ textTransform: 'none', borderColor: '#e2e8f0' }}>
+                Resume
               </Button>
             )}
           </Box>
         </Box>
 
-        <Grid container spacing={3}>
-          {/* ── left column: candidate info ── */}
-          <Grid item xs={12} md={4}>
-            <Card sx={{ borderRadius: 3, mb: 2 }}>
-              <CardContent>
-                <Typography variant="subtitle2" fontWeight={700} color="text.secondary"
-                  sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 2 }}>
-                  Candidate Info
-                </Typography>
-                {[
-                  ['Email', c.email],
-                  ['Phone', c.phone],
-                  ['Source', c.source],
-                  ['Department', c.department],
-                  ['Added By', c.createdByName],
-                  ['Added On', fmtDate(c.createdAt)],
-                ].map(([label, val]) => val ? (
-                  <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
-                    <Typography variant="caption" color="text.secondary" fontWeight={600}>{label}</Typography>
-                    <Typography variant="caption" fontWeight={500} sx={{ maxWidth: 160, textAlign: 'right' }}>{val}</Typography>
-                  </Box>
-                ) : null)}
-                {c.notes && (
-                  <>
-                    <Divider sx={{ my: 1.5 }} />
-                    <Typography variant="caption" color="text.secondary" fontWeight={600}>Notes</Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5, color: '#475569', fontSize: 13 }}>{c.notes}</Typography>
-                  </>
-                )}
-              </CardContent>
-            </Card>
+        {/* ── Stage Stepper ── */}
+        <Card sx={{ borderRadius: 3, mb: 3 }}>
+          <CardContent sx={{ py: 2 }}>
+            <Stepper activeStep={step} alternativeLabel>
+              {STAGE_STEPS.map((label, idx) => (
+                <Step key={label} completed={selected || (!rejected && idx < step)}>
+                  <StepLabel error={rejected && idx === step}
+                    sx={{ '& .MuiStepLabel-label': { fontSize: 12, fontWeight: 600 }, cursor: idx <= step ? 'pointer' : 'default' }}
+                    onClick={() => idx <= step && setStageTab(idx)}>
+                    {label}
+                  </StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+          </CardContent>
+        </Card>
 
-            {/* ── stats card ── */}
-            <Card sx={{ borderRadius: 3, mb: 2 }}>
-              <CardContent>
-                <Typography variant="subtitle2" fontWeight={700} color="text.secondary"
-                  sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 2 }}>
-                  Interview Summary
-                </Typography>
-                <Grid container spacing={1}>
-                  {[
-                    ['Total Rounds',   c.totalRounds    || 0, '#1e3a5f'],
-                    ['Completed',      c.completedRounds || 0, '#16a34a'],
-                    ['Avg Rating',     c.averageRating  ? `${c.averageRating}/5` : 'N/A', '#d97706'],
-                  ].map(([label, val, color]) => (
-                    <Grid item xs={4} key={label}>
-                      <Box sx={{ textAlign: 'center', p: 1, bgcolor: '#f8fafc', borderRadius: 2 }}>
-                        <Typography variant="h6" fontWeight={800} sx={{ color }}>{val}</Typography>
-                        <Typography variant="caption" color="text.secondary">{label}</Typography>
-                      </Box>
-                    </Grid>
-                  ))}
-                </Grid>
-              </CardContent>
-            </Card>
+        {/* ── Stage Sub-tabs ── */}
+        <Tabs value={stageTab} onChange={(_, v) => setStageTab(v)}
+          sx={{ mb: 2, '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, fontSize: 13, minWidth: 'auto', px: 2.5 },
+                '& .MuiTabs-indicator': { bgcolor: '#1e3a5f' } }}>
+          <Tab label="CV Info" value={0} />
+          <Tab label="HR Screening" value={1} disabled={step < 1} />
+          <Tab label="Technical Interview" value={2} disabled={step < 2} />
+          <Tab label="Final Round" value={3} disabled={step < 3} />
+        </Tabs>
 
-            {/* ── quick decision buttons ── */}
-            {canDecide && (
-              <Card sx={{ borderRadius: 3 }}>
+        {/* ── Stage 0: CV Info ── */}
+        {stageTab === 0 && (
+          <Grid container spacing={3}>
+            {/* ── Left column ── */}
+            <Grid item xs={12} md={5}>
+              <Card sx={{ borderRadius: 3, mb: 2 }}>
                 <CardContent>
-                  <Typography variant="subtitle2" fontWeight={700} color="text.secondary"
-                    sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 2 }}>
-                    Final Decision
-                  </Typography>
-                  <Stack spacing={1}>
-                    <Button fullWidth variant="contained" startIcon={<CheckCircleIcon />}
-                      onClick={() => { setNewStatus('SELECTED'); setStatusDialog(true); }}
-                      sx={{ bgcolor: '#16a34a', '&:hover': { bgcolor: '#15803d' }, textTransform: 'none', fontWeight: 600 }}>
-                      Select Candidate
-                    </Button>
-                    <Button fullWidth variant="outlined" startIcon={<PauseCircleIcon />}
-                      onClick={() => { setNewStatus('ON_HOLD'); setStatusDialog(true); }}
-                      sx={{ borderColor: '#f59e0b', color: '#d97706', '&:hover': { borderColor: '#d97706' }, textTransform: 'none', fontWeight: 600 }}>
-                      Put On Hold
-                    </Button>
-                    <Button fullWidth variant="outlined" startIcon={<CancelIcon />}
-                      onClick={() => { setNewStatus('REJECTED'); setStatusDialog(true); }}
-                      sx={{ borderColor: '#ef4444', color: '#dc2626', '&:hover': { borderColor: '#dc2626' }, textTransform: 'none', fontWeight: 600 }}>
-                      Reject
-                    </Button>
-                  </Stack>
+                  <SectionTitle>Candidate Information</SectionTitle>
+                  {[
+                    ['Email',           c.email],
+                    ['Phone',           c.phone],
+                    ['Applied Profile', c.appliedProfile],
+                    ['Office Location', c.officeLocation],
+                    ['Source',          c.source],
+                    ['Added By',        c.createdByName],
+                    ['Added On',        fmtDate(c.createdAt)],
+                  ].filter(([, v]) => v).map(([label, val]) => (
+                    <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.25, pb: 1.25, borderBottom: '1px solid #f1f5f9' }}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={600}>{label}</Typography>
+                      <Typography variant="caption" fontWeight={500} sx={{ maxWidth: 200, textAlign: 'right' }}>{val}</Typography>
+                    </Box>
+                  ))}
+                  {c.address && (
+                    <Box sx={{ mt: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={600}>Address</Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5, color: '#475569', fontSize: 13 }}>{c.address}</Typography>
+                    </Box>
+                  )}
                 </CardContent>
               </Card>
-            )}
-          </Grid>
 
-          {/* ── right column: rounds timeline ── */}
-          <Grid item xs={12} md={8}>
-            <Card sx={{ borderRadius: 3, mb: 2 }}>
-              <CardContent>
-                <Typography variant="subtitle2" fontWeight={700} color="text.secondary"
-                  sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 2 }}>
-                  Interview Rounds ({rounds.length})
-                </Typography>
-                {rounds.length === 0 ? (
-                  <Box sx={{ textAlign: 'center', py: 4 }}>
-                    <CalendarMonthIcon sx={{ fontSize: 48, color: '#cbd5e1', mb: 1 }} />
-                    <Typography color="text.secondary">No rounds scheduled yet.</Typography>
-                    {canSchedule && <Button variant="contained" startIcon={<AddIcon />} onClick={openScheduleRound}
-                      sx={{ mt: 2, bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, textTransform: 'none' }}>
-                      Schedule First Round
-                    </Button>}
-                  </Box>
-                ) : (
-                  <Box>
-                    {rounds.map((round, idx) => {
-                      const isExpanded = expandedRound === round.id;
-                      const typeColor  = ROUND_TYPE_COLOR[round.roundType] || '#64748b';
-                      const feedbacks  = round.feedbacks || [];
-                      return (
-                        <Box key={round.id} sx={{ display: 'flex', gap: 2, mb: 1 }}>
-                          {/* timeline line */}
-                          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 36 }}>
-                            <Box sx={{ width: 36, height: 36, borderRadius: '50%', bgcolor: typeColor,
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              color: '#fff', fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
-                              {round.roundNumber}
-                            </Box>
-                            {idx < rounds.length - 1 && (
-                              <Box sx={{ width: 2, flex: 1, bgcolor: '#e2e8f0', mt: 0.5 }} />
-                            )}
-                          </Box>
-
-                          {/* round card */}
-                          <Box sx={{ flex: 1, mb: 2 }}>
-                            <Card variant="outlined" sx={{ borderRadius: 2, borderColor: '#e2e8f0' }}>
-                              <Box sx={{ p: 2, cursor: 'pointer', '&:hover': { bgcolor: '#f8fafc' } }}
-                                onClick={() => setExpandedRound(isExpanded ? null : round.id)}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                  <Box>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                                      <Chip label={round.roundType?.replace('_', ' ')} size="small"
-                                        sx={{ bgcolor: typeColor + '22', color: typeColor, fontWeight: 700, fontSize: 11 }} />
-                                      <RoundStatusChip status={round.status} />
-                                      {feedbacks.length > 0 && (
-                                        <Chip label={`${feedbacks.length} feedback`} size="small"
-                                          sx={{ bgcolor: '#f0fdf4', color: '#16a34a', fontWeight: 600, fontSize: 11 }} />
-                                      )}
-                                    </Box>
-                                    <Typography variant="body2" fontWeight={600}>
-                                      Interviewer: {round.interviewerName || '—'}
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                      {round.scheduledAt ? fmtDt(round.scheduledAt) : 'Not scheduled'}
-                                      {round.durationMinutes && ` · ${round.durationMinutes} min`}
-                                    </Typography>
-                                  </Box>
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    {canSchedule && round.status !== 'CANCELLED' && round.status !== 'COMPLETED' && (
-                                      <>
-                                        <Tooltip title="Edit Round">
-                                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); openEditRound(round); }}>
-                                            <EditIcon fontSize="small" />
-                                          </IconButton>
-                                        </Tooltip>
-                                        <Tooltip title="Cancel Round">
-                                          <IconButton size="small" color="error"
-                                            onClick={(e) => { e.stopPropagation(); handleCancelRound(round.id); }}>
-                                            <CancelIcon fontSize="small" />
-                                          </IconButton>
-                                        </Tooltip>
-                                      </>
-                                    )}
-                                    {isExpanded ? <ExpandLessIcon sx={{ color: '#94a3b8' }} /> : <ExpandMoreIcon sx={{ color: '#94a3b8' }} />}
-                                  </Box>
-                                </Box>
-                              </Box>
-
-                              <Collapse in={isExpanded}>
-                                <Divider />
-                                <Box sx={{ p: 2 }}>
-                                  <Grid container spacing={2} sx={{ mb: 2 }}>
-                                    {[
-                                      ['Assigned By', round.assignedByName],
-                                      ['Location',    round.location],
-                                    ].map(([label, val]) => (
-                                      <Grid item xs={6} key={label}>
-                                        <Typography variant="caption" color="text.secondary" fontWeight={600}>{label}</Typography>
-                                        <Typography variant="body2">{val || '—'}</Typography>
-                                      </Grid>
-                                    ))}
-                                    {round.managerNotes && (
-                                      <Grid item xs={12}>
-                                        <Typography variant="caption" color="text.secondary" fontWeight={600}>Manager Notes</Typography>
-                                        <Typography variant="body2">{round.managerNotes}</Typography>
-                                      </Grid>
-                                    )}
-                                  </Grid>
-
-                                  {/* Feedbacks */}
-                                  {feedbacks.length > 0 && (
-                                    <Box>
-                                      <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
-                                        Feedback ({feedbacks.length})
-                                      </Typography>
-                                      {feedbacks.map((fb) => {
-                                        const rec = REC_COLOR[fb.recommendation] || { bg: '#f1f5f9', color: '#475569' };
-                                        return (
-                                          <Box key={fb.id} sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, mb: 1.5, border: '1px solid #e2e8f0' }}>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
-                                              <Box>
-                                                <Typography variant="body2" fontWeight={700}>{fb.submittedByName}</Typography>
-                                                <Typography variant="caption" color="text.secondary">{fmtDt(fb.submittedAt)}</Typography>
-                                              </Box>
-                                              {fb.recommendation && (
-                                                <Chip label={fb.recommendation.replace('_', ' ')} size="small"
-                                                  sx={{ bgcolor: rec.bg, color: rec.color, fontWeight: 700, fontSize: 11 }} />
-                                              )}
-                                            </Box>
-                                            <Grid container spacing={1} sx={{ mb: 1.5 }}>
-                                              {[
-                                                ['Overall',         fb.overallRating],
-                                                ['Technical',       fb.technicalRating],
-                                                ['Communication',   fb.communicationRating],
-                                                ['Problem Solving', fb.problemSolvingRating],
-                                                ['Culture Fit',     fb.cultureFitRating],
-                                              ].filter(([, v]) => v != null).map(([label, val]) => (
-                                                <Grid item xs={6} key={label}>
-                                                  <Typography variant="caption" color="text.secondary">{label}</Typography>
-                                                  <RatingStars value={val} />
-                                                </Grid>
-                                              ))}
-                                            </Grid>
-                                            {fb.strengths && <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Strengths:</strong> {fb.strengths}</Typography>}
-                                            {fb.weaknesses && <Typography variant="body2" sx={{ mb: 0.5 }}><strong>Weaknesses:</strong> {fb.weaknesses}</Typography>}
-                                            {fb.comments && <Typography variant="body2" color="text.secondary">{fb.comments}</Typography>}
-                                          </Box>
-                                        );
-                                      })}
-                                    </Box>
-                                  )}
-                                </Box>
-                              </Collapse>
-                            </Card>
-                          </Box>
+              {/* ── Resume file ── */}
+              {c.resumeOriginalName && (
+                <Card sx={{ borderRadius: 3, mb: 2 }}>
+                  <CardContent sx={{ py: '14px !important' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <DescriptionIcon sx={{ color: '#1e3a5f', fontSize: 28 }} />
+                        <Box>
+                          <Typography variant="body2" fontWeight={600} sx={{ fontSize: 13 }}>{c.resumeOriginalName}</Typography>
+                          <Typography variant="caption" color="text.secondary">Uploaded CV</Typography>
                         </Box>
-                      );
-                    })}
-                  </Box>
-                )}
-              </CardContent>
-            </Card>
+                      </Box>
+                      <Button onClick={() => openResume(c.id)}
+                        size="small" startIcon={<OpenInNewIcon />} variant="outlined"
+                        sx={{ textTransform: 'none', fontSize: 12, borderColor: '#e2e8f0', color: '#1e3a5f' }}>
+                        Open
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Card>
+              )}
 
-            {/* ── Audit Log ── */}
-            {candidateAudit.length > 0 && (
+              {/* ── CV Bank actions ── */}
+              {canManage && c.status === 'NEW' && (
+                <Card sx={{ borderRadius: 3 }}>
+                  <CardContent>
+                    <SectionTitle>CV Bank Actions</SectionTitle>
+                    <Stack spacing={1}>
+                      <Button fullWidth variant="contained" startIcon={<AssignmentIcon />}
+                        onClick={() => handleOpenHrScreening(c)}
+                        sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, textTransform: 'none', fontWeight: 600 }}>
+                        Open HR Screening
+                      </Button>
+                      <Button fullWidth variant="outlined" color="error" startIcon={<CancelIcon />}
+                        onClick={() => handleReject(c.id)}
+                        sx={{ textTransform: 'none', fontWeight: 600 }}>
+                        Reject Candidate
+                      </Button>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              )}
+            </Grid>
+
+            {/* ── Right column: Resume Insights ── */}
+            <Grid item xs={12} md={7}>
+              <Card sx={{ borderRadius: 3, border: '1px solid #e8f0fe' }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <SectionTitle>Resume Insights</SectionTitle>
+                    {!c.skills && !c.totalExperienceYears && !c.educationSummary &&
+                     !c.linkedinUrl && !c.githubUrl && !c.currentDesignation && !c.currentCompanyCv && (
+                      <Typography variant="caption" color="text.secondary">
+                        No CV uploaded — data entered manually
+                      </Typography>
+                    )}
+                  </Box>
+
+                  {/* Experience & Current Role */}
+                  {(c.totalExperienceYears || c.currentDesignation || c.currentCompanyCv) ? (
+                    <Box sx={{ mb: 2.5 }}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700}
+                        sx={{ textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.6, display: 'block', mb: 0.75 }}>
+                        Experience
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        {c.totalExperienceYears && (
+                          <Chip label={c.totalExperienceYears} size="small"
+                            sx={{ bgcolor: '#1e3a5f', color: '#fff', fontWeight: 700, fontSize: 12 }} />
+                        )}
+                        {c.currentDesignation && (
+                          <Typography variant="body2" fontWeight={600}>{c.currentDesignation}</Typography>
+                        )}
+                        {c.currentCompanyCv && (
+                          <Typography variant="body2" color="text.secondary">@ {c.currentCompanyCv}</Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  ) : c.educationSummary && (
+                    <Box sx={{ mb: 2.5 }}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700}
+                        sx={{ textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.6, display: 'block', mb: 0.75 }}>
+                        Experience
+                      </Typography>
+                      <Chip label="Fresher" size="small"
+                        sx={{ bgcolor: '#dcfce7', color: '#16a34a', fontWeight: 700, fontSize: 12, border: '1px solid #bbf7d0' }} />
+                    </Box>
+                  )}
+
+                  {/* Skills */}
+                  {c.skills && (
+                    <Box sx={{ mb: 2.5 }}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700}
+                        sx={{ textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.6, display: 'block', mb: 0.75 }}>
+                        Skills ({c.skills.split(',').filter(Boolean).length})
+                      </Typography>
+                      <SkillChips skills={c.skills} />
+                    </Box>
+                  )}
+
+                  {/* Education */}
+                  {c.educationSummary && (
+                    <Box sx={{ mb: 2.5 }}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700}
+                        sx={{ textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.6, display: 'block', mb: 0.75 }}>
+                        Education
+                      </Typography>
+                      {c.educationSummary.split('|').map((edu, i) => (
+                        <Box key={i} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 0.5 }}>
+                          <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#1e3a5f', mt: '6px', flexShrink: 0 }} />
+                          <Typography variant="body2" sx={{ fontSize: 13 }}>{edu.trim()}</Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+
+                  {/* Social / Profile links */}
+                  {(c.linkedinUrl || c.githubUrl) && (
+                    <Box sx={{ mb: 1 }}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700}
+                        sx={{ textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.6, display: 'block', mb: 0.75 }}>
+                        Online Profiles
+                      </Typography>
+                      <Stack direction="row" spacing={1} flexWrap="wrap">
+                        {c.linkedinUrl && (
+                          <Button href={c.linkedinUrl} target="_blank" rel="noopener noreferrer"
+                            variant="outlined" size="small" startIcon={<OpenInNewIcon />}
+                            sx={{ textTransform: 'none', fontSize: 12, borderColor: '#0077b5', color: '#0077b5', '&:hover': { bgcolor: '#f0f9ff' } }}>
+                            LinkedIn
+                          </Button>
+                        )}
+                        {c.githubUrl && (
+                          <Button href={c.githubUrl} target="_blank" rel="noopener noreferrer"
+                            variant="outlined" size="small" startIcon={<OpenInNewIcon />}
+                            sx={{ textTransform: 'none', fontSize: 12, borderColor: '#333', color: '#333', '&:hover': { bgcolor: '#f8f9fa' } }}>
+                            GitHub
+                          </Button>
+                        )}
+                      </Stack>
+                    </Box>
+                  )}
+
+                  {/* Empty state */}
+                  {!c.skills && !c.totalExperienceYears && !c.educationSummary &&
+                   !c.linkedinUrl && !c.githubUrl && !c.currentDesignation && !c.currentCompanyCv && (
+                    <Box sx={{ textAlign: 'center', py: 3 }}>
+                      <DescriptionIcon sx={{ fontSize: 40, color: '#cbd5e1', mb: 1 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        {c.resumeOriginalName
+                          ? 'CV was uploaded but no structured data could be extracted'
+                          : 'Upload a CV to auto-extract skills, experience, education and more'}
+                      </Typography>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        )}
+
+        {/* ── Stage 1: HR Screening ── */}
+        {stageTab === 1 && (
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={8}>
               <Card sx={{ borderRadius: 3 }}>
                 <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                    <HistoryIcon sx={{ color: '#64748b', fontSize: 18 }} />
-                    <Typography variant="subtitle2" fontWeight={700} color="text.secondary"
-                      sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                      Activity Log
-                    </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5 }}>
+                    <SectionTitle>HR Screening Questionnaire</SectionTitle>
+                    {hrData?.decision && hrData.decision !== 'PENDING' && (
+                      <Chip label={hrData.decision === 'SUITABLE' ? 'Suitable ✓' : 'Not Suitable ✗'}
+                        size="small"
+                        sx={{ bgcolor: hrData.decision === 'SUITABLE' ? '#dcfce7' : '#fee2e2',
+                              color:   hrData.decision === 'SUITABLE' ? '#16a34a' : '#dc2626', fontWeight: 700 }} />
+                    )}
                   </Box>
-                  <Box>
-                    {candidateAudit.slice(0, 10).map((log) => (
-                      <Box key={log.id} sx={{ display: 'flex', gap: 2, mb: 1.5, alignItems: 'flex-start' }}>
-                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#1e3a5f', mt: 0.75, flexShrink: 0 }} />
-                        <Box>
-                          <Typography variant="caption" fontWeight={600}>{log.action.replace(/_/g, ' ')}</Typography>
-                          {log.performedByName && (
-                            <Typography variant="caption" color="text.secondary"> by {log.performedByName}</Typography>
-                          )}
-                          <Typography variant="caption" color="text.secondary" display="block">{fmtDt(log.createdAt)}</Typography>
-                          {log.details && <Typography variant="caption" sx={{ color: '#64748b' }}>{log.details}</Typography>}
+
+                  {canHrAct ? (<>
+                    {/* Q1 & Q2 — full-width multiline */}
+                    {[
+                      { num: 1, key: 'currentRoleResponsibilities', label: 'What is your current role and responsibilities?' },
+                      { num: 2, key: 'reasonForChange',             label: 'Why do you want to leave your current organisation?' },
+                    ].map(({ num, key, label }) => (
+                      <Box key={key} sx={{ display: 'flex', gap: 1.5, mb: 2, alignItems: 'flex-start' }}>
+                        <Box sx={{ minWidth: 26, height: 26, borderRadius: '50%', bgcolor: '#1e3a5f', color: '#fff',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                          {num}
+                        </Box>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="body2" fontWeight={700} sx={{ mb: 0.75, color: '#374151', lineHeight: 1.4 }}>{label}</Typography>
+                          <TextField fullWidth size="small" multiline rows={2} placeholder="—"
+                            value={hrForm[key]}
+                            onChange={e => setHrForm(f => ({ ...f, [key]: e.target.value }))} />
                         </Box>
                       </Box>
                     ))}
-                  </Box>
+
+                    {/* Q3–Q10 — paired two-column grid */}
+                    <Grid container spacing={2} sx={{ mb: 2 }}>
+                      {[
+                        { num: 3,  key: 'currentCtc',        label: 'What is your current pay?' },
+                        { num: 4,  key: 'expectedCtc',       label: 'What do you expect from us? Is it negotiable?' },
+                        { num: 5,  key: 'noticePeriod',      label: 'What is the duration of your notice period?' },
+                        { num: 6,  key: 'preferredLocation', label: 'Location' },
+                        { num: 7,  key: 'workBase',          label: 'What is your work base? (UK / US / India)' },
+                        { num: 8,  key: 'totalExperience',   label: 'How many years of experience do you have?' },
+                        { num: 9,  key: 'currentCompany',    label: 'Previous / Current Company' },
+                        { num: 10, key: 'screeningDate',     label: 'Screening Date', type: 'date' },
+                      ].map(({ num, key, label, type }) => (
+                        <Grid item xs={12} sm={6} key={key}>
+                          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+                            <Box sx={{ minWidth: 26, height: 26, borderRadius: '50%', bgcolor: '#1e3a5f', color: '#fff',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, mt: 0.25 }}>
+                              {num}
+                            </Box>
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="body2" fontWeight={700} sx={{ mb: 0.75, color: '#374151', lineHeight: 1.4 }}>{label}</Typography>
+                              <TextField fullWidth size="small"
+                                type={type || 'text'}
+                                InputLabelProps={type === 'date' ? { shrink: true } : undefined}
+                                placeholder={type === 'date' ? undefined : '—'}
+                                value={hrForm[key]}
+                                onChange={e => setHrForm(f => ({ ...f, [key]: e.target.value }))} />
+                            </Box>
+                          </Box>
+                        </Grid>
+                      ))}
+                    </Grid>
+
+                    {/* Q11 — Communication rating with visual bar */}
+                    <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5, alignItems: 'flex-start' }}>
+                      <Box sx={{ minWidth: 26, height: 26, borderRadius: '50%', bgcolor: '#1e3a5f', color: '#fff',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                        11
+                      </Box>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="body2" fontWeight={700} sx={{ mb: 0.75, color: '#374151' }}>
+                          Communication per HR (Rate 1–10)
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                          <TextField size="small" type="number" placeholder="1–10"
+                            inputProps={{ min: 1, max: 10 }}
+                            value={hrForm.communicationSkills}
+                            onChange={e => setHrForm(f => ({ ...f, communicationSkills: e.target.value }))}
+                            sx={{ width: 100 }} />
+                          {hrForm.communicationSkills && Number(hrForm.communicationSkills) > 0 && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
+                              {[1,2,3,4,5,6,7,8,9,10].map(n => {
+                                const val = parseInt(hrForm.communicationSkills, 10) || 0;
+                                const col = val >= 8 ? '#16a34a' : val >= 5 ? '#ca8a04' : '#dc2626';
+                                return <Box key={n} sx={{ width: 18, height: 18, borderRadius: 0.5, bgcolor: n <= val ? col : '#e2e8f0' }} />;
+                              })}
+                              <Typography variant="caption" fontWeight={700} sx={{ ml: 0.5, color: '#374151' }}>
+                                {hrForm.communicationSkills}/10
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
+                      </Box>
+                    </Box>
+
+                    <Divider sx={{ my: 2 }} />
+
+                    {/* Remarks */}
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="body2" fontWeight={700} sx={{ mb: 0.75, color: '#374151' }}>
+                        Remarks / Notes
+                      </Typography>
+                      <TextField fullWidth size="small" multiline rows={2} placeholder="Additional observations…"
+                        value={hrForm.hrComments}
+                        onChange={e => setHrForm(f => ({ ...f, hrComments: e.target.value }))} />
+                    </Box>
+
+                    {/* Rejection Reason */}
+                    <Box sx={{ mb: 1 }}>
+                      <TextField
+                        fullWidth size="small" multiline rows={2}
+                        label={<>Rejection Reason <Box component="span" sx={{ color: '#dc2626', ml: 0.25 }}>*</Box></>}
+                        placeholder="Required if marking as Not Suitable — will be included in the candidate's rejection email"
+                        value={hrForm.rejectionReason}
+                        onChange={e => setHrForm(f => ({ ...f, rejectionReason: e.target.value }))}
+                        error={hrForm.rejectionReason === '' && hrData?.decision === 'NOT_SUITABLE'}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            '& fieldset': { borderColor: '#fca5a5' },
+                            '&:hover fieldset': { borderColor: '#ef4444' },
+                            '&.Mui-focused fieldset': { borderColor: '#dc2626' },
+                          },
+                        }}
+                        helperText="Mandatory for rejection · sent to candidate in the rejection email"
+                      />
+                    </Box>
+
+                    {hrData?.conductedByName && (
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
+                        Conducted by {hrData.conductedByName} · Updated {fmtDt(hrData.updatedAt)}
+                      </Typography>
+                    )}
+
+                    <Box sx={{ display: 'flex', gap: 1.5, mt: 2.5, flexWrap: 'wrap' }}>
+                      <Button variant="outlined" onClick={handleSaveHr} disabled={hrSaving}
+                        sx={{ textTransform: 'none', borderColor: '#e2e8f0', color: '#475569', fontWeight: 600 }}>
+                        {hrSaving ? 'Saving…' : 'Save Progress'}
+                      </Button>
+                      <Button variant="contained" startIcon={<CheckCircleIcon />}
+                        onClick={() => handleHrDecision('SUITABLE')} disabled={hrSaving}
+                        sx={{ bgcolor: '#16a34a', '&:hover': { bgcolor: '#15803d' }, textTransform: 'none', fontWeight: 600 }}>
+                        Suitable → Assign Technical
+                      </Button>
+                      <Tooltip title={!hrForm.rejectionReason?.trim() ? 'Fill in Rejection Reason above before marking Not Suitable' : ''} arrow>
+                        <span>
+                          <Button variant="outlined" color="error" startIcon={<CancelIcon />}
+                            onClick={() => handleHrDecision('NOT_SUITABLE')}
+                            disabled={hrSaving || !hrForm.rejectionReason?.trim()}
+                            sx={{ textTransform: 'none', fontWeight: 600 }}>
+                            Not Suitable
+                          </Button>
+                        </span>
+                      </Tooltip>
+                    </Box>
+                  </>) : hrData ? (<>
+                    {/* Read-only Q&A summary — candidate / non-HR viewer */}
+
+                    {/* Q1 & Q2 full-width */}
+                    {[
+                      { num: 1, key: 'currentRoleResponsibilities', label: 'Current role & responsibilities' },
+                      { num: 2, key: 'reasonForChange',             label: 'Why leaving current organisation' },
+                    ].map(({ num, key, label }) => (
+                      <Box key={key} sx={{ display: 'flex', gap: 1.5, pb: 2, mb: 2, borderBottom: '1px solid #f1f5f9', alignItems: 'flex-start' }}>
+                        <Box sx={{ minWidth: 22, height: 22, borderRadius: '50%', bgcolor: '#f59e0b', color: '#fff',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
+                          {num}
+                        </Box>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.3 }}>
+                            {label}
+                          </Typography>
+                          <Typography variant="body2" sx={{ mt: 0.5, color: hrData[key] ? '#1e293b' : '#94a3b8', fontStyle: hrData[key] ? 'normal' : 'italic', whiteSpace: 'pre-wrap' }}>
+                            {hrData[key] || 'Not answered'}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    ))}
+
+                    {/* Q3–Q10 two-column grid */}
+                    <Grid container sx={{ mb: 2 }}>
+                      {[
+                        { num: 3,  key: 'currentCtc',        label: 'Current pay' },
+                        { num: 4,  key: 'expectedCtc',       label: 'Expected pay (negotiable?)' },
+                        { num: 5,  key: 'noticePeriod',      label: 'Notice period' },
+                        { num: 6,  key: 'preferredLocation', label: 'Location' },
+                        { num: 7,  key: 'workBase',          label: 'Work base (UK / US / India)' },
+                        { num: 8,  key: 'totalExperience',   label: 'Total experience' },
+                        { num: 9,  key: 'currentCompany',    label: 'Previous / Current company' },
+                        { num: 10, key: 'screeningDate',     label: 'Screening date' },
+                      ].map(({ num, key, label }) => (
+                        <Grid item xs={12} sm={6} key={key} sx={{ pb: 1.5, mb: 0.5, borderBottom: '1px solid #f1f5f9', pr: 1 }}>
+                          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                            <Box sx={{ minWidth: 20, height: 20, borderRadius: '50%', bgcolor: '#f59e0b', color: '#fff',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, flexShrink: 0 }}>
+                              {num}
+                            </Box>
+                            <Box>
+                              <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.3 }}>
+                                {label}
+                              </Typography>
+                              <Typography variant="body2" sx={{ mt: 0.25, color: hrData[key] ? '#1e293b' : '#94a3b8', fontStyle: hrData[key] ? 'normal' : 'italic' }}>
+                                {key === 'screeningDate' ? fmtDate(hrData[key]) : (hrData[key] || '—')}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </Grid>
+                      ))}
+                    </Grid>
+
+                    {/* Q11 — Communication */}
+                    <Box sx={{ display: 'flex', gap: 1.5, pb: 2, mb: 2, borderBottom: '1px solid #f1f5f9', alignItems: 'flex-start' }}>
+                      <Box sx={{ minWidth: 22, height: 22, borderRadius: '50%', bgcolor: '#f59e0b', color: '#fff',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
+                        11
+                      </Box>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.3 }}>
+                          Communication per HR (1–10)
+                        </Typography>
+                        {hrData.communicationSkills && Number(hrData.communicationSkills) > 0 ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 0.5 }}>
+                            <Typography variant="h6" fontWeight={700} sx={{ color: '#1e293b', lineHeight: 1 }}>
+                              {hrData.communicationSkills}
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
+                              {[1,2,3,4,5,6,7,8,9,10].map(n => {
+                                const val = parseInt(hrData.communicationSkills, 10) || 0;
+                                const col = val >= 8 ? '#16a34a' : val >= 5 ? '#ca8a04' : '#dc2626';
+                                return <Box key={n} sx={{ width: 18, height: 18, borderRadius: 0.5, bgcolor: n <= val ? col : '#e2e8f0' }} />;
+                              })}
+                              <Typography variant="caption" fontWeight={700} sx={{ ml: 0.5, color: '#374151' }}>/10</Typography>
+                            </Box>
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" sx={{ mt: 0.5, color: '#94a3b8', fontStyle: 'italic' }}>Not rated</Typography>
+                        )}
+                      </Box>
+                    </Box>
+
+                    {/* Remarks */}
+                    {hrData.hrComments && (
+                      <Box sx={{ mb: 2, p: 2, bgcolor: '#f0f9ff', borderRadius: 2, border: '1px solid #bae6fd' }}>
+                        <Typography variant="caption" fontWeight={700} sx={{ color: '#0369a1', textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.3, display: 'block', mb: 0.5 }}>
+                          Remarks / Notes
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: '#1e293b', whiteSpace: 'pre-wrap' }}>
+                          {hrData.hrComments}
+                        </Typography>
+                      </Box>
+                    )}
+
+                    {/* Rejection Reason */}
+                    {hrData.rejectionReason && (
+                      <Alert severity="error" variant="outlined" sx={{ mb: 2, borderRadius: 2 }}>
+                        <Typography variant="caption" fontWeight={700} sx={{ display: 'block', mb: 0.5, textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.3 }}>
+                          Rejection Reason
+                        </Typography>
+                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{hrData.rejectionReason}</Typography>
+                      </Alert>
+                    )}
+
+                    {/* Screened-by footer */}
+                    {hrData.conductedByName && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', pt: 1.5, borderTop: '1px solid #f1f5f9' }}>
+                        Screened by {hrData.conductedByName} · {fmtDt(hrData.updatedAt)}
+                      </Typography>
+                    )}
+                  </>) : (
+                    <Alert severity="info" sx={{ borderRadius: 2 }}>
+                      HR screening has not been conducted yet for this candidate.
+                    </Alert>
+                  )}
                 </CardContent>
               </Card>
-            )}
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Card sx={{ borderRadius: 3 }}>
+                <CardContent>
+                  <SectionTitle>Candidate Quick View</SectionTitle>
+                  {[['Name', c.name], ['Profile', c.appliedProfile], ['Email', c.email], ['Phone', c.phone], ['Location', c.officeLocation], ['Source', c.source]].filter(([, v]) => v).map(([l, v]) => (
+                    <Box key={l} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={600}>{l}</Typography>
+                      <Typography variant="caption" fontWeight={500}>{v}</Typography>
+                    </Box>
+                  ))}
+                  {c.resumeOriginalName && (
+                    <Button fullWidth variant="outlined" startIcon={<DescriptionIcon />} size="small"
+                      onClick={() => openResume(c.id)}
+                      sx={{ mt: 1, textTransform: 'none', borderColor: '#e2e8f0' }}>
+                      View Resume
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
-        </Grid>
+        )}
 
-        {/* Dialogs render within detail view too */}
+        {/* ── Stage 2: Technical Interview ── */}
+        {stageTab === 2 && (
+          <Box>
+            {techs.length === 0 ? (
+              <Alert severity="info">No technical interview assigned yet.</Alert>
+            ) : techs.map((tech, idx) => {
+              const ivStatus = tech.interviewStatus || 'PENDING_LINK';
+              const STATUS_BADGE = {
+                PENDING_LINK:        { label: 'Link Not Generated', bg: '#f1f5f9', color: '#475569' },
+                LINK_GENERATED:      { label: 'Waiting for Candidate', bg: '#dbeafe', color: '#1d4ed8' },
+                IN_PROGRESS:         { label: 'In Progress', bg: '#fef3c7', color: '#d97706' },
+                CANDIDATE_SUBMITTED: { label: 'Candidate Submitted', bg: '#dcfce7', color: '#16a34a' },
+                EVALUATED:           { label: 'Evaluated', bg: '#f3e8ff', color: '#7c3aed' },
+              };
+              const badge = STATUS_BADGE[ivStatus] || STATUS_BADGE.PENDING_LINK;
+              return (
+              <Card key={tech.id} sx={{ borderRadius: 3, mb: 2 }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={700}>
+                        Technical Interview {techs.length > 1 ? `#${idx + 1}` : ''}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Interviewer: <strong>{tech.interviewerName || '—'}</strong>
+                        {tech.assignedByName && ` · Assigned by ${tech.assignedByName}`}
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 0.75 }}>
+                        {tech.scheduledAt && (
+                          <Box>
+                            <Typography variant="caption" color="text.disabled" display="block">Scheduled</Typography>
+                            <Typography variant="caption" fontWeight={600}>{fmtDt(tech.scheduledAt)}</Typography>
+                          </Box>
+                        )}
+                        <Box>
+                          <Typography variant="caption" color="text.disabled" display="block">Candidate Submitted</Typography>
+                          <Typography variant="caption" fontWeight={600} color={tech.completedAt ? 'text.primary' : 'text.disabled'}>
+                            {tech.completedAt ? fmtDt(tech.completedAt) : '—'}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.disabled" display="block">Manager Evaluated</Typography>
+                          <Typography variant="caption" fontWeight={600} color={tech.evaluatedAt ? '#7c3aed' : 'text.disabled'}>
+                            {tech.evaluatedAt ? fmtDt(tech.evaluatedAt) : '—'}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <Chip label={badge.label} size="small"
+                        sx={{ bgcolor: badge.bg, color: badge.color, fontWeight: 700 }} />
+
+                      {/* Generate / Regenerate Link */}
+                      {(isAdmin || isHR || isManager) && (ivStatus === 'PENDING_LINK' || ivStatus === 'LINK_GENERATED') && (
+                        <Button variant="outlined" size="small" onClick={() => openGenerateLinkDialog(tech)}
+                          sx={{ textTransform: 'none', borderColor: '#6366f1', color: '#6366f1', fontWeight: 600 }}>
+                          {ivStatus === 'LINK_GENERATED' ? 'Regenerate Link' : 'Generate Interview Link'}
+                        </Button>
+                      )}
+
+                      {/* Join Room — for manager during / after interview */}
+                      {(ivStatus === 'IN_PROGRESS' || ivStatus === 'CANDIDATE_SUBMITTED') && (
+                        <Button variant="contained" size="small"
+                          onClick={() => window.open(`/interview/room/${tech.id}`, '_blank')}
+                          sx={{ bgcolor: '#059669', '&:hover': { bgcolor: '#047857' }, textTransform: 'none', fontWeight: 700 }}>
+                          {ivStatus === 'IN_PROGRESS' ? '🔴 Join Live Room' : 'Review Answers'}
+                        </Button>
+                      )}
+
+                      {/* View evaluation room */}
+                      {ivStatus === 'EVALUATED' && (
+                        <Button variant="outlined" size="small"
+                          onClick={() => window.open(`/interview/room/${tech.id}`, '_blank')}
+                          sx={{ textTransform: 'none', borderColor: '#7c3aed', color: '#7c3aed', fontWeight: 600 }}>
+                          View Evaluation
+                        </Button>
+                      )}
+
+                      {/* Legacy feedback (non-video) */}
+                      {tech.decision && tech.decision !== 'PENDING' ? (
+                        <Chip label={tech.decision === 'APPROVE' ? 'Approved' : 'Rejected'}
+                          sx={{ bgcolor: tech.decision === 'APPROVE' ? '#dcfce7' : '#fee2e2',
+                                color:   tech.decision === 'APPROVE' ? '#16a34a' : '#dc2626', fontWeight: 700 }} />
+                      ) : ivStatus === 'PENDING_LINK' ? (
+                        <Button variant="contained" size="small" onClick={() => openTechFeedback(tech)}
+                          sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, textTransform: 'none' }}>
+                          {tech.technicalSkillsRating ? 'Edit Feedback' : 'Submit Feedback'}
+                        </Button>
+                      ) : null}
+                    </Box>
+                  </Box>
+
+                  {/* Interview link info */}
+                  {tech.interviewLink && ivStatus !== 'PENDING_LINK' && (
+                    <Alert severity="info" sx={{ mb: 1.5, py: 0.5 }} icon={false}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        <Typography variant="caption" fontWeight={600}>Interview Link:</Typography>
+                        <Typography variant="caption" sx={{ color: '#1d4ed8', wordBreak: 'break-all' }}>
+                          {tech.interviewLink}
+                        </Typography>
+                        <Button size="small" onClick={() => { navigator.clipboard.writeText(tech.interviewLink); toast.success('Link copied!'); }}
+                          sx={{ textTransform: 'none', fontSize: 11, p: '2px 8px', minWidth: 0 }}>Copy</Button>
+                      </Box>
+                    </Alert>
+                  )}
+
+                  {/* Score bar */}
+                  {tech.score != null && (
+                    <Box sx={{ mb: 1.5 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                        <Typography variant="caption" color="text.secondary">MCQ Score</Typography>
+                        <Typography variant="caption" fontWeight={700}>{tech.score}/{tech.totalMarks}</Typography>
+                      </Box>
+                      <LinearProgress variant="determinate"
+                        value={tech.totalMarks > 0 ? Math.round((tech.score / tech.totalMarks) * 100) : 0}
+                        sx={{ height: 6, borderRadius: 3, bgcolor: '#e2e8f0' }} />
+                    </Box>
+                  )}
+
+                  {tech.technicalSkillsRating != null && (
+                    <>
+                      <Divider sx={{ my: 1.5 }} />
+                      <Grid container spacing={2}>
+                        {[
+                          ['Technical Skills',       tech.technicalSkillsRating],
+                          ['Communication',           tech.communicationRating],
+                          ['Problem Solving',         tech.problemSolvingRating],
+                          ['Coding Ability',          tech.codingAbilityRating],
+                          ['Architecture Knowledge',  tech.architectureKnowledgeRating],
+                        ].map(([label, val]) => (
+                          <Grid item xs={12} sm={6} md={4} key={label}>
+                            <Typography variant="caption" color="text.secondary">{label}</Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Rating value={val || 0} readOnly size="small" />
+                              <Typography variant="caption" fontWeight={700}>{val}/5</Typography>
+                            </Box>
+                          </Grid>
+                        ))}
+                        {tech.comments && (
+                          <Grid item xs={12}>
+                            <Typography variant="caption" color="text.secondary">Comments</Typography>
+                            <Typography variant="body2">{tech.comments}</Typography>
+                          </Grid>
+                        )}
+                      </Grid>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+              );
+            })}
+          </Box>
+        )}
+
+        {/* ── Stage 3: Final Round ── */}
+        {stageTab === 3 && (() => {
+          const fivStatus = finalData?.interviewStatus || 'PENDING_LINK';
+          const FIV_BADGE = {
+            PENDING_LINK:        { label: 'Link Not Generated',    bg: '#f1f5f9', color: '#475569' },
+            LINK_GENERATED:      { label: 'Waiting for Candidate', bg: '#dbeafe', color: '#1d4ed8' },
+            IN_PROGRESS:         { label: '🔴 In Progress',        bg: '#fef3c7', color: '#d97706' },
+            CANDIDATE_SUBMITTED: { label: 'Interview Submitted',   bg: '#dcfce7', color: '#16a34a' },
+            EVALUATED:           { label: 'Evaluated',             bg: '#f3e8ff', color: '#7c3aed' },
+          };
+          const fivBadge   = FIV_BADGE[fivStatus] || FIV_BADGE.PENDING_LINK;
+          const canJoin    = fivStatus === 'IN_PROGRESS' || fivStatus === 'CANDIDATE_SUBMITTED';
+          const isEvaluated= fivStatus === 'EVALUATED';
+          const decisionCfg = {
+            APPROVE: { label: 'APPROVED — SELECTED', bg: '#dcfce7', color: '#16a34a' },
+            HOLD:    { label: 'ON HOLD',              bg: '#fef3c7', color: '#d97706' },
+            REJECT:  { label: 'REJECTED',             bg: '#fee2e2', color: '#dc2626' },
+          };
+          const decCfg = finalData?.finalDecision && finalData.finalDecision !== 'PENDING'
+            ? decisionCfg[finalData.finalDecision] : null;
+
+          return (
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={8}>
+
+              {/* Video Interview Card */}
+              <Card sx={{ borderRadius: 3, mb: 2 }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <SectionTitle sx={{ mb: 0 }}>Final Video Interview</SectionTitle>
+                      <Chip label={fivBadge.label} size="small"
+                        sx={{ bgcolor: fivBadge.bg, color: fivBadge.color, fontWeight: 700 }} />
+                      {decCfg && (
+                        <Chip label={decCfg.label} size="small"
+                          sx={{ bgcolor: decCfg.bg, color: decCfg.color, fontWeight: 700 }} />
+                      )}
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      {/* Generate / Regenerate link */}
+                      {canManage && (fivStatus === 'PENDING_LINK' || fivStatus === 'LINK_GENERATED') && (
+                        <Button variant="outlined" size="small"
+                          onClick={() => { setFinalLinkCandId(c.id); setFinalLinkForm({ directorId: finalData?.conductedById || '' }); setFinalLinkDialog(true); }}
+                          sx={{ textTransform: 'none', borderColor: '#7c3aed', color: '#7c3aed', fontWeight: 600 }}>
+                          {fivStatus === 'LINK_GENERATED' ? 'Regenerate Link' : 'Generate Final Interview Link'}
+                        </Button>
+                      )}
+                      {/* Join Room */}
+                      {canJoin && (
+                        <Button variant="contained" size="small"
+                          onClick={() => window.open(`/interview/final-room/${finalData.id}`, '_blank')}
+                          sx={{ bgcolor: '#7c3aed', '&:hover': { bgcolor: '#6d28d9' }, textTransform: 'none', fontWeight: 700 }}>
+                          {fivStatus === 'IN_PROGRESS' ? '🔴 Join Live Room' : 'Review Interview'}
+                        </Button>
+                      )}
+                      {/* View evaluation */}
+                      {isEvaluated && finalData?.id && (
+                        <Button variant="outlined" size="small"
+                          onClick={() => window.open(`/interview/final-room/${finalData.id}`, '_blank')}
+                          sx={{ textTransform: 'none', borderColor: '#7c3aed', color: '#7c3aed', fontWeight: 600 }}>
+                          View Evaluation
+                        </Button>
+                      )}
+                    </Box>
+                  </Box>
+
+                  {/* Interview link */}
+                  {finalData?.interviewLink && fivStatus !== 'PENDING_LINK' && (
+                    <Alert severity="info" sx={{ mb: 1.5, py: 0.5 }} icon={false}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        <Typography variant="caption" fontWeight={600}>Interview Link:</Typography>
+                        <Typography variant="caption" sx={{ color: '#1d4ed8', wordBreak: 'break-all' }}>
+                          {finalData.interviewLink}
+                        </Typography>
+                        <Button size="small"
+                          onClick={() => { navigator.clipboard.writeText(finalData.interviewLink); toast.success('Link copied!'); }}
+                          sx={{ textTransform: 'none', fontSize: 11, p: '2px 8px', minWidth: 0 }}>Copy</Button>
+                      </Box>
+                    </Alert>
+                  )}
+
+                  {/* Timestamps */}
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                    {[
+                      ['Candidate Started',   finalData?.startedAt],
+                      ['Candidate Submitted', finalData?.completedAt],
+                      ['Director Evaluated',  finalData?.evaluatedAt],
+                    ].map(([label, val]) => (
+                      <Box key={label}>
+                        <Typography variant="caption" color="text.disabled" display="block">{label}</Typography>
+                        <Typography variant="caption" fontWeight={600} color={val ? 'text.primary' : 'text.disabled'}>
+                          {fmtDt(val)}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+
+                  {/* Evaluation summary when evaluated */}
+                  {isEvaluated && finalData?.overallRating && (
+                    <>
+                      <Divider sx={{ my: 1.5 }} />
+                      <Grid container spacing={1.5}>
+                        {[
+                          ['Overall',       finalData.overallRating],
+                          ['Communication', finalData.communicationRating],
+                          ['Culture Fit',   finalData.cultureFitRating],
+                        ].map(([label, val]) => val && (
+                          <Grid item xs={12} sm={4} key={label}>
+                            <Typography variant="caption" color="text.secondary">{label}</Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Rating value={val} readOnly size="small" />
+                              <Typography variant="caption" fontWeight={700}>{val}/5</Typography>
+                            </Box>
+                          </Grid>
+                        ))}
+                        {finalData.offeredCtc && (
+                          <Grid item xs={12} sm={4}>
+                            <Typography variant="caption" color="text.secondary">Offered CTC</Typography>
+                            <Typography variant="body2" fontWeight={600}>{finalData.offeredCtc}</Typography>
+                          </Grid>
+                        )}
+                        {finalData.noticePeriod && (
+                          <Grid item xs={12} sm={4}>
+                            <Typography variant="caption" color="text.secondary">Notice Period</Typography>
+                            <Typography variant="body2" fontWeight={600}>{finalData.noticePeriod}</Typography>
+                          </Grid>
+                        )}
+                        {finalData.directorRemarks && (
+                          <Grid item xs={12}>
+                            <Typography variant="caption" color="text.secondary">Director Remarks</Typography>
+                            <Typography variant="body2">{finalData.directorRemarks}</Typography>
+                          </Grid>
+                        )}
+                      </Grid>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Legacy form (offline interview fallback) */}
+              <Card sx={{ borderRadius: 3 }}>
+                <CardContent>
+                  <SectionTitle>Manual Notes</SectionTitle>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <TextField fullWidth size="small" label="Final Interview Date *" type="date"
+                        value={finalForm.finalInterviewDate}
+                        onChange={e => setFinalForm(f => ({ ...f, finalInterviewDate: e.target.value }))}
+                        disabled={!canFinalAct} InputLabelProps={{ shrink: true }} />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField fullWidth size="small" label="Joining Date" type="date"
+                        value={finalForm.joiningDate}
+                        onChange={e => setFinalForm(f => ({ ...f, joiningDate: e.target.value }))}
+                        disabled={!canFinalAct} InputLabelProps={{ shrink: true }} />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField fullWidth size="small" label="Salary Recommendation"
+                        value={finalForm.salaryRecommendation}
+                        onChange={e => setFinalForm(f => ({ ...f, salaryRecommendation: e.target.value }))}
+                        disabled={!canFinalAct} placeholder="e.g. ₹12 LPA" />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField fullWidth size="small" label="Remarks" multiline rows={2}
+                        value={finalForm.finalRemarks}
+                        onChange={e => setFinalForm(f => ({ ...f, finalRemarks: e.target.value }))}
+                        disabled={!canFinalAct} />
+                    </Grid>
+                  </Grid>
+                  {finalData?.conductedByName && (
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
+                      Conducted by {finalData.conductedByName} · {fmtDate(finalData.updatedAt)}
+                    </Typography>
+                  )}
+                  {canFinalAct && (
+                    <Box sx={{ display: 'flex', gap: 1.5, mt: 2, flexWrap: 'wrap' }}>
+                      <Button variant="outlined" onClick={handleSaveFinal}
+                        disabled={finalSaving || !finalForm.finalInterviewDate}
+                        sx={{ textTransform: 'none', borderColor: '#e2e8f0', color: '#475569', fontWeight: 600 }}>
+                        {finalSaving ? 'Saving…' : 'Save Notes'}
+                      </Button>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              {selected && (
+                <Card sx={{ borderRadius: 3, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                  <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                    <EmojiEventsIcon sx={{ fontSize: 48, color: '#16a34a', mb: 1 }} />
+                    <Typography variant="h6" fontWeight={700} color="#16a34a">Candidate Selected!</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                      Offer email has been sent to {c.email || 'the candidate'}.
+                    </Typography>
+                    {(finalData?.offeredCtc || finalData?.salaryRecommendation) && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                        Salary: {finalData.offeredCtc || finalData.salaryRecommendation}
+                      </Typography>
+                    )}
+                    {finalData?.joiningDate && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        Joining: {fmtDate(finalData.joiningDate)}
+                      </Typography>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </Grid>
+          </Grid>
+          );
+        })()}
+
         {renderDialogs()}
       </Box>
     );
   }
 
-  /* ═══════════════════════════════════════════════════════════════════════ */
-  /* MAIN CATALOG VIEW                                                       */
-  /* ═══════════════════════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════════════════ */
+  /* MAIN VIEW                                                                  */
+  /* ══════════════════════════════════════════════════════════════════════════ */
 
-  function renderDialogs() {
-    return (
-      <>
-        {/* ── Add/Edit Candidate ── */}
-        <Dialog open={candDialog} onClose={() => setCandDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle fontWeight={700}>{editCandidate ? 'Edit Candidate' : 'Add Candidate'}</DialogTitle>
-          <DialogContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-              <TextField label="Full Name *" value={candForm.name}
-                onChange={e => setCandForm(f => ({ ...f, name: e.target.value }))} fullWidth />
-              <TextField label="Position Applied For *" value={candForm.position}
-                onChange={e => setCandForm(f => ({ ...f, position: e.target.value }))} fullWidth />
-              <TextField label="Department" value={candForm.department}
-                onChange={e => setCandForm(f => ({ ...f, department: e.target.value }))} fullWidth />
-              <Grid container spacing={2}>
-                <Grid item xs={6}>
-                  <TextField label="Email" type="email" value={candForm.email}
-                    onChange={e => setCandForm(f => ({ ...f, email: e.target.value }))} fullWidth />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField label="Phone" value={candForm.phone}
-                    onChange={e => setCandForm(f => ({ ...f, phone: e.target.value }))} fullWidth />
-                </Grid>
-              </Grid>
-              <TextField label="Source" select value={candForm.source}
-                onChange={e => setCandForm(f => ({ ...f, source: e.target.value }))} fullWidth>
-                <MenuItem value="">— Select Source —</MenuItem>
-                {SOURCES.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-              </TextField>
-              <TextField label="Notes" value={candForm.notes}
-                onChange={e => setCandForm(f => ({ ...f, notes: e.target.value }))}
-                fullWidth multiline rows={2} />
-            </Box>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setCandDialog(false)}>Cancel</Button>
-            <Button variant="contained" onClick={handleSaveCandidate} disabled={saving}
-              sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' } }}>
-              {saving ? 'Saving…' : editCandidate ? 'Save Changes' : 'Add Candidate'}
-            </Button>
-          </DialogActions>
-        </Dialog>
+  /* Stats data for CV Bank header */
+  const statCards = stats ? [
+    { label: 'Total',                value: stats.total,             color: '#1e3a5f' },
+    { label: 'New',                  value: stats.new,               color: '#475569' },
+    { label: 'Under HR Review',      value: stats.underHrReview,     color: '#1d4ed8' },
+    { label: 'Technical Pending',    value: stats.technicalPending,  color: '#d97706' },
+    { label: 'Final Round Pending',  value: stats.finalRoundPending, color: '#7c3aed' },
+    { label: 'Selected',             value: stats.selected,          color: '#16a34a' },
+    { label: 'All Rejected',         value: (Number(stats.hrRejected) + Number(stats.technicalRejected) + Number(stats.rejected)), color: '#dc2626' },
+  ] : [];
 
-        {/* ── Status Change ── */}
-        <Dialog open={statusDialog} onClose={() => setStatusDialog(false)} maxWidth="xs" fullWidth>
-          <DialogTitle fontWeight={700}>Change Candidate Status</DialogTitle>
-          <DialogContent>
-            <TextField label="Status" select value={newStatus}
-              onChange={e => setNewStatus(e.target.value)} fullWidth sx={{ mt: 1 }}>
-              {Object.entries(STATUS_COLOR).map(([val, { label }]) => (
-                <MenuItem key={val} value={val}>{label}</MenuItem>
+  /* Shared candidate table component */
+  const CandidateTable = ({ rows, emptyMsg }) => (
+    <Card sx={{ borderRadius: 2, overflow: 'hidden' }}>
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
+            <TableRow sx={{ bgcolor: '#f1f5f9' }}>
+              {['Candidate', 'Applied Profile', 'Experience / Skills', 'Location', 'Status', 'Added', 'Actions'].map(h => (
+                <TableCell key={h} sx={{ fontWeight: 700, fontSize: 12, color: '#475569', py: 1.5, whiteSpace: 'nowrap' }}>{h}</TableCell>
               ))}
-            </TextField>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setStatusDialog(false)}>Cancel</Button>
-            <Button variant="contained" onClick={handleStatusChange} disabled={saving}
-              sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' } }}>
-              {saving ? 'Saving…' : 'Update Status'}
-            </Button>
-          </DialogActions>
-        </Dialog>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                  <WorkIcon sx={{ fontSize: 40, color: '#cbd5e1', mb: 1, display: 'block', mx: 'auto' }} />
+                  <Typography color="text.secondary">{emptyMsg || 'No candidates'}</Typography>
+                </TableCell>
+              </TableRow>
+            ) : rows.slice(page * RPP, (page + 1) * RPP).map((c, i) => (
+              <TableRow key={c.id} hover sx={{ cursor: 'pointer', bgcolor: i % 2 === 0 ? '#fff' : '#f8fafc' }}
+                onClick={() => openDetail(c)}>
+                <TableCell>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Avatar sx={{ bgcolor: '#1e3a5f', width: 28, height: 28, fontSize: 11 }}>{c.name?.charAt(0)}</Avatar>
+                    <Box>
+                      <Typography variant="body2" fontWeight={600}>{c.name}</Typography>
+                      {c.email && <Typography variant="caption" color="text.secondary">{c.email}</Typography>}
+                    </Box>
+                  </Box>
+                </TableCell>
+                <TableCell><Typography variant="body2">{c.appliedProfile}</Typography></TableCell>
+                <TableCell sx={{ minWidth: 160 }}>
+                  {c.totalExperienceYears && (
+                    <Chip label={c.totalExperienceYears} size="small"
+                      sx={{ bgcolor: '#f1f5f9', color: '#1e3a5f', fontWeight: 700, fontSize: 10, mb: 0.5, mr: 0.5 }} />
+                  )}
+                  {c.skills && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: 10 }}>
+                      {c.skills.split(',').filter(Boolean).length} skill{c.skills.split(',').filter(Boolean).length !== 1 ? 's' : ''} extracted
+                    </Typography>
+                  )}
+                  {!c.totalExperienceYears && !c.skills && (
+                    <Typography variant="caption" color="text.secondary">—</Typography>
+                  )}
+                </TableCell>
+                <TableCell><Typography variant="body2">{c.officeLocation || '—'}</Typography></TableCell>
+                <TableCell><StatusChip status={c.status} /></TableCell>
+                <TableCell sx={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDate(c.resumeUploadedAt || c.createdAt)}</TableCell>
+                <TableCell onClick={e => e.stopPropagation()}>
+                  {canManage && c.status === 'NEW' && (
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Tooltip title="Open HR Screening">
+                        <IconButton size="small" sx={{ color: '#1e3a5f' }}
+                          onClick={e => { e.stopPropagation(); handleOpenHrScreening(c); }}>
+                          <AssignmentIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Reject">
+                        <IconButton size="small" color="error"
+                          onClick={e => { e.stopPropagation(); handleReject(c.id); }}>
+                          <CancelIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      {rows.length > RPP && (
+        <TablePagination component="div" count={rows.length} page={page}
+          onPageChange={(_, p) => setPage(p)} rowsPerPage={RPP} rowsPerPageOptions={[RPP]} />
+      )}
+    </Card>
+  );
 
-        {/* ── Schedule / Edit Round ── */}
-        <Dialog open={roundDialog} onClose={() => setRoundDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle fontWeight={700}>{editRound ? 'Edit Round' : 'Schedule Interview Round'}</DialogTitle>
-          <DialogContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-              <TextField label="Round Type" select value={roundForm.roundType}
-                onChange={e => setRoundForm(f => ({ ...f, roundType: e.target.value }))} fullWidth>
-                {ROUND_TYPES.map(t => <MenuItem key={t} value={t}>{t.replace('_', ' ')}</MenuItem>)}
-              </TextField>
-              <TextField label="Interviewer *" select value={roundForm.interviewerId}
-                onChange={e => setRoundForm(f => ({ ...f, interviewerId: e.target.value }))} fullWidth>
-                <MenuItem value="">— Select Interviewer —</MenuItem>
-                {allEmployees.filter(e => e.active !== false).map(e => (
-                  <MenuItem key={e.id} value={e.id}>
-                    {e.firstName} {e.lastName} ({e.role})
-                  </MenuItem>
-                ))}
-              </TextField>
-              <Grid container spacing={2}>
-                <Grid item xs={7}>
-                  <TextField label="Scheduled Date & Time" type="datetime-local"
-                    value={roundForm.scheduledAt}
-                    onChange={e => setRoundForm(f => ({ ...f, scheduledAt: e.target.value }))}
-                    fullWidth InputLabelProps={{ shrink: true }} />
-                </Grid>
-                <Grid item xs={5}>
-                  <TextField label="Duration (min)" type="number"
-                    value={roundForm.durationMinutes}
-                    onChange={e => setRoundForm(f => ({ ...f, durationMinutes: parseInt(e.target.value) || 60 }))}
-                    fullWidth inputProps={{ min: 15, step: 15 }} />
-                </Grid>
-              </Grid>
-              <TextField label="Location / Meeting Link" value={roundForm.location}
-                onChange={e => setRoundForm(f => ({ ...f, location: e.target.value }))} fullWidth
-                placeholder="e.g. Conference Room A or Zoom link" />
-              <TextField label="Notes for Interviewer" value={roundForm.managerNotes}
-                onChange={e => setRoundForm(f => ({ ...f, managerNotes: e.target.value }))}
-                fullWidth multiline rows={2}
-                placeholder="What to focus on, specific skills to test, etc." />
-              {editRound && (
-                <TextField label="Round Status" select value={roundForm.status || ''}
-                  onChange={e => setRoundForm(f => ({ ...f, status: e.target.value }))} fullWidth>
-                  {Object.keys(ROUND_STATUS_COLOR).map(s => (
-                    <MenuItem key={s} value={s}>{s.replace('_', ' ')}</MenuItem>
-                  ))}
-                </TextField>
-              )}
-            </Box>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setRoundDialog(false)}>Cancel</Button>
-            <Button variant="contained" onClick={handleSaveRound} disabled={saving}
-              sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' } }}>
-              {saving ? 'Saving…' : editRound ? 'Save Changes' : 'Schedule Round'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* ── Feedback Dialog ── */}
-        <Dialog open={feedbackDialog} onClose={() => setFeedbackDialog(false)} maxWidth="md" fullWidth
-          PaperProps={{ sx: { maxHeight: '90vh' } }}>
-          <DialogTitle fontWeight={700}>
-            {editFeedbackId ? 'Edit Feedback' : 'Submit Interview Feedback'}
-            {feedbackRound && (
-              <Typography variant="body2" color="text.secondary" mt={0.25}>
-                {feedbackRound.candidateName} — Round {feedbackRound.roundNumber} ({feedbackRound.roundType?.replace('_', ' ')})
-              </Typography>
-            )}
-          </DialogTitle>
-          <DialogContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-              {/* Ratings */}
-              <Box>
-                <Typography variant="subtitle2" fontWeight={700} mb={2}>Ratings (1-5)</Typography>
-                <Grid container spacing={2}>
-                  {[
-                    ['overallRating',         'Overall Rating'],
-                    ['technicalRating',        'Technical Skills'],
-                    ['communicationRating',    'Communication'],
-                    ['problemSolvingRating',   'Problem Solving'],
-                    ['cultureFitRating',       'Culture Fit'],
-                  ].map(([field, label]) => (
-                    <Grid item xs={12} sm={6} key={field}>
-                      <Typography variant="caption" color="text.secondary" fontWeight={600}>{label}</Typography>
-                      <Rating
-                        value={feedbackForm[field] || 0}
-                        onChange={(_, v) => setFeedbackForm(f => ({ ...f, [field]: v }))}
-                        size="large"
-                        sx={{ display: 'flex', mt: 0.5 }}
-                      />
-                    </Grid>
-                  ))}
-                </Grid>
-              </Box>
-              <Divider />
-              {/* Text fields */}
-              <TextField label="Strengths" value={feedbackForm.strengths}
-                onChange={e => setFeedbackForm(f => ({ ...f, strengths: e.target.value }))}
-                fullWidth multiline rows={2} placeholder="What stood out positively?" />
-              <TextField label="Areas for Improvement" value={feedbackForm.weaknesses}
-                onChange={e => setFeedbackForm(f => ({ ...f, weaknesses: e.target.value }))}
-                fullWidth multiline rows={2} placeholder="What concerns do you have?" />
-              <TextField label="Additional Comments" value={feedbackForm.comments}
-                onChange={e => setFeedbackForm(f => ({ ...f, comments: e.target.value }))}
-                fullWidth multiline rows={2} />
-              {/* Recommendation */}
-              <TextField label="Recommendation *" select value={feedbackForm.recommendation}
-                onChange={e => setFeedbackForm(f => ({ ...f, recommendation: e.target.value }))} fullWidth>
-                {[
-                  ['STRONG_HIRE',    '⭐⭐ Strong Hire'],
-                  ['HIRE',          '✅ Hire'],
-                  ['MAYBE',         '🤔 Maybe'],
-                  ['NO_HIRE',       '❌ No Hire'],
-                  ['STRONG_NO_HIRE','🚫 Strong No Hire'],
-                ].map(([val, label]) => <MenuItem key={val} value={val}>{label}</MenuItem>)}
-              </TextField>
-            </Box>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setFeedbackDialog(false)}>Cancel</Button>
-            <Button variant="contained" onClick={handleSubmitFeedback} disabled={saving}
-              sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' } }}>
-              {saving ? 'Saving…' : editFeedbackId ? 'Update Feedback' : 'Submit Feedback'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* ── Assign Interview ── */}
-        <Dialog open={assignDialog} onClose={() => setAssignDialog(false)} maxWidth="sm" fullWidth
-          PaperProps={{ sx: { borderRadius: 3 } }}>
-          <DialogTitle sx={{ pb: 1, fontWeight: 700, fontSize: 18, borderBottom: '1px solid #f1f5f9' }}>
-            Assign Interview
-          </DialogTitle>
-          <DialogContent sx={{ pt: 1 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1.5 }}>
-
-              {/* Candidate */}
-              <TextField label="Candidate *" select size="small" fullWidth
-                value={assignForm.candidateId}
-                onChange={e => setAssignForm(f => ({ ...f, candidateId: e.target.value }))}>
-                <MenuItem value=""><em>— Select candidate —</em></MenuItem>
-                {candidates
-                  .filter(c => ['PENDING', 'IN_PROGRESS'].includes(c.status))
-                  .map(c => (
-                    <MenuItem key={c.id} value={String(c.id)}>
-                      {c.name}
-                      {c.position ? ` · ${c.position}` : ''}
-                    </MenuItem>
-                  ))}
-              </TextField>
-
-              {/* Assign To */}
-              <TextField label="Assign To *" select size="small" fullWidth
-                value={assignForm.interviewerId}
-                onChange={e => setAssignForm(f => ({ ...f, interviewerId: e.target.value }))}>
-                <MenuItem value=""><em>— Select interviewer —</em></MenuItem>
-                {allEmployees.filter(e => e.active !== false).map(e => (
-                  <MenuItem key={e.id} value={String(e.id)}>
-                    {e.firstName} {e.lastName}
-                    {e.role ? ` (${e.role.replace('_', ' ')})` : ''}
-                  </MenuItem>
-                ))}
-              </TextField>
-
-              {/* Interview Round */}
-              <FormControl fullWidth>
-                <FormLabel sx={{ fontSize: 13, fontWeight: 600, color: '#1e293b', mb: 1 }}>
-                  Interview Round *
-                </FormLabel>
-                <RadioGroup row value={assignForm.roundType}
-                  onChange={e => setAssignForm(f => ({ ...f, roundType: e.target.value }))}>
-                  {[
-                    { val: 'HR',           label: 'HR' },
-                    { val: 'TECHNICAL',    label: 'Technical' },
-                    { val: 'MANAGERIAL',   label: 'Managerial' },
-                    { val: 'CULTURAL_FIT', label: 'Cultural Fit' },
-                    { val: 'FINAL',        label: 'Final' },
-                  ].map(r => (
-                    <FormControlLabel key={r.val} value={r.val} label={r.label}
-                      control={<Radio size="small" sx={{ '&.Mui-checked': { color: '#1e3a5f' } }} />}
-                      sx={{ '& .MuiFormControlLabel-label': { fontSize: 14 } }}
-                    />
-                  ))}
-                </RadioGroup>
-              </FormControl>
-
-              {/* Date + Time */}
-              <Grid container spacing={2}>
-                <Grid item xs={6}>
-                  <TextField label="Date *" type="date" size="small" fullWidth
-                    value={assignForm.date}
-                    onChange={e => setAssignForm(f => ({ ...f, date: e.target.value }))}
-                    InputLabelProps={{ shrink: true }}
-                    inputProps={{ min: new Date().toISOString().slice(0, 10) }} />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField label="Time *" type="time" size="small" fullWidth
-                    value={assignForm.time}
-                    onChange={e => setAssignForm(f => ({ ...f, time: e.target.value }))}
-                    InputLabelProps={{ shrink: true }} />
-                </Grid>
-              </Grid>
-
-              {/* Duration */}
-              <TextField label="Duration (minutes)" select size="small" fullWidth
-                value={assignForm.durationMinutes}
-                onChange={e => setAssignForm(f => ({ ...f, durationMinutes: e.target.value }))}>
-                {['30', '45', '60', '90', '120'].map(d => (
-                  <MenuItem key={d} value={d}>{d} Minutes</MenuItem>
-                ))}
-              </TextField>
-
-              {/* Instructions */}
-              <TextField label="Instructions / Notes" multiline rows={3} size="small" fullWidth
-                placeholder="e.g. Evaluate taxation knowledge, focus on problem-solving…"
-                value={assignForm.instructions}
-                onChange={e => setAssignForm(f => ({ ...f, instructions: e.target.value }))} />
-            </Box>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #f1f5f9', gap: 1 }}>
-            <Button onClick={() => setAssignDialog(false)} sx={{ color: '#64748b', textTransform: 'none' }}>
-              Cancel
-            </Button>
-            <Button variant="contained" onClick={handleAssignSubmit} disabled={saving}
-              sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, textTransform: 'none', px: 3 }}>
-              {saving ? 'Assigning…' : 'Assign'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </>
-    );
-  }
-
-  /* ═══════════════════════════════════════════════════════════════════════ */
   return (
     <Box sx={{ bgcolor: '#f8fafc', minHeight: '100%' }}>
-
       {/* ── Page header ── */}
-      {isAdmin ? (
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-          <Box>
-            <Typography variant="h5" fontWeight={700}>Interview Management Dashboard</Typography>
-            <Typography variant="body2" color="text.secondary" mt={0.5}>
-              Candidate pipeline · round assignments · hiring decisions
-            </Typography>
-          </Box>
-          {tab === 'candidates' && (
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button variant="outlined" startIcon={<AddIcon />} onClick={openAddCandidate}
-                sx={{ textTransform: 'none', borderRadius: 2, borderColor: '#1e3a5f', color: '#1e3a5f' }}>
-                Add Candidate
-              </Button>
-              <Button variant="outlined" startIcon={<PersonAddIcon />}
-                onClick={() => openAssignDialog()}
-                sx={{ textTransform: 'none', borderRadius: 2, borderColor: '#7c3aed', color: '#7c3aed' }}>
-                Assign Interview
-              </Button>
-              {/* <Button variant="contained" startIcon={<AssessmentIcon />}
-                onClick={() => setTab('reports')}
-                sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, textTransform: 'none', borderRadius: 2 }}>
-                Reports
-              </Button> */}
-            </Box>
-          )}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+        <Box>
+          <Typography variant="h5" fontWeight={700}>Interview Management Portal</Typography>
+          <Typography variant="body2" color="text.secondary" mt={0.5}>
+            CV Bank → HR Screening → Technical Interview → Final Round
+          </Typography>
         </Box>
-      ) : (
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-          <Box>
-            <Typography variant="h5" fontWeight={700}>Interview Management</Typography>
-            <Typography variant="body2" color="text.secondary" mt={0.5}>
-              Manage candidates, schedule rounds, track feedback and decisions
-            </Typography>
-          </Box>
-          {canSchedule && tab === 'candidates' && (
-            <Button variant="contained" startIcon={<AddIcon />} onClick={openAddCandidate}
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {tab === 'cvbank' && canManage && (
+            <Button variant="contained" startIcon={<CloudUploadIcon />}
+              onClick={() => { setUploadForm(EMPTY_UPLOAD); setUploadFile(null); setStoredResume(null); setUploadDialog(true); }}
               sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, textTransform: 'none', borderRadius: 2 }}>
-              Add Candidate
+              Upload CV
             </Button>
           )}
+          {canManage && (
+            <Tooltip title="Refresh">
+              <IconButton
+                onClick={() => {
+                  setSelectedCand(null);
+                  setTab(isManager && !canManage ? 'technical' : 'cvbank');
+                  setPage(0);
+                  loadAll();
+                }}
+                sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                <RefreshIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
+      </Box>
+
+      {/* ── Stats (CV Bank only) ── */}
+      {tab === 'cvbank' && stats && (
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          {statCards.map(s => (
+            <Grid item xs={6} sm={4} md key={s.label}>
+              <Card sx={{ borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.05)', height: '100%' }}>
+                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                  <Box sx={{ minHeight: 32, display: 'flex', alignItems: 'flex-start' }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={600}
+                      sx={{ textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.5, lineHeight: 1.4 }}>
+                      {s.label}
+                    </Typography>
+                  </Box>
+                  <Typography variant="h4" fontWeight={800} sx={{ color: s.color, mt: 0.5 }}>{s.value}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
       )}
 
       {/* ── Tabs ── */}
-      <Tabs value={tab} onChange={(_, v) => setTab(v)}
+      <Tabs value={tab} onChange={(_, v) => { setTab(v); setPage(0); setHrPage(0); setSearch(''); setStatusFilter('ALL'); setLocationFilter('ALL'); setProfileFilter('ALL'); }}
         sx={{ mb: 3, borderBottom: '1px solid #e2e8f0',
-          '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, minWidth: 'auto', px: 2 },
-          '& .MuiTabs-indicator': { bgcolor: '#1e3a5f' } }}>
-        {canManage && <Tab label={isAdmin ? `Pipeline (${candidates.length})` : `Candidates (${candidates.length})`} value="candidates" />}
-        {!isAdmin && <Tab label={`My Interviews (${myRounds.length})`} value="my-rounds" />}
-        {canManage && <Tab label="Reports" value="reports" />}
-        {isAdmin && <Tab label="Audit Log" value="audit" />}
+              '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, minWidth: 'auto', px: 2 },
+              '& .MuiTabs-indicator': { bgcolor: '#1e3a5f' } }}>
+        {canManage && (
+          <Tab icon={<GroupIcon fontSize="small" />} iconPosition="start"
+            label={`CV Bank (${candidates.length})`} value="cvbank" />
+        )}
+        {canManage && (
+          <Tab icon={<AssignmentIcon fontSize="small" />} iconPosition="start"
+            label={`HR Screening (${hrCands.length})`} value="hr" />
+        )}
+        <Tab icon={<WorkIcon fontSize="small" />} iconPosition="start"
+          label={isManager && !canManage
+            ? `My Assignments (${myAssignments.length})`
+            : `Technical (${canManage ? techCands.length : myAssignments.length})`}
+          value="technical" />
+        {isAdmin && (
+          <Tab icon={<EmojiEventsIcon fontSize="small" />} iconPosition="start"
+            label={`Final Round (${finalCands.length})`} value="final" />
+        )}
       </Tabs>
 
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {/* DIRECTOR PIPELINE DASHBOARD                                         */}
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {tab === 'candidates' && isAdmin && (
+      {/* ═══ CV BANK TAB ════════════════════════════════════════════════════ */}
+      {tab === 'cvbank' && canManage && (
         <Box>
-          {/* ── Stats cards ── */}
-          {/* <Grid container spacing={2} sx={{ mb: 3 }}>
-            {[
-              { label: 'Total Candidates',  value: pipelineStats.total,          icon: <WorkIcon />,          bg: '#1e3a5f', light: '#e8edf5' },
-              { label: 'Assigned',          value: pipelineStats.assigned,        icon: <PersonAddIcon />,     bg: '#1d4ed8', light: '#dbeafe' },
-              { label: 'Pending Feedback',  value: pipelineStats.pendingFeedback, icon: <AssessmentIcon />,    bg: '#7c3aed', light: '#f3e8ff' },
-              { label: 'Selected',          value: pipelineStats.selected,        icon: <CheckCircleIcon />,   bg: '#16a34a', light: '#dcfce7' },
-              { label: 'Rejected',          value: pipelineStats.rejected,        icon: <CancelIcon />,        bg: '#dc2626', light: '#fee2e2' },
-            ].map(s => (
-              <Grid item xs={12} sm={6} md key={s.label}>
-                <Card sx={{ borderRadius: 2.5, border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.07)' }}>
-                  <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-                      <Typography variant="caption" color="text.secondary" fontWeight={600}
-                        sx={{ textTransform: 'uppercase', letterSpacing: 0.5, fontSize: 10.5 }}>
-                        {s.label}
-                      </Typography>
-                      <Box sx={{ bgcolor: s.light, borderRadius: 1.5, p: 0.75, display: 'flex',
-                        '& svg': { fontSize: 18, color: s.bg } }}>
-                        {s.icon}
-                      </Box>
-                    </Box>
-                    <Typography variant="h4" fontWeight={700} sx={{ color: s.bg }}>{s.value}</Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid> */}
-
-          {/* ── Search + Pipeline filter ── */}
-          <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-            <TextField placeholder="Search candidates…" value={search}
-              onChange={e => { setSearch(e.target.value); setCandPage(0); }} size="small"
+          {/* ── Search + Dropdowns row ── */}
+          <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            <TextField placeholder="Search by name, profile, or Cand ID…" value={search} size="small"
+              onChange={e => { setSearch(e.target.value); setPage(0); }}
               InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: '#94a3b8' }} /></InputAdornment> }}
               sx={{ width: 260, bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              {[
-                ['ALL',             `All (${candidates.length})`],
-                ['PENDING',         `Pending (${candidates.filter(c => getPipelineStatus(c) === 'PENDING').length})`],
-                ['ASSIGNED',        `Assigned (${candidates.filter(c => getPipelineStatus(c) === 'ASSIGNED').length})`],
-                ['INTERVIEWING',    `Interviewing (${candidates.filter(c => getPipelineStatus(c) === 'INTERVIEWING').length})`],
-                ['FEEDBACK_PENDING',`Feedback Pending (${candidates.filter(c => getPipelineStatus(c) === 'FEEDBACK_PENDING').length})`],
-                ['SELECTED',        `Selected (${pipelineStats.selected})`],
-                ['REJECTED',        `Rejected (${pipelineStats.rejected})`],
-              ].map(([val, label]) => (
-                <Chip key={val} label={label} onClick={() => { setPipelineFilter(val); setCandPage(0); }} size="small"
-                  sx={{ cursor: 'pointer', fontWeight: 600,
-                    bgcolor: pipelineFilter === val ? '#1e3a5f' : '#fff',
-                    color: pipelineFilter === val ? '#fff' : '#64748b',
-                    border: '1px solid #e2e8f0' }} />
-              ))}
-            </Box>
-            {/* Refresh button — pipeline data can go stale if interviewers submit feedback while this page is open */}
-            <Tooltip title="Refresh pipeline">
-              <IconButton size="small" onClick={refreshCandidates}
-                sx={{ ml: 'auto', bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
-                <RefreshIcon fontSize="small" sx={{ color: '#64748b' }} />
-              </IconButton>
-            </Tooltip>
+
+            <FormControl size="small" sx={{ width: 155, bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
+              <InputLabel sx={{ fontSize: 13 }}>Office Location</InputLabel>
+              <Select
+                value={locationFilter}
+                label="Office Location"
+                onChange={e => { setLocationFilter(e.target.value); setPage(0); }}
+                sx={{ fontSize: 13 }}>
+                <MenuItem value="ALL"><em>All Locations</em></MenuItem>
+                {allLocations.map(l => <MenuItem key={l} value={l} sx={{ fontSize: 13 }}>{l}</MenuItem>)}
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ width: 155, bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
+              <InputLabel sx={{ fontSize: 13 }}>Applied Profile</InputLabel>
+              <Select
+                value={profileFilter}
+                label="Applied Profile"
+                onChange={e => { setProfileFilter(e.target.value); setPage(0); }}
+                sx={{ fontSize: 13 }}>
+                <MenuItem value="ALL"><em>All Profiles</em></MenuItem>
+                {allProfiles.map(p => <MenuItem key={p} value={p} sx={{ fontSize: 13 }}>{p}</MenuItem>)}
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" sx={{ width: 185, bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
+              <InputLabel sx={{ fontSize: 13 }}>Status</InputLabel>
+              <Select
+                value={statusFilter}
+                label="Status"
+                onChange={e => { setStatusFilter(e.target.value); setPage(0); }}
+                sx={{ fontSize: 13 }}>
+                <MenuItem value="ALL" sx={{ fontSize: 13 }}><em>All</em></MenuItem>
+                <MenuItem value="NEW"                 sx={{ fontSize: 13 }}>New</MenuItem>
+                <MenuItem value="UNDER_HR_REVIEW"     sx={{ fontSize: 13 }}>Under HR Review</MenuItem>
+                <MenuItem value="TECHNICAL_PENDING"   sx={{ fontSize: 13 }}>Technical Pending</MenuItem>
+                <MenuItem value="FINAL_ROUND_PENDING" sx={{ fontSize: 13 }}>Final Round Pending</MenuItem>
+                <MenuItem value="SELECTED"            sx={{ fontSize: 13 }}>Selected</MenuItem>
+                <MenuItem value="HR_REJECTED"         sx={{ fontSize: 13 }}>HR Rejected</MenuItem>
+                <MenuItem value="TECHNICAL_REJECTED"  sx={{ fontSize: 13 }}>Technical Rejected</MenuItem>
+                <MenuItem value="REJECTED"            sx={{ fontSize: 13 }}>Rejected</MenuItem>
+              </Select>
+            </FormControl>
+
+            {(locationFilter !== 'ALL' || profileFilter !== 'ALL' || statusFilter !== 'ALL' || search) && (
+              <Button size="small" variant="outlined"
+                onClick={() => { setSearch(''); setLocationFilter('ALL'); setProfileFilter('ALL'); setStatusFilter('ALL'); setPage(0); }}
+                sx={{ textTransform: 'none', fontSize: 12, borderColor: '#e2e8f0', color: '#64748b',
+                      borderRadius: 2, height: 40, whiteSpace: 'nowrap' }}>
+                Clear Filters
+              </Button>
+            )}
           </Box>
 
-          {/* ── Pipeline table ── */}
-          <Card sx={{ borderRadius: 2, overflow: 'hidden' }}>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: '#f1f5f9' }}>
-                    {['#', 'Candidate', 'Position', 'Assigned To', 'Round', 'Interview Date', 'Status', 'Actions']
-                      .map(h => <TableCell key={h} sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569', py: 1.5 }}>{h}</TableCell>)}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredPipeline.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
-                        <WorkIcon sx={{ fontSize: 48, color: '#cbd5e1', mb: 1, display: 'block', mx: 'auto' }} />
-                        <Typography color="text.secondary">No candidates found</Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredPipeline.slice(candPage * candRpp, (candPage + 1) * candRpp).map((c, i) => {
-                    const ps       = getPipelineStatus(c);
-                    const psCfg    = PIPELINE_STATUS[ps] || PIPELINE_STATUS.PENDING;
-                    const curRound = getCurrentRound(c);
-                    return (
-                      <TableRow key={c.id} hover sx={{ cursor: 'pointer', bgcolor: i % 2 === 0 ? 'white' : '#f8fafc' }}
-                        onClick={() => openDetail(c)}>
-                        <TableCell sx={{ fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>{candPage * candRpp + i + 1}</TableCell>
-
-                        {/* Candidate */}
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                            <Avatar sx={{ bgcolor: '#1e3a5f', width: 32, height: 32, fontSize: 13 }}>
-                              {c.name?.charAt(0).toUpperCase()}
-                            </Avatar>
-                            <Box>
-                              <Typography variant="body2" fontWeight={600}>{c.name}</Typography>
-                              {c.email && <Typography variant="caption" color="text.secondary">{c.email}</Typography>}
-                            </Box>
-                          </Box>
-                        </TableCell>
-
-                        {/* Position */}
-                        <TableCell>
-                          <Typography variant="body2" fontWeight={600}>{c.position}</Typography>
-                          {c.department && <Typography variant="caption" color="text.secondary">{c.department}</Typography>}
-                        </TableCell>
-
-                        {/* Assigned To */}
-                        <TableCell>
-                          {(c.currentRoundInterviewerName || curRound?.interviewerName) ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Avatar sx={{ width: 24, height: 24, fontSize: 11, bgcolor: '#6366f1' }}>
-                                {(c.currentRoundInterviewerName || curRound.interviewerName).charAt(0)}
-                              </Avatar>
-                              <Typography variant="body2">
-                                {c.currentRoundInterviewerName || curRound.interviewerName}
-                              </Typography>
-                            </Box>
-                          ) : (
-                            <Typography variant="body2" color="text.disabled" fontStyle="italic">Not Assigned</Typography>
-                          )}
-                        </TableCell>
-
-                        {/* Round type */}
-                        <TableCell>
-                          {(c.currentRoundType || curRound?.roundType) ? (() => {
-                            const rt = c.currentRoundType || curRound.roundType;
-                            return (
-                              <Chip label={rt.replace('_', ' ')} size="small"
-                                sx={{ bgcolor: (ROUND_TYPE_COLOR[rt] || '#64748b') + '22',
-                                  color: ROUND_TYPE_COLOR[rt] || '#64748b', fontWeight: 700, fontSize: 11 }} />
-                            );
-                          })() : '—'}
-                        </TableCell>
-
-                        {/* Interview Date */}
-                        <TableCell sx={{ fontSize: 13, color: '#475569', whiteSpace: 'nowrap' }}>
-                          {(c.currentRoundScheduledAt || curRound?.scheduledAt)
-                            ? fmtDt(c.currentRoundScheduledAt || curRound?.scheduledAt) : '—'}
-                        </TableCell>
-
-                        {/* Pipeline status + feedback rating if available */}
-                        <TableCell>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                            <Chip label={psCfg.label} size="small"
-                              sx={{ bgcolor: psCfg.bg, color: psCfg.color, fontWeight: 700, fontSize: 11.5 }} />
-                            {c.averageRating != null && (
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
-                                <StarIcon sx={{ fontSize: 12, color: '#f59e0b' }} />
-                                <Typography variant="caption" fontWeight={700} sx={{ color: '#92400e', fontSize: 11 }}>
-                                  {c.averageRating} / 5
-                                </Typography>
-                              </Box>
-                            )}
-                          </Box>
-                        </TableCell>
-
-                        {/* Actions */}
-                        <TableCell onClick={e => e.stopPropagation()}>
-                          <Box sx={{ display: 'flex', gap: 0.5 }}>
-                            {ps === 'PENDING' ? (
-                              <Button size="small" variant="contained"
-                                onClick={e => { e.stopPropagation(); openAssignDialog(c); }}
-                                sx={{ bgcolor: '#7c3aed', '&:hover': { bgcolor: '#6d28d9' }, textTransform: 'none', fontSize: 12, px: 1.5, py: 0.4 }}>
-                                Assign
-                              </Button>
-                            ) : ps === 'FEEDBACK_PENDING' ? (
-                              <Button size="small" variant="outlined"
-                                onClick={() => openDetail(c)}
-                                sx={{ borderColor: '#7c3aed', color: '#7c3aed', textTransform: 'none', fontSize: 12, px: 1.5, py: 0.4 }}>
-                                Review
-                              </Button>
-                            ) : (
-                              <Button size="small" variant="outlined"
-                                onClick={() => openDetail(c)}
-                                sx={{ borderColor: '#1e3a5f', color: '#1e3a5f', textTransform: 'none', fontSize: 12, px: 1.5, py: 0.4 }}>
-                                View
-                              </Button>
-                            )}
-                            <Tooltip title="Edit">
-                              <IconButton size="small" onClick={e => openEditCandidate(c, e)}>
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Delete">
-                              <IconButton size="small" color="error" onClick={e => handleDeleteCandidate(c.id, e)}>
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            {filteredPipeline.length > candRpp && (
-              <TablePagination component="div" count={filteredPipeline.length}
-                page={candPage} onPageChange={(_, p) => setCandPage(p)}
-                rowsPerPage={candRpp} rowsPerPageOptions={[10, 25, 50]}
-                onRowsPerPageChange={e => { setCandRpp(parseInt(e.target.value, 10)); setCandPage(0); }} />
-            )}
-          </Card>
+          <CandidateTable rows={filteredCands} emptyMsg="No candidates match the selected filters" />
         </Box>
       )}
 
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {/* HR CANDIDATES TAB (non-admin)                                       */}
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {tab === 'candidates' && !isAdmin && canManage && (
+      {/* ═══ HR SCREENING TAB ═══════════════════════════════════════════════ */}
+      {tab === 'hr' && canManage && (
         <Box>
-          {/* Search + filter */}
-          <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-            <TextField placeholder="Search candidates…" value={search}
-              onChange={e => { setSearch(e.target.value); setCandPage(0); }} size="small"
-              InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: '#94a3b8' }} /></InputAdornment> }}
-              sx={{ width: 280, bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              {['ALL', ...Object.keys(STATUS_COLOR)].map(s => (
-                <Chip key={s} label={s === 'ALL' ? `All (${candidates.length})` : STATUS_COLOR[s]?.label}
-                  onClick={() => { setStatusFilter(s); setCandPage(0); }} size="small"
-                  sx={{ cursor: 'pointer', fontWeight: 600,
-                    bgcolor: statusFilter === s ? '#1e3a5f' : '#fff',
-                    color: statusFilter === s ? '#fff' : '#64748b',
-                    border: '1px solid #e2e8f0' }} />
-              ))}
+          {hrCands.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 8 }}>
+              <AssignmentIcon sx={{ fontSize: 56, color: '#cbd5e1', mb: 1 }} />
+              <Typography color="text.secondary" variant="h6">No HR Screening data yet</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Open a candidate for HR Screening from the CV Bank, then save the screening form to see data here
+              </Typography>
             </Box>
-          </Box>
-
-          {/* Candidates table */}
-          <Card sx={{ borderRadius: 2, overflow: 'hidden' }}>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: '#f1f5f9' }}>
-                    {['#', 'Candidate', 'Position', 'Status', 'Rounds', 'Avg Rating', 'Source', 'Added By', 'Actions']
-                      .map(h => <TableCell key={h} sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569', py: 1.5 }}>{h}</TableCell>)}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredCandidates.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
-                        <WorkIcon sx={{ fontSize: 48, color: '#cbd5e1', mb: 1, display: 'block', mx: 'auto' }} />
-                        <Typography color="text.secondary">No candidates found</Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredCandidates.slice(candPage * candRpp, (candPage + 1) * candRpp).map((c, i) => (
-                    <TableRow key={c.id} hover sx={{ cursor: 'pointer', bgcolor: i % 2 === 0 ? 'white' : '#f8fafc' }}
-                      onClick={() => openDetail(c)}>
-                      <TableCell sx={{ fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>{candPage * candRpp + i + 1}</TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                          <Avatar sx={{ bgcolor: '#1e3a5f', width: 32, height: 32, fontSize: 13 }}>
-                            {c.name?.charAt(0).toUpperCase()}
-                          </Avatar>
-                          <Box>
-                            <Typography variant="body2" fontWeight={600}>{c.name}</Typography>
-                            {c.email && <Typography variant="caption" color="text.secondary">{c.email}</Typography>}
-                          </Box>
-                        </Box>
-                      </TableCell>
-                      <TableCell sx={{ fontSize: 13 }}>
-                        <Typography variant="body2" fontWeight={600}>{c.position}</Typography>
-                        {c.department && <Typography variant="caption" color="text.secondary">{c.department}</Typography>}
-                      </TableCell>
-                      <TableCell><StatusChip status={c.status} /></TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                          <Chip label={`${c.completedRounds}/${c.totalRounds}`} size="small"
-                            sx={{ bgcolor: '#f1f5f9', color: '#475569', fontWeight: 600, fontSize: 11 }} />
-                          {c.currentRoundType && (
-                            <Typography variant="caption" sx={{ color: ROUND_TYPE_COLOR[c.currentRoundType] || '#64748b', fontWeight: 600 }}>
-                              {c.currentRoundType.replace('_', ' ')}
-                            </Typography>
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        {c.averageRating != null ? (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <StarIcon sx={{ fontSize: 14, color: '#f59e0b' }} />
-                            <Typography variant="body2" fontWeight={600}>{c.averageRating}</Typography>
-                          </Box>
-                        ) : '—'}
-                      </TableCell>
-                      <TableCell sx={{ fontSize: 13, color: '#64748b' }}>{c.source || '—'}</TableCell>
-                      <TableCell sx={{ fontSize: 13 }}>{c.createdByName || '—'}</TableCell>
-                      <TableCell onClick={e => e.stopPropagation()}>
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                          {canSchedule && (
-                            <Tooltip title="Edit">
-                              <IconButton size="small" onClick={e => openEditCandidate(c, e)}>
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            {filteredCandidates.length > candRpp && (
-              <TablePagination component="div" count={filteredCandidates.length}
-                page={candPage} onPageChange={(_, p) => setCandPage(p)}
-                rowsPerPage={candRpp} rowsPerPageOptions={[10, 25, 50]}
-                onRowsPerPageChange={e => { setCandRpp(parseInt(e.target.value, 10)); setCandPage(0); }} />
-            )}
-          </Card>
-        </Box>
-      )}
-
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {/* MY INTERVIEWS TAB                                                   */}
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {tab === 'my-rounds' && (
-        <Box>
-          {/* Notification bell + panel */}
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-            <Tooltip title={unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}` : 'Notifications'}>
-              <IconButton onClick={async () => {
-                setNotifOpen(o => !o);
-                if (unreadCount > 0) {
-                  await interviewApi.markAllRead().catch(() => {});
-                  setUnreadCount(0);
-                  setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-                }
-              }}>
-                <Badge badgeContent={unreadCount} color="error">
-                  <NotificationsIcon sx={{ color: '#1e3a5f' }} />
-                </Badge>
-              </IconButton>
-            </Tooltip>
-          </Box>
-
-          {/* Notification panel */}
-          {notifOpen && (
-            <Card sx={{ mb: 3, border: '1px solid #e2e8f0', borderRadius: 3 }}>
-              <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography fontWeight={700} fontSize={14}>Interview Notifications</Typography>
-                <IconButton size="small" onClick={() => setNotifOpen(false)}><CancelIcon fontSize="small" /></IconButton>
-              </Box>
-              {notifications.length === 0 ? (
-                <Box sx={{ py: 3, textAlign: 'center' }}>
-                  <Typography variant="body2" color="text.secondary">No notifications yet</Typography>
-                </Box>
-              ) : (
-                <Box sx={{ maxHeight: 320, overflowY: 'auto' }}>
-                  {notifications.map(n => (
-                    <Box key={n.id} sx={{ px: 2, py: 1.5, borderBottom: '1px solid #f1f5f9',
-                      bgcolor: n.read ? '#fff' : '#eff6ff' }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <Typography variant="body2" fontWeight={700}>{n.title}</Typography>
-                        {!n.read && <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#3b82f6', mt: 0.5 }} />}
-                      </Box>
-                      <Typography variant="caption" color="text.secondary">{n.message}</Typography>
-                      {n.scheduledAt && (
-                        <Typography variant="caption" display="block" color="primary" mt={0.5}>
-                          {new Date(n.scheduledAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
-                        </Typography>
-                      )}
-                    </Box>
-                  ))}
-                </Box>
-              )}
-            </Card>
-          )}
-
-          {/* Today's interviews banner */}
-          {(() => {
-            const today = new Date(); today.setHours(0,0,0,0);
-            const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
-            const todayRounds = myRounds.filter(r => {
-              if (!r.scheduledAt || r.status === 'CANCELLED') return false;
-              const d = new Date(r.scheduledAt); return d >= today && d < tomorrow;
-            });
-            if (todayRounds.length === 0) return null;
-            return (
-              <Card sx={{ mb: 3, border: '2px solid #f59e0b', bgcolor: '#fffbeb', borderRadius: 3 }}>
-                <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <TodayIcon sx={{ color: '#d97706' }} />
-                  <Typography fontWeight={700} color="warning.dark">
-                    Today's Interviews ({todayRounds.length})
-                  </Typography>
-                </Box>
-                <Divider />
-                {todayRounds.map(r => (
-                  <Box key={r.id} sx={{ px: 2, py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    borderBottom: '1px solid #fde68a' }}>
-                    <Box>
-                      <Typography variant="body2" fontWeight={700}>{r.candidateName}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {r.roundType?.replace('_',' ')} · {new Date(r.scheduledAt).toLocaleTimeString('en-IN', { timeStyle: 'short' })}
-                        {r.location ? ` · ${r.location}` : ''}
-                      </Typography>
-                    </Box>
-                    <Tooltip title="Download calendar invite (.ics)">
-                      <IconButton size="small" onClick={() => downloadIcs(r.id)} sx={{ color: '#d97706' }}>
-                        <DownloadIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                ))}
-              </Card>
-            );
-          })()}
-
-          {/* Filter chips */}
-          <Box sx={{ display: 'flex', gap: 1, mb: 3, flexWrap: 'wrap' }}>
-            {[
-              ['ALL', `All (${myRounds.length})`],
-              ['SCHEDULED',   `Scheduled (${myRounds.filter(r => r.status === 'SCHEDULED').length})`],
-              ['IN_PROGRESS', `In Progress (${myRounds.filter(r => r.status === 'IN_PROGRESS').length})`],
-              ['COMPLETED',   `Completed (${myRounds.filter(r => r.status === 'COMPLETED').length})`],
-            ].map(([val, label]) => (
-              <Chip key={val} label={label} onClick={() => setMyRoundFilter(val)} size="small"
-                sx={{ cursor: 'pointer', fontWeight: 600,
-                  bgcolor: myRoundFilter === val ? '#1e3a5f' : '#fff',
-                  color: myRoundFilter === val ? '#fff' : '#64748b',
-                  border: '1px solid #e2e8f0' }} />
-            ))}
-          </Box>
-
-          {filteredMyRounds.length === 0 ? (
-            <Card sx={{ textAlign: 'center', py: 6 }}>
-              <CalendarMonthIcon sx={{ fontSize: 56, color: '#cbd5e1', mb: 2 }} />
-              <Typography color="text.secondary">No interviews assigned to you</Typography>
-            </Card>
           ) : (
-            <Grid container spacing={2}>
-              {filteredMyRounds.map((round) => {
-                const typeColor = ROUND_TYPE_COLOR[round.roundType] || '#64748b';
-                const myFeedback = round.feedbacks?.find(f => f.submittedByName != null);
-                const canSubmitFeedback = round.status === 'IN_PROGRESS' && !round.feedbackSubmitted;
-                const canEditFeedback   = round.feedbackSubmitted && round.feedbacks?.length > 0;
+            <Card sx={{ borderRadius: 3, overflow: 'hidden' }}>
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                <Table size="small" sx={{ tableLayout: 'fixed', minWidth: 250 + pagedHrCands.length * 230 }}>
+                  {/* ── Header: Questions label + candidate names ── */}
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: '#1e3a5f', height: 36 }}>
+                      <TableCell sx={{
+                        width: 250, minWidth: 250,
+                        position: 'sticky', left: 0, zIndex: 3,
+                        bgcolor: '#1e3a5f', color: '#fff', fontWeight: 700, fontSize: 12,
+                        borderRight: '2px solid rgba(255,255,255,0.3)',
+                        py: 0.75, px: 1, verticalAlign: 'middle',
+                      }}>
+                        Questions
+                      </TableCell>
+                      {pagedHrCands.map(cand => {
+                        const notSuitable = cand.hrScreening?.decision === 'NOT_SUITABLE';
+                        const headerBg    = notSuitable ? '#E60C09' : '#FDFF00';
+                        const headerColor = notSuitable ? '#fff'    : '#1a1a1a';
+                        return (
+                          <TableCell key={cand.id} sx={{
+                            width: 200, minWidth: 200,
+                            bgcolor: headerBg,
+                            borderRight: '1px solid rgba(0,0,0,0.1)',
+                            py: 0.75, px: 1, verticalAlign: 'middle',
+                          }}>
+                            <Typography sx={{ fontSize: 12, fontWeight: 700, color: headerColor, lineHeight: 1.2 }}>
+                              {cand.name}
+                            </Typography>
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  </TableHead>
 
-                return (
-                  <Grid item xs={12} sm={6} md={4} key={round.id}>
-                    <Card sx={{ borderRadius: 3, height: '100%', display: 'flex', flexDirection: 'column',
-                      border: round.status === 'IN_PROGRESS' ? '2px solid #f59e0b' : '1px solid #e2e8f0' }}>
-                      {/* Card header */}
-                      <Box sx={{ p: 2, background: `linear-gradient(135deg, ${typeColor}22 0%, #f8fafc 100%)`,
-                        borderBottom: '1px solid #e2e8f0' }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Box sx={{ width: 32, height: 32, borderRadius: '50%', bgcolor: typeColor,
+                  <TableBody>
+                    {/* ── Q1–Q11 rows — read-only ── */}
+                    {[
+                      { num: 1,  key: 'currentRoleResponsibilities', label: 'What is your current role and responsibilities?' },
+                      { num: 2,  key: 'reasonForChange',             label: 'Why do you want to leave your current organisation?' },
+                      { num: 3,  key: 'currentCtc',                  label: 'What is your current pay?' },
+                      { num: 4,  key: 'expectedCtc',                 label: 'What do you expect from us? Is it negotiable?' },
+                      { num: 5,  key: 'noticePeriod',                label: 'What is the duration of your notice period?' },
+                      { num: 6,  key: 'preferredLocation',           label: 'Location' },
+                      { num: 7,  key: 'workBase',                    label: 'What is your work base? (UK / US / India)' },
+                      { num: 8,  key: 'totalExperience',             label: 'How many years of experience do you have?' },
+                      { num: 9,  key: 'currentCompany',              label: 'Previous / Current Company' },
+                      { num: 10, key: 'screeningDate',               label: 'Screening Date' },
+                      { num: 11, key: 'communicationSkills',         label: 'Communication per HR (1-10)', isRating: true },
+                    ].map(({ num, key, label, isRating }) => (
+                      <TableRow key={key} sx={{
+                        height: 34,
+                        '&:nth-of-type(odd)':  { bgcolor: '#f8fafc' },
+                        '&:nth-of-type(even)': { bgcolor: '#fff' },
+                      }}>
+                        {/* Question label — sticky left */}
+                        <TableCell sx={{
+                          position: 'sticky', left: 0, zIndex: 1, bgcolor: 'inherit',
+                          borderRight: '2px solid #e2e8f0',
+                          py: 0.5, px: 1, verticalAlign: 'middle',
+                        }}>
+                          <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center' }}>
+                            <Box sx={{
+                              minWidth: 18, width: 18, height: 18, borderRadius: '50%',
+                              bgcolor: '#f59e0b', color: '#fff', flexShrink: 0,
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              color: '#fff', fontWeight: 800, fontSize: 13 }}>
-                              {round.roundNumber}
+                              fontSize: 9, fontWeight: 700,
+                            }}>
+                              {num}
                             </Box>
-                            <Box>
-                              <Typography variant="body2" fontWeight={700}>{round.roundType?.replace('_', ' ')} Round</Typography>
-                              <Typography variant="caption" color="text.secondary">Round {round.roundNumber}</Typography>
-                            </Box>
+                            <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#1e293b', lineHeight: 1.3 }}>
+                              {label}
+                            </Typography>
                           </Box>
-                          <RoundStatusChip status={round.status} />
-                        </Box>
-                      </Box>
+                        </TableCell>
 
-                      <CardContent sx={{ flex: 1, pt: 1.5 }}>
-                        {/* Candidate info */}
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-                          <Avatar sx={{ bgcolor: '#1e3a5f', width: 36, height: 36, fontSize: 15 }}>
-                            {round.candidateName?.charAt(0).toUpperCase()}
-                          </Avatar>
-                          <Box>
-                            <Typography variant="body2" fontWeight={700}>{round.candidateName}</Typography>
-                            <Typography variant="caption" color="text.secondary">{round.candidatePosition}</Typography>
-                          </Box>
-                        </Box>
+                        {/* Read-only answer cells */}
+                        {pagedHrCands.map(cand => {
+                          const val = cand.hrScreening?.[key] || '';
+                          const displayVal = key === 'screeningDate' && val ? fmtDate(val) : val;
+                          return (
+                            <TableCell key={cand.id} sx={{
+                              borderRight: '1px solid #e2e8f0',
+                              py: 0.5, px: 1, verticalAlign: 'middle',
+                            }}>
+                              {isRating ? (
+                                val && Number(val) > 0 ? (
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#1e293b' }}>{val}</Typography>
+                                    <Box sx={{ display: 'flex', gap: 0.25 }}>
+                                      {[1,2,3,4,5,6,7,8,9,10].map(n => {
+                                        const v = parseInt(val, 10) || 0;
+                                        const col = v >= 8 ? '#16a34a' : v >= 5 ? '#ca8a04' : '#dc2626';
+                                        return <Box key={n} sx={{ width: 9, height: 9, borderRadius: 0.25, bgcolor: n <= v ? col : '#e2e8f0' }} />;
+                                      })}
+                                    </Box>
+                                  </Box>
+                                ) : <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>—</Typography>
+                              ) : displayVal ? (
+                                <Typography sx={{ fontSize: 12, color: '#1e293b', lineHeight: 1.4, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                                  {displayVal}
+                                </Typography>
+                              ) : (
+                                <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>—</Typography>
+                              )}
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    ))}
 
-                        <Divider sx={{ mb: 1.5 }} />
+                    {/* ── Remarks row — read-only ── */}
+                    <TableRow sx={{ bgcolor: '#f0f9ff', height: 34 }}>
+                      <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: '#f0f9ff', borderRight: '2px solid #e2e8f0', py: 0.5, px: 1, verticalAlign: 'middle' }}>
+                        <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#0369a1' }}>Remarks / Notes</Typography>
+                      </TableCell>
+                      {pagedHrCands.map(cand => {
+                        const val = cand.hrScreening?.hrComments || '';
+                        return (
+                          <TableCell key={cand.id} sx={{ borderRight: '1px solid #e2e8f0', bgcolor: '#f0f9ff', py: 0.5, px: 1, verticalAlign: 'middle' }}>
+                            <Typography sx={{ fontSize: 12, color: val ? '#0369a1' : '#94a3b8', lineHeight: 1.4, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                              {val || '—'}
+                            </Typography>
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
 
-                        {/* Details */}
-                        <Stack spacing={0.75}>
-                          {round.scheduledAt && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <CalendarMonthIcon sx={{ fontSize: 15, color: '#94a3b8' }} />
-                              <Typography variant="caption">{fmtDt(round.scheduledAt)}</Typography>
-                            </Box>
-                          )}
-                          {round.durationMinutes && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <AccessTimeIcon sx={{ fontSize: 15, color: '#94a3b8' }} />
-                              <Typography variant="caption">{round.durationMinutes} minutes</Typography>
-                            </Box>
-                          )}
-                          {round.location && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <LocationOnIcon sx={{ fontSize: 15, color: '#94a3b8' }} />
-                              <Typography variant="caption" sx={{ wordBreak: 'break-all' }}>{round.location}</Typography>
-                            </Box>
-                          )}
-                          {round.assignedByName && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <PersonAddIcon sx={{ fontSize: 15, color: '#94a3b8' }} />
-                              <Typography variant="caption">Assigned by {round.assignedByName}</Typography>
-                            </Box>
-                          )}
-                        </Stack>
+                    {/* ── Rejection Reason row — read-only ── */}
+                    <TableRow sx={{ bgcolor: '#fff5f5', height: 34 }}>
+                      <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: '#fff5f5', borderRight: '2px solid #e2e8f0', py: 0.5, px: 1, verticalAlign: 'middle' }}>
+                        <Typography sx={{ fontSize: 12, fontWeight: 600, color: '#dc2626' }}>Rejection Reason</Typography>
+                      </TableCell>
+                      {pagedHrCands.map(cand => {
+                        const val = cand.hrScreening?.rejectionReason || '';
+                        return (
+                          <TableCell key={cand.id} sx={{ borderRight: '1px solid #e2e8f0', bgcolor: '#fff5f5', py: 0.5, px: 1, verticalAlign: 'middle' }}>
+                            <Typography sx={{ fontSize: 12, color: val ? '#dc2626' : '#94a3b8', lineHeight: 1.4, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                              {val || '—'}
+                            </Typography>
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
 
-                        {round.managerNotes && (
-                          <Box sx={{ mt: 1.5, p: 1.5, bgcolor: '#fff7ed', borderRadius: 1.5, border: '1px solid #fed7aa' }}>
-                            <Typography variant="caption" fontWeight={700} color="warning.dark">Notes from Manager</Typography>
-                            <Typography variant="caption" display="block" color="warning.dark">{round.managerNotes}</Typography>
-                          </Box>
-                        )}
-
-                        {/* Completed feedback summary */}
-                        {round.feedbackSubmitted && round.averageRating && (
-                          <Box sx={{ mt: 1.5, p: 1.5, bgcolor: '#f0fdf4', borderRadius: 1.5, border: '1px solid #bbf7d0' }}>
-                            <Typography variant="caption" fontWeight={700} color="success.dark">Feedback Submitted</Typography>
-                            <RatingStars value={round.averageRating} />
-                          </Box>
-                        )}
-                      </CardContent>
-
-                      {/* Card actions */}
-                      <Box sx={{ p: 2, pt: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        {round.status === 'SCHEDULED' && (
-                          <Button fullWidth variant="contained" startIcon={<PlayArrowIcon />}
-                            onClick={() => handleStartRound(round.id)}
-                            sx={{ textTransform: 'none', bgcolor: '#1d4ed8', '&:hover': { bgcolor: '#1e40af' } }}>
-                            Start Interview
-                          </Button>
-                        )}
-                        {canSubmitFeedback && (
-                          <Button fullWidth variant="contained" startIcon={<StarIcon />}
-                            onClick={() => navigate(`/interviews/feedback/${round.id}`, { state: { round } })}
-                            sx={{ textTransform: 'none', bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' } }}>
-                            Submit Feedback
-                          </Button>
-                        )}
-                        {canEditFeedback && (
-                          <Button fullWidth variant="outlined" startIcon={<EditIcon />}
-                            onClick={() => navigate(`/interviews/feedback/${round.id}`, { state: { round, existingFeedback: round.feedbacks[0] } })}
-                            sx={{ textTransform: 'none' }}>
-                            Edit Feedback
-                          </Button>
-                        )}
-                        {round.status !== 'CANCELLED' && round.scheduledAt && (
-                          <Button fullWidth variant="outlined" size="small" startIcon={<DownloadIcon />}
-                            onClick={() => downloadIcs(round.id)}
-                            sx={{ textTransform: 'none', borderColor: '#94a3b8', color: '#475569',
-                              '&:hover': { borderColor: '#1e3a5f', color: '#1e3a5f' } }}>
-                            Add to Calendar
-                          </Button>
-                        )}
-                        {round.status === 'CANCELLED' && (
-                          <Typography variant="caption" color="text.disabled" sx={{ textAlign: 'center', display: 'block' }}>
-                            This round was cancelled
-                          </Typography>
-                        )}
-                      </Box>
-                    </Card>
-                  </Grid>
-                );
-              })}
-            </Grid>
+                    {/* ── Status row ── */}
+                    <TableRow sx={{ bgcolor: '#f1f5f9', height: 36 }}>
+                      <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: '#f1f5f9', borderRight: '2px solid #e2e8f0', fontWeight: 700, fontSize: 12, color: '#475569', py: 0.5, px: 1, verticalAlign: 'middle' }}>
+                        Status
+                      </TableCell>
+                      {pagedHrCands.map(cand => {
+                        const decision = cand.hrScreening?.decision;
+                        const cfg = STATUS_CFG[cand.status] || { label: cand.status, bg: '#f1f5f9', color: '#475569' };
+                        return (
+                          <TableCell key={cand.id} sx={{ borderRight: '1px solid #e2e8f0', py: 0.5, px: 1, verticalAlign: 'middle' }}>
+                            {decision && decision !== 'PENDING' ? (
+                              <Chip label={decision === 'SUITABLE' ? 'Suitable ✓' : 'Not Suitable ✗'} size="small"
+                                sx={{ height: 22, fontSize: 11, fontWeight: 700,
+                                  bgcolor: decision === 'SUITABLE' ? '#dcfce7' : '#fee2e2',
+                                  color:   decision === 'SUITABLE' ? '#16a34a' : '#dc2626',
+                                  '& .MuiChip-label': { px: 1 } }} />
+                            ) : (
+                              <Chip label={cfg.label} size="small"
+                                sx={{ height: 22, fontSize: 11, fontWeight: 600,
+                                  bgcolor: cfg.bg, color: cfg.color,
+                                  '& .MuiChip-label': { px: 1 } }} />
+                            )}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <TablePagination component="div" count={hrCands.length} page={hrPage}
+                onPageChange={(_, p) => setHrPage(p)} rowsPerPage={HR_RPP} rowsPerPageOptions={[HR_RPP]} />
+            </Card>
           )}
         </Box>
       )}
 
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {/* REPORTS TAB                                                         */}
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {tab === 'reports' && canManage && stats && (
+      {/* ═══ TECHNICAL TAB ══════════════════════════════════════════════════ */}
+      {tab === 'technical' && (
         <Box>
-          {/* Stat cards */}
-          {/* <Grid container spacing={2} sx={{ mb: 3 }}>
-            {[
-              { label: 'Total Candidates',  val: stats.total,       color: '#1e3a5f', bg: '#eff6ff' },
-              { label: 'In Progress',       val: stats.inProgress,  color: '#1d4ed8', bg: '#dbeafe' },
-              { label: 'Selected',          val: stats.selected,    color: '#16a34a', bg: '#dcfce7' },
-              { label: 'Rejected',          val: stats.rejected,    color: '#dc2626', bg: '#fee2e2' },
-              { label: 'On Hold',           val: stats.onHold,      color: '#d97706', bg: '#fff7ed' },
-              { label: 'Pending',           val: stats.pending,     color: '#7c3aed', bg: '#f5f3ff' },
-            ].map(({ label, val, color, bg }) => (
-              <Grid item xs={6} sm={4} md={2} key={label}>
-                <Card sx={{ borderRadius: 2, textAlign: 'center', p: 2, bgcolor: bg, border: `1px solid ${color}22` }}>
-                  <Typography variant="h4" fontWeight={800} sx={{ color }}>{val}</Typography>
-                  <Typography variant="caption" color="text.secondary" fontWeight={600}>{label}</Typography>
-                </Card>
-              </Grid>
-            ))}
-          </Grid> */}
+          {/* Admin/HR view */}
+          {canManage && (
+            techCands.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 8 }}>
+                <WorkIcon sx={{ fontSize: 56, color: '#cbd5e1', mb: 1 }} />
+                <Typography color="text.secondary" variant="h6">No candidates pending technical interviews</Typography>
+              </Box>
+            ) : (
+              <CandidateTable rows={techCands} emptyMsg="No technical pending" />
+            )
+          )}
 
-          {/* Round and rating stats */}
-          <Grid container spacing={3} sx={{ mb: 3 }}>
-            <Grid item xs={12} md={6}>
-              <Card sx={{ borderRadius: 2, p: 3 }}>
-                <Typography variant="subtitle1" fontWeight={700} mb={2}>Interview Funnel</Typography>
-                {[
-                  { label: 'Total Candidates',    val: stats.total,       max: stats.total,    color: '#1e3a5f' },
-                  { label: 'In Progress',         val: stats.inProgress,  max: stats.total,    color: '#1d4ed8' },
-                  { label: 'Selected',            val: stats.selected,    max: stats.total,    color: '#16a34a' },
-                  { label: 'On Hold',             val: stats.onHold,      max: stats.total,    color: '#d97706' },
-                  { label: 'Rejected',            val: stats.rejected,    max: stats.total,    color: '#dc2626' },
-                ].map(({ label, val, max, color }) => (
-                  <Box key={label} sx={{ mb: 1.5 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography variant="body2" color="text.secondary">{label}</Typography>
-                      <Typography variant="body2" fontWeight={700} sx={{ color }}>{val}</Typography>
-                    </Box>
-                    <LinearProgress variant="determinate"
-                      value={max > 0 ? (val / max) * 100 : 0}
-                      sx={{ height: 8, borderRadius: 4, bgcolor: '#f1f5f9',
-                        '& .MuiLinearProgress-bar': { bgcolor: color, borderRadius: 4 } }} />
-                  </Box>
-                ))}
-              </Card>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Card sx={{ borderRadius: 2, p: 3 }}>
-                <Typography variant="subtitle1" fontWeight={700} mb={2}>Round Statistics</Typography>
-                <Grid container spacing={2}>
-                  {[
-                    { label: 'Total Rounds',    val: stats.totalRounds,     color: '#1e3a5f', bg: '#eff6ff' },
-                    { label: 'Completed',       val: stats.completedRounds, color: '#16a34a', bg: '#dcfce7' },
-                    { label: 'Scheduled',       val: stats.scheduledRounds, color: '#1d4ed8', bg: '#dbeafe' },
-                  ].map(({ label, val, color, bg }) => (
-                    <Grid item xs={4} key={label}>
-                      <Box sx={{ textAlign: 'center', p: 2, bgcolor: bg, borderRadius: 2 }}>
-                        <Typography variant="h5" fontWeight={800} sx={{ color }}>{val}</Typography>
-                        <Typography variant="caption" color="text.secondary">{label}</Typography>
-                      </Box>
-                    </Grid>
-                  ))}
-                </Grid>
-                <Divider sx={{ my: 2 }} />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Selection Rate</Typography>
-                    <Typography variant="h5" fontWeight={800} sx={{ color: '#16a34a' }}>{stats.selectionRate}%</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Avg. Feedback Rating</Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Typography variant="h5" fontWeight={800} sx={{ color: '#f59e0b' }}>{stats.averageRating || 'N/A'}</Typography>
-                      {stats.averageRating > 0 && <Typography variant="body2" color="text.secondary">/ 5</Typography>}
-                    </Box>
-                  </Box>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Rejection Rate</Typography>
-                    <Typography variant="h5" fontWeight={800} sx={{ color: '#dc2626' }}>{stats.rejectionRate}%</Typography>
-                  </Box>
-                </Box>
-              </Card>
-            </Grid>
-          </Grid>
-
-          {/* Candidates summary table */}
-          <Card sx={{ borderRadius: 2, overflow: 'hidden' }}>
-            <Box sx={{ p: 2, borderBottom: '1px solid #e2e8f0' }}>
-              <Typography variant="subtitle1" fontWeight={700}>All Candidates Overview</Typography>
-            </Box>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: '#f1f5f9' }}>
-                    {['Candidate', 'Position', 'Status', 'Rounds Done', 'Avg Rating', 'Recommendation', 'Added On']
-                      .map(h => <TableCell key={h} sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569', py: 1.5 }}>{h}</TableCell>)}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {candidates.map((c, i) => {
-                    const allFeedbacks = (c.rounds || []).flatMap(r => r.feedbacks || []);
-                    const recs = allFeedbacks.map(f => f.recommendation).filter(Boolean);
-                    const lastRec = recs.length > 0 ? recs[recs.length - 1] : null;
-                    const rec = lastRec ? REC_COLOR[lastRec] : null;
-                    return (
-                      <TableRow key={c.id} hover sx={{ cursor: 'pointer', bgcolor: i % 2 === 0 ? 'white' : '#f8fafc' }}
-                        onClick={() => { openDetail(c); setTab('candidates'); }}>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                            <Avatar sx={{ bgcolor: '#1e3a5f', width: 28, height: 28, fontSize: 12 }}>
-                              {c.name?.charAt(0)}
-                            </Avatar>
-                            <Typography variant="body2" fontWeight={600}>{c.name}</Typography>
-                          </Box>
-                        </TableCell>
-                        <TableCell sx={{ fontSize: 13 }}>{c.position}</TableCell>
-                        <TableCell><StatusChip status={c.status} /></TableCell>
-                        <TableCell sx={{ fontSize: 13 }}>{c.completedRounds} / {c.totalRounds}</TableCell>
-                        <TableCell>
-                          {c.averageRating != null ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <StarIcon sx={{ fontSize: 14, color: '#f59e0b' }} />
-                              <Typography variant="body2" fontWeight={600}>{c.averageRating}</Typography>
-                            </Box>
-                          ) : '—'}
-                        </TableCell>
-                        <TableCell>
-                          {lastRec ? (
-                            <Chip label={lastRec.replace('_', ' ')} size="small"
-                              sx={{ bgcolor: rec?.bg, color: rec?.color, fontWeight: 700, fontSize: 11 }} />
-                          ) : '—'}
-                        </TableCell>
-                        <TableCell sx={{ fontSize: 13, color: '#64748b' }}>{fmtDate(c.createdAt)}</TableCell>
+          {/* Manager view */}
+          {!canManage && isManager && (
+            myAssignments.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 8 }}>
+                <WorkIcon sx={{ fontSize: 56, color: '#cbd5e1', mb: 1 }} />
+                <Typography color="text.secondary" variant="h6">No interviews assigned to you</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  HR will assign candidates when they are deemed suitable for technical evaluation
+                </Typography>
+              </Box>
+            ) : (
+              <Card sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: '#f1f5f9' }}>
+                        {['Candidate', 'Applied Profile', 'Scheduled', 'Evaluated On', 'Assigned By', 'Interview Status', 'Score', 'Action'].map(h => (
+                          <TableCell key={h} sx={{ fontWeight: 700, fontSize: 12, color: '#475569', py: 1.5 }}>{h}</TableCell>
+                        ))}
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Card>
+                    </TableHead>
+                    <TableBody>
+                      {myAssignments.map((t, i) => {
+                        const ivStatus = t.interviewStatus || 'PENDING_LINK';
+                        const IV_BADGE = {
+                          PENDING_LINK:        { label: 'Link Not Generated', bg: '#f1f5f9', color: '#475569' },
+                          LINK_GENERATED:      { label: 'Waiting Candidate',  bg: '#dbeafe', color: '#1d4ed8' },
+                          IN_PROGRESS:         { label: '🔴 In Progress',     bg: '#fef3c7', color: '#d97706' },
+                          CANDIDATE_SUBMITTED: { label: 'Submitted',          bg: '#dcfce7', color: '#16a34a' },
+                          EVALUATED:           { label: 'Evaluated',          bg: '#f3e8ff', color: '#7c3aed' },
+                        };
+                        const badge = IV_BADGE[ivStatus] || IV_BADGE.PENDING_LINK;
+                        return (
+                        <TableRow key={t.id} sx={{ bgcolor: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                          <TableCell><Typography variant="body2" fontWeight={600}>{t.candidateName || '—'}</Typography></TableCell>
+                          <TableCell><Typography variant="body2">{t.candidateAppliedProfile || '—'}</Typography></TableCell>
+                          <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap', color: '#64748b' }}>{fmtDt(t.scheduledAt)}</TableCell>
+                          <TableCell sx={{ fontSize: 12, whiteSpace: 'nowrap', color: t.evaluatedAt ? '#7c3aed' : '#94a3b8' }}>
+                            {t.evaluatedAt ? fmtDt(t.evaluatedAt) : '—'}
+                          </TableCell>
+                          <TableCell><Typography variant="caption">{t.assignedByName || '—'}</Typography></TableCell>
+                          <TableCell>
+                            <Chip label={badge.label} size="small"
+                              sx={{ bgcolor: badge.bg, color: badge.color, fontWeight: 700, fontSize: 11 }} />
+                          </TableCell>
+                          <TableCell>
+                            {t.score != null
+                              ? <Typography variant="caption" fontWeight={700}>{t.score}/{t.totalMarks}</Typography>
+                              : <Typography variant="caption" color="text.disabled">—</Typography>}
+                          </TableCell>
+                          <TableCell>
+                            <Stack direction="row" spacing={0.75}>
+                              {/* Generate link */}
+                              {ivStatus === 'PENDING_LINK' && (
+                                <Button size="small" variant="outlined" onClick={() => openGenerateLinkDialog(t)}
+                                  sx={{ textTransform: 'none', fontSize: 11, borderColor: '#6366f1', color: '#6366f1' }}>
+                                  Generate Link
+                                </Button>
+                              )}
+                              {/* Join room */}
+                              {(ivStatus === 'IN_PROGRESS' || ivStatus === 'CANDIDATE_SUBMITTED') && (
+                                <Button size="small" variant="contained"
+                                  onClick={() => window.open(`/interview/room/${t.id}`, '_blank')}
+                                  sx={{ textTransform: 'none', fontSize: 11, bgcolor: '#059669', '&:hover': { bgcolor: '#047857' } }}>
+                                  {ivStatus === 'IN_PROGRESS' ? 'Join Room' : 'Review'}
+                                </Button>
+                              )}
+                              {/* Legacy feedback */}
+                              {(ivStatus === 'PENDING_LINK' || ivStatus === 'EVALUATED') && (
+                                <Button size="small"
+                                  variant={(!t.decision || t.decision === 'PENDING') ? 'contained' : 'outlined'}
+                                  onClick={() => openTechFeedback(t)}
+                                  sx={{ textTransform: 'none', fontSize: 11,
+                                        ...(!t.decision || t.decision === 'PENDING'
+                                          ? { bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' } }
+                                          : {}) }}>
+                                  {(!t.decision || t.decision === 'PENDING') ? 'Feedback' : 'View'}
+                                </Button>
+                              )}
+                            </Stack>
+                          </TableCell>
+                        </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Card>
+            )
+          )}
         </Box>
       )}
 
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {/* AUDIT LOG TAB                                                        */}
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {tab === 'audit' && isAdmin && (
+      {/* ═══ FINAL ROUND TAB ════════════════════════════════════════════════ */}
+      {tab === 'final' && isAdmin && (
         <Box>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="subtitle1" fontWeight={700}>System Audit Log</Typography>
-            <Button size="small" variant="outlined" startIcon={<AssessmentIcon />}
-              onClick={async () => { const logs = await interviewApi.getAuditLogs(); setAuditLogs(Array.isArray(logs) ? logs : []); }}
-              sx={{ textTransform: 'none' }}>
-              Refresh
-            </Button>
-          </Box>
-          <AuditLogLoader setAuditLogs={setAuditLogs} auditLogs={auditLogs} fmtDt={fmtDt} />
+          {finalCands.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 8 }}>
+              <EmojiEventsIcon sx={{ fontSize: 56, color: '#cbd5e1', mb: 1 }} />
+              <Typography color="text.secondary" variant="h6">No candidates in Final Round</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Candidates appear here after clearing the technical interview
+              </Typography>
+            </Box>
+          ) : (
+            <CandidateTable rows={finalCands} emptyMsg="No final round candidates" />
+          )}
         </Box>
       )}
 
       {renderDialogs()}
     </Box>
   );
-};
 
-/* ── lazy audit log loader ─────────────────────────────────────────────── */
-const AuditLogLoader = ({ auditLogs, setAuditLogs, fmtDt }) => {
-  const [loaded, setLoaded] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(0);
-  const rpp = 20;
+  /* ══════════════════════════════════════════════════════════════════════════ */
+  /* DIALOGS                                                                    */
+  /* ══════════════════════════════════════════════════════════════════════════ */
+  function renderDialogs() {
+    return (
+      <>
+        {/* ── Upload CV ── */}
+        <Dialog open={uploadDialog} onClose={() => !uploadSaving && !uploadStoring && closeUploadDialog()}
+          maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700, pb: 0.5 }}>
+            Upload Candidate CV
+            <Typography variant="body2" color="text.secondary" fontWeight={400} sx={{ mt: 0.25 }}>
+              Select a PDF / DOC / DOCX — the file is saved immediately and details are auto-extracted
+            </Typography>
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ mt: 1.5 }}>
+              {/* ── Drop zone ── */}
+              <Paper variant="outlined"
+                onClick={() => !uploadStoring && fileInputRef.current?.click()}
+                sx={{ p: 2.5, borderRadius: 2, borderStyle: 'dashed', textAlign: 'center', mb: 2,
+                      cursor: uploadStoring ? 'not-allowed' : 'pointer',
+                      borderColor: storedResume ? '#16a34a' : '#cbd5e1',
+                      bgcolor:     storedResume ? '#f0fdf4'  : 'transparent',
+                      '&:hover': !uploadStoring ? { borderColor: '#1e3a5f', bgcolor: '#f8fafc' } : {} }}>
+                <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx" hidden
+                  onChange={e => handleFileSelect(e.target.files?.[0])} />
 
-  useEffect(() => {
-    if (loaded) return;
-    setLoading(true);
-    interviewApi.getAuditLogs()
-      .then(logs => { setAuditLogs(Array.isArray(logs) ? logs : []); setLoaded(true); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [loaded, setAuditLogs]);
-
-  if (loading) return <Box sx={{ textAlign: 'center', py: 4 }}><CircularProgress sx={{ color: '#1e3a5f' }} /></Box>;
-
-  return (
-    <Card sx={{ borderRadius: 2, overflow: 'hidden' }}>
-      <TableContainer>
-        <Table size="small">
-          <TableHead>
-            <TableRow sx={{ bgcolor: '#f1f5f9' }}>
-              {['#', 'Action', 'Entity', 'Performed By', 'Details', 'Date'].map(h => (
-                <TableCell key={h} sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569', py: 1.5 }}>{h}</TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {auditLogs.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
-                  <HistoryIcon sx={{ fontSize: 48, color: '#cbd5e1', mb: 1, display: 'block', mx: 'auto' }} />
-                  <Typography color="text.secondary">No audit logs yet</Typography>
-                </TableCell>
-              </TableRow>
-            ) : auditLogs.slice(page * rpp, (page + 1) * rpp).map((log, i) => (
-              <TableRow key={log.id} hover sx={{ bgcolor: i % 2 === 0 ? 'white' : '#f8fafc' }}>
-                <TableCell sx={{ fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>{page * rpp + i + 1}</TableCell>
-                <TableCell>
-                  <Chip label={log.action.replace(/_/g, ' ')} size="small"
-                    sx={{ bgcolor: '#f1f5f9', color: '#1e3a5f', fontWeight: 700, fontSize: 11 }} />
-                </TableCell>
-                <TableCell sx={{ fontSize: 13 }}>
-                  <Typography variant="caption" fontWeight={600}>{log.entityType}</Typography>
-                  <Typography variant="caption" color="text.secondary" display="block">#{log.entityId}</Typography>
-                </TableCell>
-                <TableCell sx={{ fontSize: 13 }}>{log.performedByName || '—'}</TableCell>
-                <TableCell sx={{ fontSize: 12.5, color: '#475569', maxWidth: 280 }}>
-                  <Typography variant="caption" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {log.details}
+                {uploadStoring ? (
+                  <Box>
+                    <CircularProgress size={22} sx={{ color: '#1e3a5f', mb: 0.75 }} />
+                    <Typography variant="body2" fontWeight={600} color="text.secondary">
+                      Storing CV on server…
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Saving file and extracting details
+                    </Typography>
+                  </Box>
+                ) : storedResume ? (
+                  <Box>
+                    <CheckCircleIcon sx={{ color: '#16a34a', fontSize: 32, mb: 0.5 }} />
+                    <Typography variant="body2" fontWeight={700} color="#16a34a">
+                      CV stored on server
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      {uploadFile?.name}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#16a34a', mt: 0.25, display: 'block' }}>
+                      Click to replace
+                    </Typography>
+                  </Box>
+                ) : uploadFile ? (
+                  <Box>
+                    <CircularProgress size={22} sx={{ color: '#94a3b8', mb: 0.75 }} />
+                    <Typography variant="body2" fontWeight={600}>{uploadFile.name}</Typography>
+                  </Box>
+                ) : (
+                  <Box>
+                    <CloudUploadIcon sx={{ color: '#94a3b8', fontSize: 36, mb: 0.5 }} />
+                    <Typography variant="body2" fontWeight={700}>Click to select CV</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      PDF, DOC, DOCX · max 10 MB · stored instantly on selection
+                    </Typography>
+                  </Box>
+                )}
+              </Paper>
+              {/* ── Step indicator ── */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  <Box sx={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    bgcolor: storedResume ? '#16a34a' : '#1e3a5f', color: '#fff', fontSize: 11, fontWeight: 700 }}>
+                    {storedResume ? '✓' : '1'}
+                  </Box>
+                  <Typography variant="caption" fontWeight={600} color={storedResume ? '#16a34a' : 'text.primary'}>
+                    Store CV
                   </Typography>
-                </TableCell>
-                <TableCell sx={{ fontSize: 13, color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDt(log.createdAt)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      {auditLogs.length > rpp && (
-        <TablePagination component="div" count={auditLogs.length}
-          page={page} onPageChange={(_, p) => setPage(p)}
-          rowsPerPage={rpp} rowsPerPageOptions={[20]} />
-      )}
-    </Card>
-  );
+                </Box>
+                <Box sx={{ flex: 1, height: 1, bgcolor: storedResume ? '#16a34a' : '#e2e8f0' }} />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  <Box sx={{ width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    bgcolor: storedResume ? '#1e3a5f' : '#e2e8f0', color: storedResume ? '#fff' : '#94a3b8', fontSize: 11, fontWeight: 700 }}>
+                    2
+                  </Box>
+                  <Typography variant="caption" fontWeight={600} color={storedResume ? 'text.primary' : 'text.disabled'}>
+                    Confirm Details
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* ── Form fields (disabled until CV is stored) ── */}
+              <Grid container spacing={2}
+                sx={{ opacity: storedResume ? 1 : 0.45, pointerEvents: storedResume ? 'auto' : 'none',
+                      transition: 'opacity 0.2s' }}>
+                <Grid item xs={12}>
+                  <TextField label="Full Name *" value={uploadForm.name} fullWidth size="small"
+                    onChange={e => setUploadForm(f => ({ ...f, name: e.target.value }))} />
+                </Grid>
+                <Grid item xs={12}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Applied Profile / Role *</InputLabel>
+                      <Select
+                        value={uploadForm.appliedProfile}
+                        label="Applied Profile / Role *"
+                        onChange={e => setUploadForm(f => ({ ...f, appliedProfile: e.target.value }))}>
+                        {allProfiles.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                      </Select>
+                    </FormControl>
+                    <Tooltip title="Add new profile">
+                      <IconButton size="small" onClick={e => { setNewProfileInput(''); setProfileAnchor(e.currentTarget); }}
+                        sx={{ border: '1px solid #e2e8f0', borderRadius: 1.5, p: 0.75, color: '#475569', '&:hover': { bgcolor: '#f1f5f9' } }}>
+                        <TuneIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField label="Email" value={uploadForm.email} fullWidth size="small" type="email"
+                    onChange={e => setUploadForm(f => ({ ...f, email: e.target.value }))} />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField label="Phone / Contact" value={uploadForm.phone} fullWidth size="small"
+                    onChange={e => setUploadForm(f => ({ ...f, phone: e.target.value }))} />
+                </Grid>
+                <Grid item xs={6}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <TextField label="Office Location *" select value={uploadForm.officeLocation} fullWidth size="small"
+                      onChange={e => setUploadForm(f => ({ ...f, officeLocation: e.target.value }))}>
+                      <MenuItem value=""><em>Select location</em></MenuItem>
+                      {allLocations.map(l => <MenuItem key={l} value={l}>{l}</MenuItem>)}
+                    </TextField>
+                    <Tooltip title="Add new location">
+                      <IconButton size="small" onClick={e => { setNewLocationInput(''); setLocationAnchor(e.currentTarget); }}
+                        sx={{ border: '1px solid #e2e8f0', borderRadius: 1.5, p: 0.75, color: '#475569', '&:hover': { bgcolor: '#f1f5f9' } }}>
+                        <TuneIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </Grid>
+                <Grid item xs={6}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <TextField label="Source" select value={uploadForm.source} fullWidth size="small"
+                      onChange={e => setUploadForm(f => ({ ...f, source: e.target.value }))}>
+                      <MenuItem value=""><em>Select source</em></MenuItem>
+                      {allSources.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                    </TextField>
+                    <Tooltip title="Add new source">
+                      <IconButton size="small" onClick={e => { setNewSourceInput(''); setSourceAnchor(e.currentTarget); }}
+                        sx={{ border: '1px solid #e2e8f0', borderRadius: 1.5, p: 0.75, color: '#475569', '&:hover': { bgcolor: '#f1f5f9' } }}>
+                        <TuneIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField label="Full Address (from CV)" value={uploadForm.address} fullWidth size="small" multiline rows={2}
+                    onChange={e => setUploadForm(f => ({ ...f, address: e.target.value }))}
+                    InputProps={{ sx: { fontSize: 13 } }}
+                    helperText="Auto-extracted from CV — edit if needed" />
+                </Grid>
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 0.25 }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Address Breakdown
+                    </Typography>
+                  </Divider>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField label="Street / House No." value={uploadForm.addressStreet} fullWidth size="small"
+                    placeholder="e.g. H.No. 12, Green Colony"
+                    onChange={e => setUploadForm(f => ({ ...f, addressStreet: e.target.value }))} />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField label="Area / Locality" value={uploadForm.addressArea} fullWidth size="small"
+                    placeholder="e.g. Sector 5, MG Road"
+                    onChange={e => setUploadForm(f => ({ ...f, addressArea: e.target.value }))} />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField label="Landmark" value={uploadForm.addressLandmark} fullWidth size="small"
+                    placeholder="e.g. Near SBI Bank"
+                    onChange={e => setUploadForm(f => ({ ...f, addressLandmark: e.target.value }))} />
+                </Grid>
+                <Grid item xs={5}>
+                  <TextField label="City" value={uploadForm.addressCity} fullWidth size="small"
+                    onChange={e => setUploadForm(f => ({ ...f, addressCity: e.target.value }))} />
+                </Grid>
+                <Grid item xs={4}>
+                  <TextField label="District" value={uploadForm.addressDistrict} fullWidth size="small"
+                    onChange={e => setUploadForm(f => ({ ...f, addressDistrict: e.target.value }))} />
+                </Grid>
+                <Grid item xs={3}>
+                  <TextField label="PIN Code" value={uploadForm.addressPostalCode} fullWidth size="small"
+                    onChange={e => setUploadForm(f => ({ ...f, addressPostalCode: e.target.value }))} />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField label="State" value={uploadForm.addressState} fullWidth size="small"
+                    onChange={e => setUploadForm(f => ({ ...f, addressState: e.target.value }))} />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField label="Country" value={uploadForm.addressCountry} fullWidth size="small"
+                    placeholder="India"
+                    onChange={e => setUploadForm(f => ({ ...f, addressCountry: e.target.value }))} />
+                </Grid>
+
+              </Grid>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+            <Button onClick={closeUploadDialog} disabled={uploadSaving || uploadStoring}>Cancel</Button>
+            {!storedResume ? (
+              <Button variant="contained" disabled
+                sx={{ bgcolor: '#94a3b8', textTransform: 'none', minWidth: 160 }}>
+                {uploadStoring ? 'Storing CV…' : 'Select a CV first'}
+              </Button>
+            ) : (
+              <Button variant="contained" onClick={handleUploadSubmit}
+                disabled={uploadSaving
+                  || !uploadForm.name.trim()
+                  || !uploadForm.appliedProfile.trim()
+                  || !uploadForm.officeLocation}
+                sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, textTransform: 'none', minWidth: 160 }}>
+                {uploadSaving ? 'Adding to CV Bank…' : 'Add to CV Bank'}
+              </Button>
+            )}
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Duplicate Resume Warning ── */}
+        <Dialog open={dupDialog} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pb: 1 }}>
+            <WarningAmberIcon sx={{ color: '#d97706', fontSize: 28 }} />
+            <Box>
+              <Typography variant="h6" fontWeight={700} sx={{ fontSize: 17, lineHeight: 1.2 }}>
+                Resume Already Exists
+              </Typography>
+              <Typography variant="body2" color="text.secondary" fontWeight={400} sx={{ fontSize: 12 }}>
+                A CV for this candidate was previously uploaded
+              </Typography>
+            </Box>
+          </DialogTitle>
+          <DialogContent sx={{ pt: '4px !important' }}>
+            {dupCandidate && (
+              <Alert severity="warning" variant="outlined"
+                icon={false}
+                sx={{ mb: 2, borderRadius: 2, borderColor: '#fcd34d', bgcolor: '#fffbeb' }}>
+                <Typography variant="body2" sx={{ fontSize: 13.5, lineHeight: 1.7 }}>
+                  A resume for{' '}
+                  <Box component="span" fontWeight={700}>{dupCandidate.name}</Box>
+                  {' '}was previously uploaded on{' '}
+                  <Box component="span" fontWeight={700}>
+                    {fmtDate(dupCandidate.resumeUploadedAt || dupCandidate.createdAt)}
+                  </Box>
+                  {' '}
+                  <Box component="span" color="text.secondary" sx={{ fontSize: 12 }}>
+                    ({timeAgo(dupCandidate.resumeUploadedAt || dupCandidate.createdAt)})
+                  </Box>
+                  .
+                </Typography>
+              </Alert>
+            )}
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Do you want to replace the existing resume with the newly uploaded version?
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12 }}>
+              The previous resume will be <strong>archived</strong> and the new resume will become the active CV.
+              All parsed fields will be refreshed from the new document.
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+            <Button onClick={handleDupCancel} disabled={dupReplacing}
+              sx={{ textTransform: 'none', color: '#475569' }}>
+              Cancel
+            </Button>
+            <Button variant="contained" onClick={handleReplaceResume} disabled={dupReplacing}
+              startIcon={dupReplacing ? <CircularProgress size={16} color="inherit" /> : null}
+              sx={{ bgcolor: '#d97706', '&:hover': { bgcolor: '#b45309' }, textTransform: 'none', fontWeight: 700, minWidth: 160 }}>
+              {dupReplacing ? 'Replacing…' : 'Replace Resume'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Edit Candidate ── */}
+        <Dialog open={editDialog} onClose={() => setEditDialog(false)} maxWidth="sm" fullWidth
+          PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle fontWeight={700}>Edit Candidate</DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              <Grid item xs={12}>
+                <TextField label="Full Name *" value={editForm.name || ''} fullWidth size="small"
+                  onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+              </Grid>
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Applied Profile *</InputLabel>
+                    <Select
+                      value={editForm.appliedProfile || ''}
+                      label="Applied Profile *"
+                      onChange={e => setEditForm(f => ({ ...f, appliedProfile: e.target.value }))}>
+                      {allProfiles.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                  <Tooltip title="Add new profile">
+                    <IconButton size="small" onClick={e => { setNewProfileInput(''); setProfileAnchor(e.currentTarget); }}
+                      sx={{ border: '1px solid #e2e8f0', borderRadius: 1.5, p: 0.75, color: '#475569', '&:hover': { bgcolor: '#f1f5f9' } }}>
+                      <TuneIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              </Grid>
+              <Grid item xs={6}>
+                <TextField label="Email" value={editForm.email || ''} fullWidth size="small"
+                  onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField label="Phone" value={editForm.phone || ''} fullWidth size="small"
+                  onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} />
+              </Grid>
+              <Grid item xs={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <TextField label="Office Location" select value={editForm.officeLocation || ''} fullWidth size="small"
+                    onChange={e => setEditForm(f => ({ ...f, officeLocation: e.target.value }))}>
+                    <MenuItem value=""><em>Select</em></MenuItem>
+                    {allLocations.map(l => <MenuItem key={l} value={l}>{l}</MenuItem>)}
+                  </TextField>
+                  <Tooltip title="Add new location">
+                    <IconButton size="small" onClick={e => { setNewLocationInput(''); setLocationAnchor(e.currentTarget); }}
+                      sx={{ border: '1px solid #e2e8f0', borderRadius: 1.5, p: 0.75, color: '#475569', '&:hover': { bgcolor: '#f1f5f9' } }}>
+                      <TuneIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              </Grid>
+              <Grid item xs={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <TextField label="Source" select value={editForm.source || ''} fullWidth size="small"
+                    onChange={e => setEditForm(f => ({ ...f, source: e.target.value }))}>
+                    <MenuItem value=""><em>Select</em></MenuItem>
+                    {allSources.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                  </TextField>
+                  <Tooltip title="Add new source">
+                    <IconButton size="small" onClick={e => { setNewSourceInput(''); setSourceAnchor(e.currentTarget); }}
+                      sx={{ border: '1px solid #e2e8f0', borderRadius: 1.5, p: 0.75, color: '#475569', '&:hover': { bgcolor: '#f1f5f9' } }}>
+                      <TuneIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField label="Full Address" value={editForm.address || ''} fullWidth size="small" multiline rows={2}
+                  onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))} />
+              </Grid>
+
+              {/* ── Parsed / enriched fields ── */}
+              <Grid item xs={12}>
+                <Divider sx={{ my: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary" fontWeight={600}>Resume Insights</Typography>
+                </Divider>
+              </Grid>
+              <Grid item xs={6}>
+                <TextField label="Total Experience" value={editForm.totalExperienceYears || ''} fullWidth size="small"
+                  placeholder="e.g. 5 years"
+                  onChange={e => setEditForm(f => ({ ...f, totalExperienceYears: e.target.value }))} />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField label="Current Designation" value={editForm.currentDesignation || ''} fullWidth size="small"
+                  onChange={e => setEditForm(f => ({ ...f, currentDesignation: e.target.value }))} />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField label="Current Company (from CV)" value={editForm.currentCompanyCv || ''} fullWidth size="small"
+                  onChange={e => setEditForm(f => ({ ...f, currentCompanyCv: e.target.value }))} />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField label="Education Summary" value={editForm.educationSummary || ''} fullWidth size="small"
+                  multiline rows={2}
+                  onChange={e => setEditForm(f => ({ ...f, educationSummary: e.target.value }))} />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField label="LinkedIn URL" value={editForm.linkedinUrl || ''} fullWidth size="small"
+                  onChange={e => setEditForm(f => ({ ...f, linkedinUrl: e.target.value }))} />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField label="GitHub URL" value={editForm.githubUrl || ''} fullWidth size="small"
+                  onChange={e => setEditForm(f => ({ ...f, githubUrl: e.target.value }))} />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField label="Skills (comma-separated)" value={editForm.skills || ''} fullWidth size="small"
+                  multiline rows={2} placeholder="Java, Spring Boot, React, MySQL…"
+                  onChange={e => setEditForm(f => ({ ...f, skills: e.target.value }))} />
+                {editForm.skills && (
+                  <Box sx={{ mt: 1 }}>
+                    <SkillChips skills={editForm.skills} max={20} />
+                  </Box>
+                )}
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setEditDialog(false)}>Cancel</Button>
+            <Button variant="contained" onClick={handleEditSave}
+              disabled={editSaving || !editForm.name?.trim() || !editForm.appliedProfile?.trim()}
+              sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' } }}>
+              {editSaving ? 'Saving…' : 'Save Changes'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Assign Technical Interview ── */}
+        <Dialog open={assignDialog} onClose={() => !assigning && setAssignDialog(false)}
+          maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700 }}>
+            Assign Technical Interview
+            {selectedCand && (
+              <Typography variant="body2" color="text.secondary" fontWeight={400}>
+                {selectedCand.name} — {selectedCand.appliedProfile}
+              </Typography>
+            )}
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              <TextField label="Assign To (Technical Interviewer) *" select fullWidth size="small"
+                value={assignForm.interviewerId}
+                onChange={e => setAssignForm(f => ({ ...f, interviewerId: e.target.value }))}>
+                <MenuItem value=""><em>— Select interviewer —</em></MenuItem>
+                {allEmployees
+                  .filter(e => e.active !== false && ['MANAGER', 'ASSISTANT_MANAGER', 'ADMIN', 'DIRECTOR'].includes(e.role))
+                  .map(e => (
+                    <MenuItem key={e.id} value={String(e.id)}>
+                      {e.firstName} {e.lastName} — {e.role?.replace('_', ' ')}
+                    </MenuItem>
+                  ))}
+              </TextField>
+              <TextField label="Interview Date & Time" type="datetime-local" fullWidth size="small"
+                value={assignForm.scheduledAt}
+                onChange={e => setAssignForm(f => ({ ...f, scheduledAt: e.target.value }))}
+                InputLabelProps={{ shrink: true }} />
+              <Alert severity="info" sx={{ fontSize: 12 }}>
+                The interviewer will receive an email notification. The candidate status will move to <strong>Technical Pending</strong>.
+              </Alert>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setAssignDialog(false)} disabled={assigning}>Cancel</Button>
+            <Button variant="contained" onClick={handleAssignTechnical}
+              disabled={assigning || !assignForm.interviewerId}
+              sx={{ bgcolor: '#16a34a', '&:hover': { bgcolor: '#15803d' } }}>
+              {assigning ? 'Assigning…' : 'Confirm — Mark Suitable'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Generate Interview Link ── */}
+        <Dialog open={linkDialog} onClose={() => !linkGenerating && setLinkDialog(false)}
+          maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700 }}>Generate Video Interview Link</DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2} sx={{ pt: 1 }}>
+              <TextField fullWidth size="small" label="Technology / Topic"
+                value={linkForm.technology}
+                onChange={e => setLinkForm(f => ({ ...f, technology: e.target.value }))}
+                placeholder="e.g. React, Java, Accounting, General" />
+              <TextField fullWidth size="small" label="Number of Questions (5–40)"
+                type="number" inputProps={{ min: 5, max: 40 }}
+                value={linkForm.questionCount}
+                onChange={e => setLinkForm(f => ({ ...f, questionCount: Number(e.target.value) }))} />
+              <Alert severity="info" sx={{ py: 0.5 }}>
+                Questions are randomly selected from the Question Bank for the chosen technology. The candidate gets a 45-minute timer.
+              </Alert>
+              {generatedLink && (
+                <Box sx={{ p: 2, bgcolor: '#f0fdf4', borderRadius: 2, border: '1px solid #86efac' }}>
+                  <Typography variant="caption" fontWeight={700} color="success.main" display="block" mb={0.5}>
+                    ✅ Interview link generated & emailed to candidate
+                  </Typography>
+                  <Typography variant="caption" sx={{ wordBreak: 'break-all', color: '#1d4ed8' }}>
+                    {generatedLink}
+                  </Typography>
+                  <Button size="small" onClick={() => { navigator.clipboard.writeText(generatedLink); toast.success('Copied!'); }}
+                    sx={{ mt: 1, textTransform: 'none', fontSize: 11 }}>Copy Link</Button>
+                </Box>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setLinkDialog(false)} disabled={linkGenerating}>Close</Button>
+            <Button variant="contained" onClick={handleGenerateLink} disabled={linkGenerating || !linkForm.technology.trim()}
+              sx={{ bgcolor: '#6366f1', '&:hover': { bgcolor: '#4f46e5' }, textTransform: 'none', fontWeight: 700 }}>
+              {linkGenerating ? 'Generating…' : generatedLink ? 'Regenerate Link' : 'Generate & Send Email'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Generate Final Interview Link ── */}
+        <Dialog open={finalLinkDialog} onClose={() => !finalLinkGenerating && setFinalLinkDialog(false)}
+          maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700 }}>Generate Final Interview Link</DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2} sx={{ pt: 1 }}>
+              <Alert severity="info" sx={{ fontSize: 12 }}>
+                A secure video interview link will be generated and emailed to the candidate.<br />
+                The Director can join the room at <strong>/interview/final-room/:id</strong>.
+              </Alert>
+              <TextField fullWidth size="small" label="Assign Director (optional)"
+                select SelectProps={{ native: true }}
+                InputLabelProps={{ shrink: true }}
+                value={finalLinkForm.directorId}
+                onChange={e => setFinalLinkForm(f => ({ ...f, directorId: e.target.value }))}>
+                <option value="">— Select Director —</option>
+                {directors.map(e => (
+                  <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>
+                ))}
+              </TextField>
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setFinalLinkDialog(false)} disabled={finalLinkGenerating}>Close</Button>
+            <Button variant="contained" onClick={handleGenerateFinalLink} disabled={finalLinkGenerating}
+              sx={{ bgcolor: '#7c3aed', '&:hover': { bgcolor: '#6d28d9' }, textTransform: 'none', fontWeight: 700 }}>
+              {finalLinkGenerating ? 'Generating…' : 'Generate & Send Email'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Technical Feedback ── */}
+        <Dialog open={techDialog} onClose={() => !techSaving && setTechDialog(false)}
+          maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3, maxHeight: '90vh' } }}>
+          <DialogTitle sx={{ fontWeight: 700 }}>
+            Technical Interview Evaluation
+            {selTech && (
+              <Typography variant="body2" color="text.secondary" fontWeight={400}>
+                {selTech.candidateName} — {selTech.candidateAppliedProfile}
+                {selTech.scheduledAt && ` · ${fmtDt(selTech.scheduledAt)}`}
+              </Typography>
+            )}
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="subtitle2" fontWeight={700} mb={2}>Skill Ratings (1–5 Stars)</Typography>
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                {[
+                  ['technicalSkillsRating',      'Technical Skills'],
+                  ['communicationRating',          'Communication'],
+                  ['problemSolvingRating',         'Problem Solving'],
+                  ['codingAbilityRating',          'Coding Ability'],
+                  ['architectureKnowledgeRating',  'Architecture Knowledge'],
+                ].map(([field, label]) => (
+                  <Grid item xs={12} sm={6} key={field}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={600}>{label}</Typography>
+                    <Rating value={techForm[field] || 0} size="large"
+                      onChange={(_, v) => setTechForm(f => ({ ...f, [field]: v }))}
+                      sx={{ display: 'flex', mt: 0.5 }} />
+                  </Grid>
+                ))}
+              </Grid>
+              <Divider sx={{ mb: 2 }} />
+              <TextField label="Comments / Observations" fullWidth multiline rows={3} size="small"
+                value={techForm.comments}
+                onChange={e => setTechForm(f => ({ ...f, comments: e.target.value }))}
+                placeholder="Key technical strengths, areas of concern, specific observations…"
+                sx={{ mb: 2 }} />
+              <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>Final Decision *</Typography>
+              <Stack direction="row" spacing={2}>
+                <Button fullWidth
+                  variant={techForm.decision === 'APPROVE' ? 'contained' : 'outlined'}
+                  startIcon={<CheckCircleIcon />}
+                  onClick={() => setTechForm(f => ({ ...f, decision: 'APPROVE' }))}
+                  sx={techForm.decision === 'APPROVE'
+                    ? { bgcolor: '#16a34a', '&:hover': { bgcolor: '#15803d' }, textTransform: 'none', fontWeight: 700 }
+                    : { borderColor: '#16a34a', color: '#16a34a', textTransform: 'none', fontWeight: 600 }}>
+                  Approve — Move to Final Round
+                </Button>
+                <Button fullWidth
+                  variant={techForm.decision === 'REJECT' ? 'contained' : 'outlined'}
+                  startIcon={<CancelIcon />} color="error"
+                  onClick={() => setTechForm(f => ({ ...f, decision: 'REJECT' }))}
+                  sx={{ textTransform: 'none', fontWeight: techForm.decision === 'REJECT' ? 700 : 600 }}>
+                  Reject — Send Rejection Email
+                </Button>
+              </Stack>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setTechDialog(false)} disabled={techSaving}>Cancel</Button>
+            <Button variant="contained" onClick={handleTechFeedbackSubmit} disabled={techSaving || !techForm.decision}
+              sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' } }}>
+              {techSaving ? 'Submitting…' : 'Submit Evaluation'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Add New Source Popover ── */}
+        <Popover
+          open={Boolean(sourceAnchor)}
+          anchorEl={sourceAnchor}
+          onClose={() => setSourceAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          PaperProps={{ sx: { borderRadius: 2, p: 2, width: 280, boxShadow: '0 8px 24px rgba(0,0,0,0.12)' } }}>
+          <Typography variant="subtitle2" fontWeight={700} mb={1.5}>Add New Source</Typography>
+          <TextField
+            autoFocus size="small" fullWidth
+            label="Source name"
+            value={newSourceInput}
+            onChange={e => setNewSourceInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                const v = newSourceInput.trim();
+                if (v && !allSources.includes(v)) setExtraSources(s => [...s, v]);
+                setSourceAnchor(null);
+              }
+            }} />
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 1.5 }}>
+            <Button size="small" onClick={() => setSourceAnchor(null)}>Cancel</Button>
+            <Button size="small" variant="contained"
+              sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' } }}
+              disabled={!newSourceInput.trim() || allSources.includes(newSourceInput.trim())}
+              onClick={() => {
+                const v = newSourceInput.trim();
+                if (v) setExtraSources(s => [...s, v]);
+                setSourceAnchor(null);
+              }}>
+              Add
+            </Button>
+          </Box>
+        </Popover>
+
+        {/* ── Add New Location Popover ── */}
+        <Popover
+          open={Boolean(locationAnchor)}
+          anchorEl={locationAnchor}
+          onClose={() => setLocationAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          PaperProps={{ sx: { borderRadius: 2, p: 2, width: 280, boxShadow: '0 8px 24px rgba(0,0,0,0.12)' } }}>
+          <Typography variant="subtitle2" fontWeight={700} mb={1.5}>Add New Location</Typography>
+          <TextField
+            autoFocus size="small" fullWidth
+            label="Location name"
+            value={newLocationInput}
+            onChange={e => setNewLocationInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                const v = newLocationInput.trim();
+                if (v && !allLocations.includes(v)) setExtraLocations(l => [...l, v]);
+                setLocationAnchor(null);
+              }
+            }} />
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 1.5 }}>
+            <Button size="small" onClick={() => setLocationAnchor(null)}>Cancel</Button>
+            <Button size="small" variant="contained"
+              sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' } }}
+              disabled={!newLocationInput.trim() || allLocations.includes(newLocationInput.trim())}
+              onClick={() => {
+                const v = newLocationInput.trim();
+                if (v) setExtraLocations(l => [...l, v]);
+                setLocationAnchor(null);
+              }}>
+              Add
+            </Button>
+          </Box>
+        </Popover>
+
+        {/* ── Add New Profile Popover ── */}
+        <Popover
+          open={Boolean(profileAnchor)}
+          anchorEl={profileAnchor}
+          onClose={() => setProfileAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          PaperProps={{ sx: { borderRadius: 2, p: 2, width: 280, boxShadow: '0 8px 24px rgba(0,0,0,0.12)' } }}>
+          <Typography variant="subtitle2" fontWeight={700} mb={1.5}>Add New Profile</Typography>
+          <TextField
+            autoFocus size="small" fullWidth
+            label="Profile name"
+            value={newProfileInput}
+            onChange={e => setNewProfileInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                const v = newProfileInput.trim();
+                if (v && !allProfiles.includes(v)) setExtraProfiles(p => [...p, v]);
+                setProfileAnchor(null);
+              }
+            }} />
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 1.5 }}>
+            <Button size="small" onClick={() => setProfileAnchor(null)}>Cancel</Button>
+            <Button size="small" variant="contained"
+              sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' } }}
+              disabled={!newProfileInput.trim() || allProfiles.includes(newProfileInput.trim())}
+              onClick={() => {
+                const v = newProfileInput.trim();
+                if (v) setExtraProfiles(p => [...p, v]);
+                setProfileAnchor(null);
+              }}>
+              Add
+            </Button>
+          </Box>
+        </Popover>
+      </>
+    );
+  }
 };
 
-export default InterviewsPage;
+export default ATSPage;

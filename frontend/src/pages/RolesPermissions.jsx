@@ -30,7 +30,8 @@ const ALL_MODULES = [
   { path: '/holidays',     label: 'Holidays' },
   { path: '/courses',      label: 'Courses' },
   { path: '/performance',  label: 'Performance' },
-  { path: '/interviews',   label: 'Interviews' },
+  { path: '/interviews',    label: 'Interviews' },
+  { path: '/question-bank', label: 'Question Bank' },
   { path: '/reports',      label: 'Reports' },
   { path: '/resources',    label: 'Resources' },
   { path: '/profile',      label: 'My Profile',         always: true },
@@ -50,9 +51,9 @@ const ALL_EMP_ACTION_KEYS = EMPLOYEE_ACTIONS.map((a) => a.key);
 const DEFAULT_MODULES_BY_ROLE = {
   ADMIN:             [...ALL_MODULES.map((m) => m.path), ...ALL_EMP_ACTION_KEYS],
   DIRECTOR:          [...ALL_MODULES.map((m) => m.path), ...ALL_EMP_ACTION_KEYS],
-  HR:                ['/dashboard', '/employees', 'emp:view_detail', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/interviews', '/resources', '/profile'],
-  MANAGER:           ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/interviews', '/resources', '/profile'],
-  ASSISTANT_MANAGER: ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/interviews', '/resources', '/profile'],
+  HR:                ['/dashboard', '/employees', 'emp:view_detail', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/interviews', '/question-bank', '/resources', '/profile'],
+  MANAGER:           ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/interviews', '/question-bank', '/resources', '/profile'],
+  ASSISTANT_MANAGER: ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/interviews', '/question-bank', '/resources', '/profile'],
   EMPLOYEE:          ['/dashboard', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/resources', '/profile'],
 };
 

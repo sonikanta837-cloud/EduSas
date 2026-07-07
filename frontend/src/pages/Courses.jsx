@@ -810,11 +810,9 @@ const CoursesPage = () => {
                   <Table size="small">
                     <TableHead>
                       <TableRow sx={{ bgcolor: '#f1f5f9' }}>
-                        <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569', py: 1.5 }}>#</TableCell>
                         <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569' }}>Employee</TableCell>
                         <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569' }}>Code</TableCell>
                         <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569' }}>Course Title</TableCell>
-                        <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569' }} align="center">Status</TableCell>
                         <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569' }} align="center">Progress</TableCell>
                         {statusFilter === 'COMPLETED' && <>
                           <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569' }}>Completion Date</TableCell>
@@ -825,21 +823,17 @@ const CoursesPage = () => {
                     <TableBody>
                       {rows.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={statusFilter === 'COMPLETED' ? 8 : 6} align="center" sx={{ py: 6 }}>
+                          <TableCell colSpan={statusFilter === 'COMPLETED' ? 5 : 3} align="center" sx={{ py: 6 }}>
                             <SchoolIcon sx={{ fontSize: 48, color: '#cbd5e1', mb: 1, display: 'block', mx: 'auto' }} />
                             <Typography color="text.secondary" fontSize={14}>No {statusLabel.toLowerCase()} enrollments found.</Typography>
                           </TableCell>
                         </TableRow>
                       ) : rows.slice(enrollPage * enrollRpp, (enrollPage + 1) * enrollRpp).map((row, i) => (
                         <TableRow key={`${row.employeeId}-${row.courseId}`} hover sx={{ bgcolor: i % 2 === 0 ? 'white' : '#f8fafc' }}>
-                          <TableCell sx={{ fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>{enrollPage * enrollRpp + i + 1}</TableCell>
                           <TableCell sx={{ fontSize: 13, fontWeight: 600 }}>{row.employeeName}</TableCell>
                           <TableCell sx={{ fontSize: 13, color: '#64748b', fontFamily: 'monospace' }}>{row.employeeCode}</TableCell>
                           <TableCell sx={{ fontSize: 13, maxWidth: 240 }}>
                             <Typography variant="body2" fontWeight={600} noWrap>{row.courseTitle}</Typography>
-                          </TableCell>
-                          <TableCell align="center">
-                            <Chip label={statusLabel} size="small" color={statusChipColor} sx={{ fontWeight: 700, fontSize: 11.5 }} />
                           </TableCell>
                           <TableCell align="center">
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 80 }}>
@@ -883,7 +877,6 @@ const CoursesPage = () => {
                 <Table size="small">
                   <TableHead>
                     <TableRow sx={{ bgcolor: '#f1f5f9' }}>
-                      <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569', py: 1.5 }}>#</TableCell>
                       {isAdmin && <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569' }}>Employee</TableCell>}
                       <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569' }}>Course Title</TableCell>
                       <TableCell sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569' }}>Certificate ID</TableCell>
@@ -895,13 +888,13 @@ const CoursesPage = () => {
                   <TableBody>
                     {certsLoading ? (
                       <TableRow>
-                        <TableCell colSpan={isAdmin ? 7 : 6} align="center" sx={{ py: 5 }}>
+                        <TableCell colSpan={isAdmin ? 6 : 5} align="center" sx={{ py: 5 }}>
                           <CircularProgress size={28} sx={{ color: '#1e3a5f' }} />
                         </TableCell>
                       </TableRow>
                     ) : certs.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={isAdmin ? 7 : 6} align="center" sx={{ py: 6 }}>
+                        <TableCell colSpan={isAdmin ? 6 : 5} align="center" sx={{ py: 6 }}>
                           <CardMembershipIcon sx={{ fontSize: 48, color: '#cbd5e1', mb: 1, display: 'block', mx: 'auto' }} />
                           <Typography color="text.secondary" fontSize={14}>
                             {isAdmin ? 'No certificates issued yet.' : 'You have not earned any certificates yet.'}
@@ -910,9 +903,6 @@ const CoursesPage = () => {
                       </TableRow>
                     ) : certs.slice(certPage * certRpp, (certPage + 1) * certRpp).map((cert, i) => (
                       <TableRow key={cert.id} hover sx={{ bgcolor: i % 2 === 0 ? 'white' : '#f8fafc' }}>
-                        <TableCell sx={{ fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>
-                          {certPage * certRpp + i + 1}
-                        </TableCell>
                         {isAdmin && (
                           <TableCell sx={{ fontSize: 13, fontWeight: 600 }}>{cert.employeeName}</TableCell>
                         )}
@@ -939,15 +929,13 @@ const CoursesPage = () => {
                         </TableCell>
                         <TableCell align="center">
                           <Tooltip title="Download Certificate PDF">
-                            <Button
+                            <IconButton
                               size="small"
-                              variant="contained"
-                              startIcon={<DownloadIcon sx={{ fontSize: 15 }} />}
                               onClick={() => downloadCertificate(cert.courseTitle, cert.employeeName, cert.certificateNumber)}
-                              sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, textTransform: 'none', fontSize: 12, borderRadius: 1.5, px: 1.5, py: 0.5 }}
+                              sx={{ bgcolor: '#1e3a5f', color: 'white', '&:hover': { bgcolor: '#0f172a' }, borderRadius: 1.5, p: 0.75 }}
                             >
-                              PDF
-                            </Button>
+                              <DownloadIcon sx={{ fontSize: 18 }} />
+                            </IconButton>
                           </Tooltip>
                         </TableCell>
                       </TableRow>
@@ -1101,6 +1089,7 @@ const CoursesPage = () => {
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setCourseDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleSaveCourse}
+            disabled={!form.title.trim()}
             sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' } }}>
             {editingCourse ? 'Save Changes' : 'Create'}
           </Button>

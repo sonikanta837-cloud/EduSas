@@ -9,6 +9,7 @@ import {
 import NotificationsIcon  from '@mui/icons-material/Notifications';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import ArrowBackIcon      from '@mui/icons-material/ArrowBack';
+import MenuIcon           from '@mui/icons-material/Menu';
 import LogoutIcon         from '@mui/icons-material/Logout';
 import PersonIcon         from '@mui/icons-material/Person';
 import SettingsIcon      from '@mui/icons-material/Settings';
@@ -23,6 +24,7 @@ import GavelIcon              from '@mui/icons-material/Gavel';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import AssignmentLateIcon      from '@mui/icons-material/AssignmentLate';
 import { logout }                  from '../../store/authSlice';
+import { toggleMobileSidebar }      from '../../store/uiSlice';
 import { timesheetApi }            from '../../api/timesheetApi';
 import { announcementApi }         from '../../api/announcementApi';
 import { courseNotificationApi }   from '../../api/courseNotificationApi';
@@ -225,8 +227,8 @@ const Header = () => {
       position="fixed"
       elevation={0}
       sx={{
-        width: `calc(100% - ${sidebarW}px)`,
-        ml: `${sidebarW}px`,
+        width: { xs: '100%', md: `calc(100% - ${sidebarW}px)` },
+        ml: { xs: 0, md: `${sidebarW}px` },
         transition: 'width 0.25s ease, margin-left 0.25s ease',
         bgcolor: 'white',
         borderBottom: '1px solid #e2e8f0',
@@ -235,6 +237,16 @@ const Header = () => {
       }}
     >
       <Toolbar sx={{ gap: 1, minHeight: '64px !important', px: { xs: 2, sm: 3 } }}>
+
+        {/* Mobile nav trigger */}
+        <IconButton
+          size="small"
+          onClick={() => dispatch(toggleMobileSidebar())}
+          aria-label="Open navigation menu"
+          sx={{ display: { xs: 'inline-flex', md: 'none' }, color: '#64748b', mr: 0.5, flexShrink: 0, '&:hover': { bgcolor: '#f1f5f9' } }}
+        >
+          <MenuIcon sx={{ fontSize: '1.3rem' }} />
+        </IconButton>
 
         {/* Back button */}
         {location.pathname !== '/dashboard' && (

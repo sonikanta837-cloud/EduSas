@@ -381,7 +381,7 @@ function FormsTemplatesSection({ resources, canManage, onRefresh }) {
         <Divider />
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setUploadOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleUpload} disabled={uploading}
+          <Button variant="contained" onClick={handleUpload} disabled={uploading || !file || !uTitle.trim()}
             startIcon={uploading ? <CircularProgress size={14} color="inherit" /> : <UploadFileIcon />}
             sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' } }}>
             {uploading ? 'Uploading…' : 'Upload'}
@@ -409,7 +409,7 @@ function FormsTemplatesSection({ resources, canManage, onRefresh }) {
         <Divider />
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setEditTarget(null)}>Cancel</Button>
-          <Button variant="contained" onClick={handleEdit} disabled={saving}
+          <Button variant="contained" onClick={handleEdit} disabled={saving || !eTitle.trim()}
             startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <EditIcon />}
             sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' } }}>
             Save Changes
@@ -717,7 +717,7 @@ function FormsSection({ resources, canManage, onRefresh }) {
         <Divider />
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setUploadOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleUpload} disabled={uploading}
+          <Button variant="contained" onClick={handleUpload} disabled={uploading || !file || !uTitle.trim()}
             startIcon={uploading ? <CircularProgress size={14} color="inherit" /> : <UploadFileIcon />}
             sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' } }}>
             {uploading ? 'Uploading…' : 'Upload'}
@@ -745,7 +745,7 @@ function FormsSection({ resources, canManage, onRefresh }) {
         <Divider />
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setEditTarget(null)}>Cancel</Button>
-          <Button variant="contained" onClick={handleEdit} disabled={saving}
+          <Button variant="contained" onClick={handleEdit} disabled={saving || !eTitle.trim()}
             startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <EditIcon />}
             sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' } }}>
             Save Changes
@@ -1062,7 +1062,7 @@ function PoliciesSection({ resources, canManage, onRefresh }) {
         <Divider />
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setUploadOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleUpload} disabled={uploading}
+          <Button variant="contained" onClick={handleUpload} disabled={uploading || !file || !uTitle.trim()}
             startIcon={uploading ? <CircularProgress size={14} color="inherit" /> : <UploadFileIcon />}
             sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' } }}>
             {uploading ? 'Uploading…' : 'Upload'}
@@ -1090,7 +1090,7 @@ function PoliciesSection({ resources, canManage, onRefresh }) {
         <Divider />
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setEditTarget(null)}>Cancel</Button>
-          <Button variant="contained" onClick={handleEdit} disabled={saving}
+          <Button variant="contained" onClick={handleEdit} disabled={saving || !eTitle.trim()}
             startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <EditIcon />}
             sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' } }}>
             Save Changes
@@ -1772,7 +1772,7 @@ function DocumentSection({ category, resources, canManage, onRefresh, userId }) 
         <Divider />
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setUploadOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleUpload} disabled={uploading}
+          <Button variant="contained" onClick={handleUpload} disabled={uploading || !file}
             startIcon={uploading ? <CircularProgress size={14} color="inherit" /> : <UploadFileIcon />}
             sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' } }}>
             {uploading ? 'Uploading…' : 'Upload'}
@@ -1794,7 +1794,7 @@ function DocumentSection({ category, resources, canManage, onRefresh, userId }) 
         <Divider />
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setEditTarget(null)}>Cancel</Button>
-          <Button variant="contained" onClick={handleEdit} disabled={saving}
+          <Button variant="contained" onClick={handleEdit} disabled={saving || !editTitle.trim()}
             startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <EditIcon />}
             sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' } }}>
             Save
@@ -1987,7 +1987,8 @@ function FAQSection({ canManage }) {
         <Divider />
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setFormOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={saving}
+          <Button variant="contained" onClick={handleSave}
+            disabled={saving || !question.trim() || !answer.trim()}
             startIcon={saving ? <CircularProgress size={14} color="inherit" /> : null}
             sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' } }}>
             {saving ? 'Saving…' : 'Save'}

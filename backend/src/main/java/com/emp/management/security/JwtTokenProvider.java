@@ -67,14 +67,16 @@ public class JwtTokenProvider {
         try {
             parseClaims(token);
             return true;
-        } catch (MalformedJwtException e) {
-            log.error("Invalid JWT token: {}", e.getMessage());
         } catch (ExpiredJwtException e) {
-            log.error("JWT token expired: {}", e.getMessage());
+            // Normal lifecycle event — frontend refresh interceptor will swap the token.
+            // Log at DEBUG so production logs stay clean; visible with LOG_LEVEL=DEBUG.
+            log.debug("JWT access token expired (frontend will refresh): {}", e.getMessage());
+        } catch (MalformedJwtException e) {
+            log.warn("Malformed JWT token: {}", e.getMessage());
         } catch (UnsupportedJwtException e) {
-            log.error("JWT token unsupported: {}", e.getMessage());
+            log.warn("Unsupported JWT token: {}", e.getMessage());
         } catch (IllegalArgumentException e) {
-            log.error("JWT claims string empty: {}", e.getMessage());
+            log.warn("JWT claims string is empty: {}", e.getMessage());
         }
         return false;
     }

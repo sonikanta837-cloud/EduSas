@@ -78,7 +78,7 @@ const SessionRow = ({ session, index, isOpen }) => (
     bgcolor: isOpen ? 'rgba(20,184,166,0.05)' : 'transparent',
     borderLeft: isOpen ? '3px solid #14b8a6' : '3px solid transparent',
   }}>
-    <Typography variant="caption" color="text.secondary" sx={{ width: 20 }}>#{index + 1}</Typography>
+    <Typography variant="caption" color="text.secondary" sx={{ width: 20 }}>{index + 1}.</Typography>
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
       <LoginIcon sx={{ fontSize: 14, color: '#16a34a' }} />
       <Typography variant="body2" fontWeight={600} color="#16a34a">{fmtTime(session.loginTime)}</Typography>
@@ -415,6 +415,7 @@ const AttendancePage = () => {
         await correctionApi.approve(reviewTarget.id, reviewForm.logoutTime, reviewForm.comment);
         toast.success('Correction approved');
       } else {
+        if (!reviewForm.comment?.trim()) { toast.error('Reason for rejection is required'); setReviewSubmitting(false); return; }
         await correctionApi.reject(reviewTarget.id, reviewForm.comment);
         toast.success('Correction rejected');
       }
@@ -883,7 +884,9 @@ const AttendancePage = () => {
               <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
                 <Button onClick={() => setReviewOpen(false)} disabled={reviewSubmitting}
                   sx={{ textTransform: 'none', borderRadius: '8px' }}>Cancel</Button>
-                <Button variant="contained" onClick={handleReview} disabled={reviewSubmitting}
+                <Button variant="contained" onClick={handleReview}
+                  disabled={reviewSubmitting
+                    || (reviewAction === 'approve' ? !reviewForm.logoutTime : !reviewForm.comment?.trim())}
                   sx={{
                     textTransform: 'none', borderRadius: '8px', minWidth: 120,
                     bgcolor: reviewAction === 'approve' ? '#16a34a' : '#dc2626',

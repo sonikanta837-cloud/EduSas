@@ -23,8 +23,13 @@ import HolidaysPage from './pages/Holidays';
 import RolesPermissionsPage   from './pages/RolesPermissions';
 import DailyWorkReportsPage   from './pages/DailyWorkReports';
 import SettingsPage           from './pages/Settings';
-import InterviewsPage         from './pages/Interviews';
-import InterviewFeedbackPage  from './pages/InterviewFeedback';
+import InterviewsPage             from './pages/Interviews';
+import InterviewFeedbackPage      from './pages/InterviewFeedback';
+import QuestionBankPage           from './pages/QuestionBank';
+import TechnicalInterviewRoomPage from './pages/TechnicalInterviewRoom';
+import ManagerInterviewRoomPage   from './pages/ManagerInterviewRoom';
+import CandidateFinalRoomPage     from './pages/CandidateFinalRoom';
+import DirectorInterviewRoomPage  from './pages/DirectorInterviewRoom';
 
 const theme = createTheme({
   palette: {
@@ -108,8 +113,14 @@ function App() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/interviews" element={<InterviewsPage />} />
             <Route path="/interviews/feedback/:roundId" element={<InterviewFeedbackPage />} />
+            <Route path="/question-bank" element={<QuestionBankPage />} />
+            <Route path="/interview/room/:id"       element={<ManagerInterviewRoomPage />} />
+            <Route path="/interview/final-room/:id" element={<DirectorInterviewRoomPage />} />
           </Route>
         </Route>
+        {/* Public candidate interview — no auth required */}
+        <Route path="/interview/technical/:token" element={<TechnicalInterviewRoomPage />} />
+        <Route path="/interview/final/:token"     element={<CandidateFinalRoomPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </ThemeProvider>

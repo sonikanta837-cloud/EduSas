@@ -599,7 +599,7 @@ const TimesheetsPage = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setAddOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleAddRow}>Submit</Button>
+          <Button variant="contained" onClick={handleAddRow} disabled={!newRow.projectName.trim()}>Submit</Button>
         </DialogActions>
       </Dialog>
 

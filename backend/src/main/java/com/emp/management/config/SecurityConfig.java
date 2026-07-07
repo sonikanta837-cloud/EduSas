@@ -7,7 +7,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -54,9 +56,27 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // Static browser requests that must never return 403
                 .requestMatchers("/favicon.ico", "/favicon.svg", "/manifest.json", "/robots.txt").permitAll()
+                // Public candidate interview endpoints — no JWT required
+                .requestMatchers("/api/video-interview/candidate/**").permitAll()
+                .requestMatchers("/api/interviews/technical/candidate/**").permitAll()
+                .requestMatchers("/api/interviews/final/candidate/**").permitAll()
                 .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "DIRECTOR")
                 .requestMatchers("/api/manager/**").hasAnyRole("ADMIN", "DIRECTOR", "MANAGER")
                 .anyRequest().authenticated()
+            )
+            // Spring Security 6 catches AccessDeniedException before GlobalExceptionHandler can respond with JSON.
+            // These handlers ensure ALL 401/403 responses are JSON, not Tomcat HTML error pages.
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((request, response, e) -> {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.getWriter().write("{\"status\":401,\"message\":\"Authentication required\"}");
+                })
+                .accessDeniedHandler((request, response, e) -> {
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.getWriter().write("{\"status\":403,\"message\":\"Access denied — you do not have permission for this action\"}");
+                })
             )
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(securityHeadersFilter,  UsernamePasswordAuthenticationFilter.class)

@@ -73,7 +73,7 @@ class LeaveServiceTest {
 
     @Test
     void applyLeave_validDates_createsLeave() {
-        LeaveDTO dto = buildLeaveDTO(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 3), "Annual Leave", "Trip");
+        LeaveDTO dto = buildLeaveDTO(LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), "Annual Leave", "Trip");
 
         when(employeeDetailsRepository.findById(2L)).thenReturn(Optional.of(employee));
         when(leaveRepository.existsOverlappingLeave(anyLong(), any(), any(), anyList())).thenReturn(false);
@@ -91,7 +91,7 @@ class LeaveServiceTest {
 
     @Test
     void applyLeave_endBeforeStart_throwsBadRequestException() {
-        LeaveDTO dto = buildLeaveDTO(LocalDate.of(2026, 7, 5), LocalDate.of(2026, 7, 1), "Annual Leave", "Trip");
+        LeaveDTO dto = buildLeaveDTO(LocalDate.now().plusDays(5), LocalDate.now().plusDays(1), "Annual Leave", "Trip");
 
         when(employeeDetailsRepository.findById(2L)).thenReturn(Optional.of(employee));
 
@@ -102,7 +102,7 @@ class LeaveServiceTest {
 
     @Test
     void applyLeave_overlappingLeave_throwsBadRequestException() {
-        LeaveDTO dto = buildLeaveDTO(LocalDate.of(2026, 8, 10), LocalDate.of(2026, 8, 11), "Annual Leave", "Trip");
+        LeaveDTO dto = buildLeaveDTO(LocalDate.now().plusDays(10), LocalDate.now().plusDays(11), "Annual Leave", "Trip");
 
         when(employeeDetailsRepository.findById(2L)).thenReturn(Optional.of(employee));
         when(leaveRepository.existsOverlappingLeave(anyLong(), any(), any(), anyList())).thenReturn(true);
@@ -114,7 +114,7 @@ class LeaveServiceTest {
 
     @Test
     void applyLeave_employeeNotFound_throwsResourceNotFoundException() {
-        LeaveDTO dto = buildLeaveDTO(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 3), "Annual Leave", "Trip");
+        LeaveDTO dto = buildLeaveDTO(LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), "Annual Leave", "Trip");
 
         when(employeeDetailsRepository.findById(99L)).thenReturn(Optional.empty());
 
@@ -125,7 +125,7 @@ class LeaveServiceTest {
     @Test
     void applyLeave_noManager_notifiesAdmin() {
         employee.setManager(null);
-        LeaveDTO dto = buildLeaveDTO(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 1), "Annual Leave", "Trip");
+        LeaveDTO dto = buildLeaveDTO(LocalDate.now().plusDays(1), LocalDate.now().plusDays(1), "Annual Leave", "Trip");
 
         User adminUser = User.builder().id(99L).email("admin@company.com").role(Role.ADMIN).active(true).build();
 
@@ -133,8 +133,6 @@ class LeaveServiceTest {
         when(leaveRepository.existsOverlappingLeave(anyLong(), any(), any(), anyList())).thenReturn(false);
         when(holidayService.countDeductibleDays(any(), any(), any(), any())).thenReturn(1);
         when(leaveRepository.save(any())).thenReturn(pendingLeave);
-        when(timesheetEntryRepository.existsByEmployeeIdAndProjectNameAndDate(anyLong(), anyString(), any())).thenReturn(false);
-        when(timesheetEntryRepository.save(any())).thenReturn(null);
         when(userRepository.findByRoleIn(anyList())).thenReturn(List.of(adminUser));
         doNothing().when(emailService).sendLeaveRequestEmail(anyString(), any(String[].class), anyString(), anyString(), anyString(), any(), any(), anyInt(), anyString());
 

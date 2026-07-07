@@ -684,7 +684,8 @@ const LeaveUploadPage = () => {
         <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
           <Button variant="outlined" onClick={() => setAddOpen(false)}
             sx={{ borderColor: '#e2e8f0', color: '#64748b' }}>Cancel</Button>
-          <Button variant="contained" onClick={handleAddHoliday} disabled={addSaving}
+          <Button variant="contained" onClick={handleAddHoliday}
+            disabled={addSaving || !holName.trim() || !holDate}
             startIcon={addSaving ? <CircularProgress size={14} color="inherit" /> : <AddIcon />}
             sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' } }}>
             Add Holiday

@@ -121,7 +121,8 @@ const ResetPasswordPage = () => {
                   }}
                 />
                 <Button type="submit" fullWidth variant="contained" size="large"
-                  disabled={loading || !token} sx={{ py: 1.5, fontSize: '1rem' }}>
+                  disabled={loading || !token || password.length < 6 || password !== confirm}
+                  sx={{ py: 1.5, fontSize: '1rem' }}>
                   {loading ? <CircularProgress size={24} color="inherit" /> : 'Reset Password'}
                 </Button>
               </form>

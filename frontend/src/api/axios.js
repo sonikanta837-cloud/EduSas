@@ -13,7 +13,6 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Prevent multiple concurrent 401s from each triggering a separate refresh call.
 let isRefreshing = false;
 let pendingQueue = [];
 
@@ -24,39 +23,59 @@ const processQueue = (error, token = null) => {
   pendingQueue = [];
 };
 
+/**
+ * Shared token refresh function used by both the Axios interceptor and
+ * native fetch() calls (interviewApi multipart uploads).
+ *
+ * - If a refresh is already in flight, queues the caller and returns when done.
+ * - On success: updates localStorage, resolves all queued callers, returns new token.
+ * - On failure: clears session, redirects to /login.
+ */
+export async function refreshAccessToken() {
+  if (isRefreshing) {
+    return new Promise((resolve, reject) => {
+      pendingQueue.push({ resolve, reject });
+    });
+  }
+
+  isRefreshing = true;
+  try {
+    const refreshToken = localStorage.getItem('refreshToken');
+    const res = await axios.post(`${BASE}/auth/refresh`, null, { params: { refreshToken } });
+    const newToken = res.data.accessToken;
+    localStorage.setItem('accessToken', newToken);
+    localStorage.setItem('refreshToken', res.data.refreshToken);
+    // Keep the stored user profile in sync with the server's current view (role may have changed)
+    if (res.data.role) {
+      try {
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        localStorage.setItem('user', JSON.stringify({ ...currentUser, ...res.data }));
+      } catch { /* ignore */ }
+    }
+    processQueue(null, newToken);
+    return newToken;
+  } catch (err) {
+    processQueue(err);
+    localStorage.clear();
+    window.location.href = '/login';
+    throw err;
+  } finally {
+    isRefreshing = false;
+  }
+}
+
 api.interceptors.response.use(
   (response) => response.data,
   async (error) => {
     const original = error.config;
     if (error.response?.status === 401 && !original._retry) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          pendingQueue.push({ resolve, reject });
-        }).then(token => {
-          original.headers.Authorization = `Bearer ${token}`;
-          return api(original);
-        });
-      }
-
       original._retry = true;
-      isRefreshing = true;
-
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        const res = await axios.post(`${BASE}/auth/refresh`, null, { params: { refreshToken } });
-        const newToken = res.data.accessToken;
-        localStorage.setItem('accessToken', newToken);
-        localStorage.setItem('refreshToken', res.data.refreshToken);
+        const newToken = await refreshAccessToken();
         original.headers.Authorization = `Bearer ${newToken}`;
-        processQueue(null, newToken);
         return api(original);
       } catch (err) {
-        processQueue(err);
-        localStorage.clear();
-        window.location.href = '/login';
         return Promise.reject(err);
-      } finally {
-        isRefreshing = false;
       }
     }
     return Promise.reject(error);

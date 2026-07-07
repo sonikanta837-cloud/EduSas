@@ -1,83 +1,358 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { Box, Divider, Tooltip, Typography, IconButton } from '@mui/material';
-import ChevronLeftIcon          from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon         from '@mui/icons-material/ChevronRight';
-import DashboardIcon            from '@mui/icons-material/Dashboard';
-import PeopleIcon               from '@mui/icons-material/People';
-import AccountTreeIcon          from '@mui/icons-material/AccountTree';
-import HowToRegIcon             from '@mui/icons-material/HowToReg';
-import AccessTimeIcon           from '@mui/icons-material/AccessTime';
-import AssessmentIcon           from '@mui/icons-material/Assessment';
-import BeachAccessIcon          from '@mui/icons-material/BeachAccess';
-import CelebrationIcon          from '@mui/icons-material/Celebration';
-import SchoolIcon               from '@mui/icons-material/School';
-import StarIcon                 from '@mui/icons-material/Star';
-import BarChartIcon             from '@mui/icons-material/BarChart';
-import InventoryIcon            from '@mui/icons-material/Inventory';
-import AdminPanelSettingsIcon   from '@mui/icons-material/AdminPanelSettings';
-import PersonIcon               from '@mui/icons-material/Person';
-import WorkHistoryIcon          from '@mui/icons-material/WorkHistory';
-import { toggleSidebar } from '../../store/uiSlice';
+import { Box, Tooltip, Typography, IconButton, Collapse, Drawer, useMediaQuery, useTheme } from '@mui/material';
+import ChevronLeftIcon  from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import ExpandMoreIcon   from '@mui/icons-material/ExpandMore';
+import { toggleSidebar, setSidebarOpen, setMobileSidebarOpen } from '../../store/uiSlice';
+import { navConfig } from './navConfig';
 
-export const SIDEBAR_W_OPEN   = 240;
+export const SIDEBAR_W_OPEN   = 288;
 export const SIDEBAR_W_CLOSED = 72;
 
-const D = { divider: true };
+const EXPANDED_GROUP_STORAGE_KEY = 'sidebar_expanded_group';
 
-const allNavItems = [
-  { label: 'Dashboard',          path: '/dashboard',          icon: <DashboardIcon />,          roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  D,
-  { label: 'Employees',          path: '/employees',          icon: <PeopleIcon />,             roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER'] },
-  { label: 'Organisation',       path: '/org-chart',          icon: <AccountTreeIcon />,        roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  D,
-  { label: 'Attendance',         path: '/attendance',         icon: <HowToRegIcon />,           roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Timesheets',         path: '/timesheets',         icon: <AccessTimeIcon />,         roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Work Reports',       path: '/work-reports',       icon: <AssessmentIcon />,          roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Leaves',             path: '/leaves',             icon: <BeachAccessIcon />,        roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Holidays',           path: '/holidays',           icon: <CelebrationIcon />,        roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  D,
-  { label: 'Courses',            path: '/courses',            icon: <SchoolIcon />,             roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Performance',        path: '/performance',        icon: <StarIcon />,               roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  { label: 'Interviews',         path: '/interviews',         icon: <WorkHistoryIcon />,        roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  D,
-  { label: 'Reports',            path: '/reports',            icon: <BarChartIcon />,           roles: ['ADMIN', 'DIRECTOR'] },
-  { label: 'Resources',          path: '/resources',          icon: <InventoryIcon />,          roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-  D,
-  { label: 'Roles & Permissions', path: '/roles-permissions', icon: <AdminPanelSettingsIcon />, roles: ['ADMIN', 'DIRECTOR'] },
-  D,
-  { label: 'My Profile',         path: '/profile',            icon: <PersonIcon />,             roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-];
+const isPathActive = (pathname, path) =>
+  pathname === path || (path !== '/dashboard' && pathname.startsWith(path + '/'));
+
+const scrollbarSx = {
+  scrollbarWidth: 'thin',
+  scrollbarColor: 'rgba(255,255,255,0.15) transparent',
+  '&::-webkit-scrollbar': { width: 4 },
+  '&::-webkit-scrollbar-track': { background: 'transparent' },
+  '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.15)', borderRadius: 4 },
+  '&::-webkit-scrollbar-thumb:hover': { background: 'rgba(255,255,255,0.3)' },
+};
 
 const Sidebar = () => {
   const dispatch  = useDispatch();
   const navigate  = useNavigate();
   const location  = useLocation();
-  const { user }        = useSelector((s) => s.auth);
-  const { sidebarOpen } = useSelector((s) => s.ui);
+  const theme     = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
+
+  const { user } = useSelector((s) => s.auth);
+  const { sidebarOpen, mobileSidebarOpen } = useSelector((s) => s.ui);
   const role = user?.role || 'EMPLOYEE';
+  const isSuperUser = role === 'ADMIN' || role === 'DIRECTOR';
 
-  const allowedPaths = (() => {
-    if (!user?.allowedModules) return null;
+  const allowedPaths = useMemo(() => {
+    if (isSuperUser || !user?.allowedModules) return null;
     try { return JSON.parse(user.allowedModules); } catch { return null; }
-  })();
+  }, [isSuperUser, user?.allowedModules]);
 
-  const navItems = allNavItems
-    .filter((item) => {
-      if (item.divider) return true;
-      if (item.path === '/roles-permissions') return role === 'ADMIN' || role === 'DIRECTOR';
-      if (allowedPaths) return allowedPaths.includes(item.path);
-      return item.roles.includes(role);
+  const isVisible = useCallback((leaf) => {
+    if (leaf.superUserOnly) return isSuperUser;
+    if (allowedPaths) return allowedPaths.includes(leaf.path);
+    return leaf.roles.includes(role);
+  }, [isSuperUser, allowedPaths, role]);
+
+  // Role-filtered nav — a group survives only if at least one child is visible
+  const navItems = useMemo(() => navConfig
+    .map((entry) => {
+      if (entry.type === 'item') return isVisible(entry) ? entry : null;
+      const children = entry.children.filter(isVisible);
+      return children.length > 0 ? { ...entry, children } : null;
     })
-    // Remove dividers that are leading, trailing, or consecutive after role-filtering
-    .filter((item, idx, arr) => {
-      if (!item.divider) return true;
-      const prev = arr[idx - 1];
-      const next = arr[idx + 1];
-      return prev && !prev.divider && next && !next.divider;
-    });
+    .filter(Boolean), [isVisible]);
 
+  const [expandedGroup, setExpandedGroup] = useState(() => {
+    try { return localStorage.getItem(EXPANDED_GROUP_STORAGE_KEY) || null; } catch { return null; }
+  });
+
+  // Auto-expand the parent whose child page is active (covers direct nav + refresh)
+  useEffect(() => {
+    const activeGroup = navItems.find(
+      (entry) => entry.type === 'group' && entry.children.some((c) => isPathActive(location.pathname, c.path))
+    );
+    if (activeGroup) setExpandedGroup(activeGroup.id);
+  }, [location.pathname, navItems]);
+
+  // Persist the open section across refreshes
+  useEffect(() => {
+    try {
+      if (expandedGroup) localStorage.setItem(EXPANDED_GROUP_STORAGE_KEY, expandedGroup);
+      else localStorage.removeItem(EXPANDED_GROUP_STORAGE_KEY);
+    } catch { /* localStorage unavailable — non-fatal */ }
+  }, [expandedGroup]);
+
+  // Icon-only desktop rail has no room for inline submenus; labels only show
+  // once the rail is expanded (desktop) or always on the mobile drawer.
+  const showLabels = isDesktop ? sidebarOpen : true;
+
+  // Roving tabIndex bookkeeping for arrow-key navigation across all visible rows
+  const itemRefs = useRef([]);
+  itemRefs.current = [];
+  const registerRef = (el) => { if (el) itemRefs.current.push(el); };
+
+  const handleActivateKeyDown = (e, action) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      action();
+    }
+  };
+
+  const handleContainerKeyDown = (e) => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+    const idx = itemRefs.current.indexOf(document.activeElement);
+    if (idx === -1) return;
+    e.preventDefault();
+    const last = itemRefs.current.length - 1;
+    let nextIdx = idx;
+    if (e.key === 'ArrowDown') nextIdx = idx === last ? 0 : idx + 1;
+    else if (e.key === 'ArrowUp') nextIdx = idx === 0 ? last : idx - 1;
+    else if (e.key === 'Home') nextIdx = 0;
+    else if (e.key === 'End') nextIdx = last;
+    itemRefs.current[nextIdx]?.focus();
+  };
+
+  const handleNavigate = (path) => {
+    navigate(path);
+    if (!isDesktop) dispatch(setMobileSidebarOpen(false));
+  };
+
+  const handleGroupClick = (group) => {
+    // Collapsed desktop rail: expand the rail itself before opening the section
+    if (isDesktop && !sidebarOpen) {
+      dispatch(setSidebarOpen(true));
+      setExpandedGroup(group.id);
+      return;
+    }
+    setExpandedGroup((prev) => (prev === group.id ? null : group.id));
+  };
+
+  const renderRow = ({ key, icon, label, active, onClick, isGroupHeader, expanded, controlsId, isChild }) => {
+    const content = (
+      <Box
+        ref={registerRef}
+        role="button"
+        tabIndex={0}
+        aria-expanded={isGroupHeader ? expanded : undefined}
+        aria-controls={isGroupHeader ? controlsId : undefined}
+        aria-current={!isGroupHeader && active ? 'page' : undefined}
+        onClick={onClick}
+        onKeyDown={(e) => handleActivateKeyDown(e, onClick)}
+        sx={{
+          width: '100%',
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: showLabels ? 'row' : 'column',
+          alignItems: 'center',
+          justifyContent: showLabels ? 'flex-start' : 'center',
+          py: showLabels ? 0.55 : 0.5,
+          px: showLabels ? 1.5 : 0.5,
+          borderRadius: '10px',
+          cursor: 'pointer',
+          position: 'relative',
+          color: active ? '#14b8a6' : 'rgba(255,255,255,0.55)',
+          bgcolor: active ? 'rgba(20,184,166,0.15)' : 'transparent',
+          transition: 'all 0.15s ease',
+          outline: 'none',
+          '&:hover': {
+            bgcolor: active ? 'rgba(20,184,166,0.2)' : 'rgba(255,255,255,0.06)',
+            color: active ? '#14b8a6' : 'rgba(255,255,255,0.9)',
+          },
+          '&:focus-visible': {
+            boxShadow: 'inset 0 0 0 2px rgba(20,184,166,0.6)',
+          },
+          '&::before': active && !isGroupHeader ? {
+            content: '""',
+            position: 'absolute',
+            left: 0,
+            top: '20%',
+            height: '60%',
+            width: 3,
+            borderRadius: '0 3px 3px 0',
+            bgcolor: '#14b8a6',
+          } : {},
+        }}
+      >
+        <Box sx={{ '& svg': { fontSize: isChild ? 20 : 22, display: 'block' }, flexShrink: 0, mr: showLabels ? 1.5 : 0 }}>
+          {icon}
+        </Box>
+
+        {showLabels && (
+          <Typography
+            sx={{
+              fontSize: isChild ? '0.82rem' : '0.875rem',
+              fontWeight: active ? 600 : 400,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              color: 'inherit',
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
+            {label}
+          </Typography>
+        )}
+
+        {showLabels && isGroupHeader && (
+          <ExpandMoreIcon
+            sx={{
+              fontSize: 20,
+              ml: 0.5,
+              flexShrink: 0,
+              color: 'inherit',
+              transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.25s ease',
+            }}
+          />
+        )}
+      </Box>
+    );
+
+    return showLabels ? (
+      <Box key={key} sx={{ width: '100%' }}>{content}</Box>
+    ) : (
+      <Tooltip key={key} title={label} placement="right" arrow>
+        {content}
+      </Tooltip>
+    );
+  };
+
+  const navContent = (
+    <>
+      {/* Logo row */}
+      <Box
+        sx={{
+          width: '100%',
+          height: 64,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: showLabels ? 'flex-start' : 'center',
+          flexShrink: 0,
+          borderBottom: '1px solid rgba(255,255,255,0.07)',
+          mb: 1,
+          px: showLabels ? 2 : 0,
+        }}
+      >
+        <Box sx={{ display: 'flex', flexDirection: showLabels ? 'row' : 'column', alignItems: 'center', gap: showLabels ? 1.5 : 0.4 }}>
+          <img
+            src="/logo.png"
+            alt="EduSAS"
+            style={{ height: showLabels ? 34 : 28, width: showLabels ? 34 : 28, objectFit: 'contain', flexShrink: 0 }}
+          />
+          <Typography sx={{
+            fontWeight: 700,
+            color: '#fff',
+            whiteSpace: 'nowrap',
+            fontSize: showLabels ? '1rem' : '0.58rem',
+            letterSpacing: showLabels ? '0.02em' : '0.05em',
+          }}>
+            EduSAS
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* Nav items */}
+      <Box
+        component="nav"
+        aria-label="Main navigation"
+        onKeyDown={handleContainerKeyDown}
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: showLabels ? 'flex-start' : 'center',
+          width: '100%',
+          px: showLabels ? 1.5 : 0.5,
+          gap: 0.25,
+          flex: 1,
+        }}
+      >
+        {navItems.map((entry) => {
+          if (entry.type === 'item') {
+            const active = isPathActive(location.pathname, entry.path);
+            return renderRow({
+              key: entry.path,
+              icon: entry.icon,
+              label: entry.label,
+              active,
+              onClick: () => handleNavigate(entry.path),
+            });
+          }
+
+          const isExpanded  = showLabels && expandedGroup === entry.id;
+          const groupActive = entry.children.some((c) => isPathActive(location.pathname, c.path));
+          const controlsId  = `submenu-${entry.id}`;
+
+          return (
+            <Box key={entry.id} sx={{ width: '100%' }}>
+              {renderRow({
+                icon: entry.icon,
+                label: entry.label,
+                active: groupActive,
+                onClick: () => handleGroupClick(entry),
+                isGroupHeader: true,
+                expanded: isExpanded,
+                controlsId,
+              })}
+              {showLabels && (
+                <Collapse in={isExpanded} timeout={250} unmountOnExit>
+                  <Box
+                    id={controlsId}
+                    role="group"
+                    aria-label={entry.label}
+                    sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, pl: 2.25, pt: 0.25, pb: 0.5 }}
+                  >
+                    {entry.children.map((child) => {
+                      const active = isPathActive(location.pathname, child.path);
+                      return renderRow({
+                        key: child.path,
+                        icon: child.icon,
+                        label: child.label,
+                        active,
+                        onClick: () => handleNavigate(child.path),
+                        isChild: true,
+                      });
+                    })}
+                  </Box>
+                </Collapse>
+              )}
+            </Box>
+          );
+        })}
+      </Box>
+
+      {/* Version */}
+      <Box sx={{ py: 1.5, flexShrink: 0, width: '100%', textAlign: 'center' }}>
+        <Typography sx={{ fontSize: 8.5, color: 'rgba(255,255,255,0.18)', letterSpacing: '0.04em' }}>
+          v1.0
+        </Typography>
+      </Box>
+    </>
+  );
+
+  // ── Tablet / mobile: slide-in drawer with overlay ──────────────────────────
+  if (!isDesktop) {
+    return (
+      <Drawer
+        variant="temporary"
+        anchor="left"
+        open={mobileSidebarOpen}
+        onClose={() => dispatch(setMobileSidebarOpen(false))}
+        ModalProps={{ keepMounted: true }}
+        sx={{ zIndex: (t) => t.zIndex.drawer + 2 }}
+        PaperProps={{
+          sx: {
+            width: SIDEBAR_W_OPEN,
+            bgcolor: '#0f172a',
+            display: 'flex',
+            flexDirection: 'column',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            ...scrollbarSx,
+          },
+        }}
+      >
+        {navContent}
+      </Drawer>
+    );
+  }
+
+  // ── Desktop: fixed, collapsible rail ────────────────────────────────────────
   const width = sidebarOpen ? SIDEBAR_W_OPEN : SIDEBAR_W_CLOSED;
 
   return (
@@ -86,6 +361,7 @@ const Sidebar = () => {
       <IconButton
         onClick={() => dispatch(toggleSidebar())}
         size="small"
+        aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
         sx={{
           position: 'fixed',
           top: 18,
@@ -104,156 +380,27 @@ const Sidebar = () => {
         {sidebarOpen ? <ChevronLeftIcon sx={{ fontSize: 16 }} /> : <ChevronRightIcon sx={{ fontSize: 16 }} />}
       </IconButton>
 
-    <Box
-      sx={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width,
-        height: '100vh',
-        bgcolor: '#0f172a',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: sidebarOpen ? 'flex-start' : 'center',
-        zIndex: 1200,
-        boxShadow: '2px 0 8px rgba(0,0,0,0.18)',
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        transition: 'width 0.25s ease',
-        scrollbarWidth: 'thin',
-        scrollbarColor: 'rgba(255,255,255,0.15) transparent',
-        '&::-webkit-scrollbar': { width: 4 },
-        '&::-webkit-scrollbar-track': { background: 'transparent' },
-        '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.15)', borderRadius: 4 },
-        '&::-webkit-scrollbar-thumb:hover': { background: 'rgba(255,255,255,0.3)' },
-      }}
-    >
-      {/* Logo row */}
       <Box
         sx={{
-          width: '100%',
-          height: 64,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: sidebarOpen ? 'flex-start' : 'center',
-          flexShrink: 0,
-          borderBottom: '1px solid rgba(255,255,255,0.07)',
-          mb: 1,
-          px: sidebarOpen ? 2 : 0,
-        }}
-      >
-        <Box sx={{ display: 'flex', flexDirection: sidebarOpen ? 'row' : 'column', alignItems: 'center', gap: sidebarOpen ? 1.5 : 0.4 }}>
-          <img
-            src="/logo.png"
-            alt="EduSAS"
-            style={{ height: sidebarOpen ? 34 : 28, width: sidebarOpen ? 34 : 28, objectFit: 'contain', flexShrink: 0 }}
-          />
-          <Typography sx={{
-            fontWeight: 700,
-            color: '#fff',
-            whiteSpace: 'nowrap',
-            fontSize: sidebarOpen ? '1rem' : '0.58rem',
-            letterSpacing: sidebarOpen ? '0.02em' : '0.05em',
-          }}>
-            EduSAS
-          </Typography>
-        </Box>
-      </Box>
-
-      {/* Nav items */}
-      <Box
-        sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width,
+          height: '100vh',
+          bgcolor: '#0f172a',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: sidebarOpen ? 'flex-start' : 'center',
-          width: '100%',
-          px: sidebarOpen ? 1.5 : 0.5,
-          gap: 0.25,
-          flex: 1,
+          alignItems: showLabels ? 'flex-start' : 'center',
+          zIndex: 1200,
+          boxShadow: '2px 0 8px rgba(0,0,0,0.18)',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          transition: 'width 0.25s ease',
+          ...scrollbarSx,
         }}
       >
-        {navItems.map((item, idx) => {
-          if (item.divider) {
-            return (
-              <Divider
-                key={`div-${idx}`}
-                sx={{
-                  borderColor: 'rgba(255,255,255,0.08)',
-                  my: 0.5,
-                  mx: sidebarOpen ? 1 : 'auto',
-                  width: sidebarOpen ? 'auto' : '55%',
-                }}
-              />
-            );
-          }
-
-          const active =
-            location.pathname === item.path ||
-            (item.path !== '/dashboard' && location.pathname.startsWith(item.path + '/'));
-
-          const itemContent = (
-            <Box
-              onClick={() => navigate(item.path)}
-              sx={{
-                width: '100%',
-                display: 'flex',
-                flexDirection: sidebarOpen ? 'row' : 'column',
-                alignItems: 'center',
-                justifyContent: sidebarOpen ? 'flex-start' : 'center',
-                py: sidebarOpen ? 0.55 : 0.5,
-                px: sidebarOpen ? 1.5 : 0.5,
-                borderRadius: '10px',
-                cursor: 'pointer',
-                position: 'relative',
-                color: active ? '#14b8a6' : 'rgba(255,255,255,0.55)',
-                bgcolor: active ? 'rgba(20,184,166,0.15)' : 'transparent',
-                transition: 'all 0.15s ease',
-                '&:hover': {
-                  bgcolor: active ? 'rgba(20,184,166,0.2)' : 'rgba(255,255,255,0.06)',
-                  color: active ? '#14b8a6' : 'rgba(255,255,255,0.9)',
-                },
-                '&::before': active ? {
-                  content: '""',
-                  position: 'absolute',
-                  left: 0,
-                  top: '20%',
-                  height: '60%',
-                  width: 3,
-                  borderRadius: '0 3px 3px 0',
-                  bgcolor: '#14b8a6',
-                } : {},
-              }}
-            >
-              <Box sx={{ '& svg': { fontSize: 22, display: 'block' }, flexShrink: 0, mr: sidebarOpen ? 1.5 : 0 }}>
-                {item.icon}
-              </Box>
-
-              {sidebarOpen && (
-                <Typography sx={{ fontSize: '0.875rem', fontWeight: active ? 600 : 400, whiteSpace: 'nowrap', color: 'inherit' }}>
-                  {item.label}
-                </Typography>
-              )}
-            </Box>
-          );
-
-          return sidebarOpen ? (
-            <Box key={item.path} sx={{ width: '100%' }}>{itemContent}</Box>
-          ) : (
-            <Tooltip key={item.path} title={item.label} placement="right" arrow>
-              <Box sx={{ width: '100%' }}>{itemContent}</Box>
-            </Tooltip>
-          );
-
-        })}
+        {navContent}
       </Box>
-
-      {/* Version */}
-      <Box sx={{ py: 1.5, flexShrink: 0, width: '100%', textAlign: 'center' }}>
-        <Typography sx={{ fontSize: 8.5, color: 'rgba(255,255,255,0.18)', letterSpacing: '0.04em' }}>
-          v1.0
-        </Typography>
-      </Box>
-    </Box>
     </>
   );
 };

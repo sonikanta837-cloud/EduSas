@@ -158,6 +158,9 @@ const LeavesPage = () => {
   }, [form.startDate, form.endDate]);
 
   const handleApply = async () => {
+    if (!form.startDate || !form.endDate) { toast.error('Start and end date are required'); return; }
+    if (form.endDate < form.startDate)    { toast.error('End date cannot be before start date'); return; }
+    if (!form.reason?.trim())             { toast.error('Reason is required'); return; }
     setSubmitting(true);
     try {
       await leaveApi.apply(myEmployee.id, form);
@@ -192,6 +195,9 @@ const LeavesPage = () => {
   };
 
   const handleEdit = async () => {
+    if (!editForm.startDate || !editForm.endDate) { toast.error('Start and end date are required'); return; }
+    if (editForm.endDate < editForm.startDate)    { toast.error('End date cannot be before start date'); return; }
+    if (!editForm.reason?.trim())                 { toast.error('Reason is required'); return; }
     try {
       await leaveApi.update(editingLeave.id, myEmployee.id, editForm);
       toast.success('Leave updated successfully');
@@ -536,7 +542,9 @@ const LeavesPage = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setApplyOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleApply} disabled={submitting}>
+          <Button variant="contained" onClick={handleApply}
+            disabled={submitting || !form.startDate || !form.endDate
+              || form.endDate < form.startDate || !form.reason?.trim()}>
             {submitting ? 'Submitting…' : 'Submit'}
           </Button>
         </DialogActions>
@@ -572,7 +580,11 @@ const LeavesPage = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setEditOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleEdit}>Save Changes</Button>
+          <Button variant="contained" onClick={handleEdit}
+            disabled={!editForm.startDate || !editForm.endDate
+              || editForm.endDate < editForm.startDate || !editForm.reason?.trim()}>
+            Save Changes
+          </Button>
         </DialogActions>
       </Dialog>
 

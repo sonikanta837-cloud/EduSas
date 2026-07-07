@@ -88,10 +88,16 @@
             <version>${itext.version}</version>
         </dependency>
 
-        <!-- Apache POI for CSV/Excel -->
+        <!-- Apache POI for CSV/Excel (.xlsx/.docx) -->
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi-ooxml</artifactId>
+            <version>5.2.5</version>
+        </dependency>
+        <!-- Apache POI scratchpad — HWPFDocument for legacy .doc CV parsing -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-scratchpad</artifactId>
             <version>5.2.5</version>
         </dependency>
 
@@ -108,6 +114,7 @@
             <artifactId>pdfbox</artifactId>
             <version>3.0.1</version>
         </dependency>
+
 
         <!-- Test -->
         <dependency>

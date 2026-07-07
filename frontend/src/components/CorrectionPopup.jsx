@@ -170,7 +170,7 @@ const CorrectionPopup = ({ sessions, onAllDone }) => {
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={submitting}
+          disabled={submitting || !form.logoutTime || !form.reason.trim()}
           sx={{
             textTransform: 'none', borderRadius: '8px', minWidth: 130,
             bgcolor: '#c2410c', '&:hover': { bgcolor: '#9a3412' },

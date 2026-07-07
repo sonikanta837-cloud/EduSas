@@ -354,7 +354,10 @@ const CreatePipDialog = ({ open, onClose, onCreated, myEmployee, isAdmin, isHR }
           <>
             <Button onClick={() => setStep(0)} sx={{ color: '#64748b', fontWeight: 600 }}>← Back</Button>
             <Button onClick={onClose} sx={{ color: '#64748b', fontWeight: 600 }}>Cancel</Button>
-            <Button variant="contained" onClick={handleSubmit} disabled={submitting}
+            <Button variant="contained" onClick={handleSubmit}
+              disabled={submitting || !form.employeeId || !form.title.trim()
+                || !form.startDate || !form.endDate
+                || new Date(form.endDate) <= new Date(form.startDate)}
               sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' }, fontWeight: 700 }}>
               {submitting ? <CircularProgress size={16} sx={{ color: '#fff', mr: 1 }} /> : null}
               Create PIP
@@ -453,7 +456,7 @@ const GoalItem = ({ goal, canManage, onUpdate, onDelete }) => {
           </Box>
           <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
             <Button size="small" onClick={() => setEditing(false)} sx={{ color: '#64748b' }}>Cancel</Button>
-            <Button size="small" variant="contained" onClick={handleSave} disabled={saving}
+            <Button size="small" variant="contained" onClick={handleSave} disabled={saving || !form.title.trim()}
               sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' }, fontSize: 12 }}>
               {saving ? <CircularProgress size={12} sx={{ color: '#fff', mr: 0.5 }} /> : null} Save
             </Button>
@@ -688,7 +691,8 @@ const PipDetailDialog = ({ open, pipId, onClose, onUpdated, myEmployee, canManag
                           <TextField label="Success Criteria" size="small" value={goalForm.successCriteria} onChange={e => setGoalForm(f => ({ ...f, successCriteria: e.target.value }))} fullWidth />
                           <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'flex-end' }}>
                             <Button size="small" onClick={() => setAddGoalOpen(false)} sx={{ color: '#64748b' }}>Cancel</Button>
-                            <Button size="small" variant="contained" onClick={handleAddGoal} disabled={savingGoal}
+                            <Button size="small" variant="contained" onClick={handleAddGoal}
+                              disabled={savingGoal || !goalForm.title.trim()}
                               sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' }, fontSize: 12 }}>
                               {savingGoal ? <CircularProgress size={12} sx={{ color: '#fff', mr: 0.5 }} /> : null} Add
                             </Button>
@@ -926,7 +930,7 @@ const AddReviewDialog = ({ open, onClose, onAdded, pipId, weekNumber }) => {
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5 }}>
         <Button onClick={onClose} sx={{ color: '#64748b', fontWeight: 600 }}>Cancel</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving}
+        <Button variant="contained" onClick={handleSave} disabled={saving || !form.overallProgress.trim()}
           sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' }, fontWeight: 700 }}>
           {saving ? <CircularProgress size={16} sx={{ color: '#fff', mr: 1 }} /> : null} Save Review
         </Button>
@@ -988,7 +992,8 @@ const OutcomeDialog = ({ open, onClose, pip, onSet }) => {
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5 }}>
         <Button onClick={onClose} sx={{ color: '#64748b', fontWeight: 600 }}>Cancel</Button>
-        <Button variant="contained" onClick={handleSet} disabled={saving}
+        <Button variant="contained" onClick={handleSet}
+          disabled={saving || !form.status || (form.status === 'EXTENDED' && !form.newEndDate)}
           sx={{ bgcolor: form.status === 'TERMINATED' ? '#dc2626' : '#1e3a5f', '&:hover': { bgcolor: form.status === 'TERMINATED' ? '#b91c1c' : '#152d4a' }, fontWeight: 700 }}>
           {saving ? <CircularProgress size={16} sx={{ color: '#fff', mr: 1 }} /> : null}
           Confirm Outcome

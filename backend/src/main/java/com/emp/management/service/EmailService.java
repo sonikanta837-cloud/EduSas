@@ -919,4 +919,48 @@ public class EmailService {
             log.error("Failed to send interview reminder email to {}: {}", to, e.getMessage());
         }
     }
+
+    public void sendVideoInterviewInvitation(
+            String to, String candidateName, String position, String technology,
+            int durationMinutes, int numQuestions, String interviewLink,
+            java.time.LocalDateTime expiresAt) {
+
+        String expiryStr = expiresAt != null
+                ? expiresAt.format(DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a"))
+                : "7 days from now";
+
+        String body = "<p>Dear <strong>" + candidateName + "</strong>,</p>" +
+                "<p>You have been invited to complete an <strong>Online Video Interview</strong>. " +
+                "Please review the details below and click the button to begin when you are ready.</p>" +
+                tableOpen() +
+                row("Position",          position != null ? position : "—") +
+                row("Technology",        technology) +
+                row("Duration",          durationMinutes + " minutes") +
+                row("No. of Questions",  String.valueOf(numQuestions)) +
+                row("Link Expires",      expiryStr) +
+                tableClose() +
+                "<div style='text-align:center;margin:28px 0;'>" +
+                "<a href='" + interviewLink + "' " +
+                "style='background:#1a2847;color:#ffffff;padding:14px 32px;border-radius:8px;" +
+                "text-decoration:none;font-size:16px;font-weight:bold;display:inline-block;'>" +
+                "&#127916; Start My Interview</a></div>" +
+                "<p>Or copy this link: <a href='" + interviewLink + "' style='color:#1a2847;'>" + interviewLink + "</a></p>" +
+                "<div style='background:#fff8e1;border-left:4px solid #f59e0b;padding:12px 16px;margin:16px 0;border-radius:4px;'>" +
+                "<strong>&#9888; Important Instructions:</strong><ul style='margin:8px 0;padding-left:18px;'>" +
+                "<li>Use a desktop/laptop browser (Chrome or Firefox recommended)</li>" +
+                "<li>Allow camera and microphone access when prompted</li>" +
+                "<li>Ensure a stable internet connection</li>" +
+                "<li>The interview must be completed in a single sitting — do not close the browser</li>" +
+                "<li>Switching tabs or windows will be detected and may result in auto-submission</li>" +
+                "</ul></div>" +
+                note("This link is unique to you. Do not share it with others.");
+
+        String subject = "Video Interview Invitation — " + (position != null ? position : technology) + " – EmpSAS";
+        try {
+            send(to, null, subject, wrap("&#127916;", "Video Interview Invitation", body));
+            log.info("Video interview invitation sent to {}", to);
+        } catch (Exception e) {
+            log.error("Failed to send video interview invitation to {}: {}", to, e.getMessage());
+        }
+    }
 }

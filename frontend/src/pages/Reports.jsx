@@ -411,7 +411,6 @@ const ReportsPage = () => {
     <Table size="small">
       <TableHead>
         <TableRow>
-          <TableCell sx={hdr}>#</TableCell>
           <TableCell sx={hdr}>Employee</TableCell>
           <TableCell sx={hdr}>Department</TableCell>
           <TableCell sx={cHdr}>Attendance</TableCell>
@@ -423,14 +422,12 @@ const ReportsPage = () => {
       <TableBody>
         {pageRows.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+            <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
               No employees found
             </TableCell>
           </TableRow>
         ) : pageRows.map((r, i) => (
           <TableRow key={r.id} hover sx={{ bgcolor: (page * rpp + i) % 2 === 0 ? 'white' : '#f8fafc' }}>
-            <TableCell sx={{ ...cell, color: '#94a3b8', fontSize: 12 }}>{page * rpp + i + 1}</TableCell>
-
             {/* Employee */}
             <TableCell sx={cell}>
               <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#0f172a', lineHeight: 1.3 }}>{r.fullName}</Typography>
@@ -480,7 +477,7 @@ const ReportsPage = () => {
     <Table size="small">
       <TableHead>
         <TableRow>
-          {['#','Employee Name','Department','Manager','Leave Type',
+          {['Employee Name','Department','Manager','Leave Type',
             'Leave Dates','Total Days','Paid / Unpaid','Status'].map((h) => (
             <TableCell key={h} sx={hdr}>{h}</TableCell>
           ))}
@@ -489,13 +486,12 @@ const ReportsPage = () => {
       <TableBody>
         {pageRows.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={9} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+            <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
               No approved leaves found for {selLabel}
             </TableCell>
           </TableRow>
         ) : pageRows.map((l, i) => (
           <TableRow key={l.id} hover sx={{ bgcolor: (page * rpp + i) % 2 === 0 ? 'white' : '#f8fafc' }}>
-            <TableCell sx={cell}>{page * rpp + i + 1}</TableCell>
             <TableCell sx={{ ...cell, fontWeight: 600 }}>{l.employeeName || '—'}</TableCell>
             <TableCell sx={cell}>{l.department  || '—'}</TableCell>
             <TableCell sx={cell}>{l.managerName || '—'}</TableCell>
@@ -608,7 +604,7 @@ const ReportsPage = () => {
     <Table size="small">
       <TableHead>
         <TableRow>
-          {['#','Employee','Department','Manager','Date','Project','Task','Hours'].map(h => (
+          {['Employee','Department','Manager','Date','Project','Task','Hours'].map(h => (
             <TableCell key={h} sx={hdr}>{h}</TableCell>
           ))}
         </TableRow>
@@ -622,7 +618,7 @@ const ReportsPage = () => {
           </TableRow>
         ) : pageRows.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+            <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
               {wrData.length === 0
                 ? 'No timesheet entries found for today'
                 : 'No entries match the selected filters'}
@@ -630,7 +626,6 @@ const ReportsPage = () => {
           </TableRow>
         ) : pageRows.map((r, i) => (
           <TableRow key={r.entryId} hover sx={{ bgcolor: (page * rpp + i) % 2 === 0 ? 'white' : '#f8fafc' }}>
-            <TableCell sx={{ ...cell, color: '#94a3b8', fontSize: 11 }}>{page * rpp + i + 1}</TableCell>
             <TableCell sx={cell}>
               <Typography sx={{ fontSize: 13, fontWeight: 600, lineHeight: 1.2 }}>{r.employeeName}</Typography>
               <Typography sx={{ fontSize: 10.5, color: '#94a3b8' }}>{r.employeeCode}</Typography>

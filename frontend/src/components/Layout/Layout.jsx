@@ -19,7 +19,7 @@ const Layout = () => {
           flexGrow: 1,
           minWidth: 0,
           minHeight: '100vh',
-          ml: `${sidebarW}px`,
+          ml: { xs: 0, md: `${sidebarW}px` },
           transition: 'margin-left 0.25s ease',
         }}
       >

@@ -121,7 +121,8 @@ const DailyWorkReports = () => {
         <Box sx={{ display: 'flex', gap: 1 }}>
           {canGenerate && (
             <Button size="small" variant="outlined" startIcon={<RefreshIcon />}
-              onClick={handleGenerate} disabled={generating}
+              onClick={handleGenerate}
+              disabled={generating || !fromDate || !toDate || dayjs(fromDate).isAfter(dayjs(toDate))}
               sx={{ textTransform: 'none', borderRadius: '8px' }}>
               {generating ? 'Generating…'
                 : fromDate === toDate
@@ -218,7 +219,6 @@ const DailyWorkReports = () => {
                     <>
                       <TableCell>
                         <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{r.employeeName}</Typography>
-                        <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>{r.employeeCode}</Typography>
                       </TableCell>
                       <TableCell sx={{ fontSize: 12, color: '#64748b' }}>{r.department}</TableCell>
                     </>

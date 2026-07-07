@@ -828,6 +828,8 @@ const TimesheetTab = ({ employees, user }) => {
 
 // ── PerformanceTab ────────────────────────────────────────────────────────────
 const scoreColor = (s) => (s >= 4 ? 'success' : s >= 3 ? 'warning' : 'error');
+const avatarPalette = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#3b82f6'];
+const avatarColor = (idx) => avatarPalette[idx % avatarPalette.length];
 
 // Build base quarter labels for the last 2 years up to current quarter
 const buildBaseQuarters = () => {
@@ -861,6 +863,7 @@ const PerformanceTab = ({ employees }) => {
   const [perfPage,  setPerfPage]  = useState(0);
   const [perfRpp,   setPerfRpp]   = useState(10);
   const [expandedComments, setExpandedComments] = useState(new Set());
+
 
   useEffect(() => {
     if (loaded) return;
@@ -964,11 +967,11 @@ const PerformanceTab = ({ employees }) => {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: '#f1f5f9' }}>
-                <TableCell sx={hdrCell}>Employee</TableCell>
-                <TableCell sx={{ ...hdrCell, textAlign: 'center' }}>Rating</TableCell>
-                <TableCell sx={hdrCell}>Comments</TableCell>
-                <TableCell sx={hdrCell}>Strengths</TableCell>
-                <TableCell sx={hdrCell}>Improvement Area</TableCell>
+                <TableCell sx={{ ...hdrCell, width: 200 }}>Employee</TableCell>
+                <TableCell sx={{ ...hdrCell, width: 90, textAlign: 'center' }}>Rating</TableCell>
+                <TableCell sx={{ ...hdrCell, width: 220 }}>Comments</TableCell>
+                <TableCell sx={{ ...hdrCell, width: 180 }}>Strengths</TableCell>
+                <TableCell sx={{ ...hdrCell, width: 180 }}>Improvement Area</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -979,72 +982,71 @@ const PerformanceTab = ({ employees }) => {
                   </TableCell>
                 </TableRow>
               ) : activeEmps.slice(perfPage * perfRpp, (perfPage + 1) * perfRpp).map((emp, i) => {
-                const review = data.find((d) => d.employeeId === emp.id && d.reviewPeriod === selectedQ);
-                const score  = review?.rating ?? null;
+                const review   = data.find((d) => d.employeeId === emp.id && d.reviewPeriod === selectedQ);
+                const score    = review?.rating ?? null;
                 return (
                   <TableRow key={emp.id} hover sx={{ bgcolor: i % 2 === 0 ? 'white' : '#f8fafc' }}>
+                    {/* Employee */}
                     <TableCell sx={cell}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Avatar sx={{ width: 28, height: 28, bgcolor: '#6366f1', fontSize: '0.72rem', flexShrink: 0 }}>
+                        <Avatar sx={{ width: 30, height: 30, bgcolor: avatarColor(i), fontSize: '0.72rem', flexShrink: 0, fontWeight: 700 }}>
                           {emp.firstName?.charAt(0)}
                         </Avatar>
-                        <Box>
-                          <Typography variant="body2" fontWeight={600} sx={{ fontSize: 12.5 }}>
-                            {emp.fullName}
-                          </Typography>
-                        </Box>
+                        <Typography variant="body2" fontWeight={600} sx={{ fontSize: 12.5 }}>
+                          {emp.fullName}
+                        </Typography>
                       </Box>
                     </TableCell>
+
+                    {/* Rating */}
                     <TableCell sx={{ ...cell, textAlign: 'center' }}>
                       {score != null ? (
-                        <Chip label={`${score} / 5`} size="small"
-                          color={scoreColor(score)}
-                          sx={{ fontSize: 11, fontWeight: 700 }} />
+                        <Chip label={`${score} / 5`} size="small" color={scoreColor(score)} sx={{ fontSize: 11, fontWeight: 700 }} />
                       ) : (
-                        <Typography variant="caption" color="#cbd5e1">—</Typography>
+                        <Chip label="Not Reviewed" size="small" sx={{ fontSize: 10, fontWeight: 600, bgcolor: '#f1f5f9', color: '#94a3b8', border: '1px solid #e2e8f0' }} />
                       )}
                     </TableCell>
-                    <TableCell sx={{ ...cell, whiteSpace: 'normal', lineHeight: 1.5 }}>
+
+                    {/* Comments */}
+                    <TableCell sx={{ ...cell, whiteSpace: 'normal', lineHeight: 1.5, maxWidth: 220 }}>
                       {review?.comments ? (() => {
                         const isExpanded = expandedComments.has(emp.id);
                         const isLong = review.comments.length > 45;
                         return (
                           <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, flexWrap: 'wrap' }}>
                             <Typography variant="body2" sx={{ fontSize: 12 }}>
-                              {isLong && !isExpanded
-                                ? `${review.comments.slice(0, 45)}...`
-                                : review.comments}
+                              {isLong && !isExpanded ? `${review.comments.slice(0, 45)}...` : review.comments}
                             </Typography>
                             {isLong && (
-                              <Typography
-                                component="span"
-                                sx={{ fontSize: 11, color: '#6366f1', cursor: 'pointer', fontWeight: 600,
-                                  whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' } }}
+                              <Typography component="span"
+                                sx={{ fontSize: 11, color: '#6366f1', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' } }}
                                 onClick={() => setExpandedComments(prev => {
                                   const next = new Set(prev);
                                   isExpanded ? next.delete(emp.id) : next.add(emp.id);
                                   return next;
-                                })}
-                              >
+                                })}>
                                 {isExpanded ? 'Hide' : 'View'}
                               </Typography>
                             )}
                           </Box>
                         );
-                      })() : (
-                        <Typography variant="caption" color="text.secondary">—</Typography>
-                      )}
+                      })() : <Typography variant="caption" color="text.secondary">—</Typography>}
                     </TableCell>
-                    <TableCell sx={{ ...cell, maxWidth: 200, whiteSpace: 'normal', lineHeight: 1.5 }}>
+
+                    {/* Strengths */}
+                    <TableCell sx={{ ...cell, maxWidth: 180, whiteSpace: 'normal', lineHeight: 1.5 }}>
                       {review?.strengths
                         ? <Typography variant="body2" sx={{ fontSize: 12, color: '#15803d' }}>{review.strengths}</Typography>
                         : <Typography variant="caption" color="text.secondary">—</Typography>}
                     </TableCell>
-                    <TableCell sx={{ ...cell, maxWidth: 200, whiteSpace: 'normal', lineHeight: 1.5 }}>
+
+                    {/* Improvement Area */}
+                    <TableCell sx={{ ...cell, maxWidth: 180, whiteSpace: 'normal', lineHeight: 1.5 }}>
                       {review?.areasOfImprovement
                         ? <Typography variant="body2" sx={{ fontSize: 12, color: '#b45309' }}>{review.areasOfImprovement}</Typography>
                         : <Typography variant="caption" color="text.secondary">—</Typography>}
                     </TableCell>
+
                   </TableRow>
                 );
               })}
@@ -1061,6 +1063,7 @@ const PerformanceTab = ({ employees }) => {
           rowsPerPageOptions={[10, 25, 50]}
         />
       </Card>
+
 
     </Box>
   );
@@ -2010,7 +2013,14 @@ const EmployeesPage = () => {
         <Divider />
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setAddOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleAdd} disabled={saving}
+          <Button variant="contained" onClick={handleAdd}
+            disabled={saving
+              || !form.firstName?.trim()
+              || !form.lastName?.trim()
+              || !form.email?.trim()
+              || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email || '')
+              || !form.password?.trim()
+              || (form.password || '').length < 8}
             startIcon={saving ? <CircularProgress size={16} /> : null}>
             {saving ? 'Adding…' : 'Add Employee'}
           </Button>

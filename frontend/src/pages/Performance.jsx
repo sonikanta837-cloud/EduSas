@@ -1071,7 +1071,8 @@ const PerformancePage = () => {
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
           <Button onClick={() => { setEditOpen(false); setEditTarget(null); }} disabled={updating} sx={{ borderRadius: '10px', fontSize: 13.5, fontWeight: 600, textTransform: 'none' }}>Cancel</Button>
           <Button
-            variant="contained" onClick={handleUpdate} disabled={updating}
+            variant="contained" onClick={handleUpdate}
+            disabled={updating || !editForm.reviewPeriod || !editForm.comments?.trim()}
             sx={{ borderRadius: '10px', bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' }, fontSize: 13.5, fontWeight: 700, textTransform: 'none' }}
           >
             {updating ? <CircularProgress size={18} sx={{ mr: 1, color: '#fff' }} /> : null}
@@ -1204,7 +1205,8 @@ const PerformancePage = () => {
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
           <Button onClick={() => setAddOpen(false)} disabled={submitting} sx={{ borderRadius: '10px', fontSize: 13.5, fontWeight: 600, textTransform: 'none' }}>Cancel</Button>
           <Button
-            variant="contained" onClick={handleCreate} disabled={submitting}
+            variant="contained" onClick={handleCreate}
+            disabled={submitting || !form.employeeId || !form.reviewPeriod || !form.comments?.trim()}
             sx={{ borderRadius: '10px', bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#152d4a' }, fontSize: 13.5, fontWeight: 700, textTransform: 'none' }}
           >
             {submitting ? <CircularProgress size={18} sx={{ mr: 1, color: '#fff' }} /> : null}

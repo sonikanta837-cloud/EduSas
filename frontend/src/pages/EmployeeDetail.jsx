@@ -465,6 +465,11 @@ const EmployeeDetailPage = () => {
                   </Button>
                   <Button size="small" variant="outlined" startIcon={<SaveIcon />}
                     onClick={handleSave}
+                    disabled={!form.firstName?.trim()
+                      || !form.lastName?.trim()
+                      || (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+                      || (form.phone && !/^[+]?[0-9]{7,15}$/.test(form.phone.trim()))
+                      || (form.password && form.password.length < 8)}
                     sx={{ textTransform: 'none', bgcolor: '#ffffff', color: '#1e3a5f', borderColor: '#1e3a5f', fontWeight: 600, borderRadius: '8px', '&:hover': { bgcolor: 'rgba(30,58,95,0.06)', borderColor: '#152d4a' } }}>
                     Save Changes
                   </Button>
