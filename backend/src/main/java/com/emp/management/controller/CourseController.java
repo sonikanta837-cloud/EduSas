@@ -30,7 +30,7 @@ public class CourseController {
     }
 
     @GetMapping("/all-enrollments")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR', 'HR')")
     public ResponseEntity<List<CourseLearnerDTO>> getAllEnrollments() {
         return ResponseEntity.ok(courseService.getAllEnrollments());
     }
@@ -48,7 +48,7 @@ public class CourseController {
             var requester = employeeDetailsRepository.findByUserEmail(authentication.getName()).orElse(null);
             if (requester != null) {
                 String role = requester.getUser().getRole().name();
-                if (!"ADMIN".equals(role) && !"DIRECTOR".equals(role)) {
+                if (!"ADMIN".equals(role) && !"DIRECTOR".equals(role) && !"HR".equals(role)) {
                     boolean isSelf = requester.getId().equals(employeeId);
                     var target = employeeDetailsRepository.findById(employeeId).orElse(null);
                     boolean isDirectReport = ("MANAGER".equals(role) || "ASSISTANT_MANAGER".equals(role))
@@ -69,7 +69,7 @@ public class CourseController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR', 'HR')")
     public ResponseEntity<CourseDTO> createCourse(@RequestBody CourseDTO dto,
                                                    @RequestParam Long createdBy) {
         CourseDTO saved = courseService.createCourse(dto, createdBy);
@@ -78,14 +78,14 @@ public class CourseController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR', 'HR')")
     public ResponseEntity<CourseDTO> updateCourse(@PathVariable Long id,
                                                    @RequestBody CourseDTO dto) {
         return ResponseEntity.ok(courseService.updateCourse(id, dto));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR', 'HR')")
     public ResponseEntity<String> deleteCourse(@PathVariable Long id) {
         courseService.deleteCourse(id);
         return ResponseEntity.ok("Course deleted");
@@ -99,7 +99,7 @@ public class CourseController {
     }
 
     @PostMapping("/{courseId}/assign")
-    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','MANAGER','ASSISTANT_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR','MANAGER','ASSISTANT_MANAGER')")
     public ResponseEntity<String> assignCourse(@PathVariable Long courseId,
                                                 @RequestBody Map<String, Object> body,
                                                 Authentication authentication) {
@@ -126,13 +126,13 @@ public class CourseController {
     }
 
     @GetMapping("/{courseId}/enrolled-employee-ids")
-    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','MANAGER','ASSISTANT_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR','MANAGER','ASSISTANT_MANAGER')")
     public ResponseEntity<List<Long>> getEnrolledEmployeeIds(@PathVariable Long courseId) {
         return ResponseEntity.ok(courseService.getEnrolledEmployeeIds(courseId));
     }
 
     @GetMapping("/{id}/learners")
-    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','MANAGER','ASSISTANT_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR','MANAGER','ASSISTANT_MANAGER')")
     public ResponseEntity<List<CourseLearnerDTO>> getLearners(@PathVariable Long id) {
         return ResponseEntity.ok(courseService.getLearners(id));
     }
@@ -143,13 +143,13 @@ public class CourseController {
     }
 
     @GetMapping("/{courseId}/generate-questions")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR', 'HR')")
     public ResponseEntity<List<Map<String, Object>>> generateQuestions(@PathVariable Long courseId) {
         return ResponseEntity.ok(aiQuizService.generateQuestionsOnly(courseId));
     }
 
     @GetMapping("/{courseId}/admin-exam-questions")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR', 'HR')")
     public ResponseEntity<List<Map<String, Object>>> getAdminExamQuestions(@PathVariable Long courseId) {
         return ResponseEntity.ok(courseService.getAdminExamQuestions(courseId));
     }
@@ -164,7 +164,7 @@ public class CourseController {
     }
 
     @PostMapping("/{courseId}/exam")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR', 'HR')")
     public ResponseEntity<String> createExam(@PathVariable Long courseId,
                                               @RequestBody Map<String, Object> body) {
         courseService.createExam(courseId, body.get("questions"),

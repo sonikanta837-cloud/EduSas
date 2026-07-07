@@ -84,7 +84,7 @@ const EMPTY_QUESTION = { question: '', options: ['', '', '', ''], correctAnswer:
 
 const CoursesPage = () => {
   const { user } = useSelector((s) => s.auth);
-  const isAdmin = user?.role === 'ADMIN' || user?.role === 'DIRECTOR';
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'DIRECTOR' || user?.role === 'HR';
   const isManager = user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER';
 
   const [courses, setCourses] = useState([]);

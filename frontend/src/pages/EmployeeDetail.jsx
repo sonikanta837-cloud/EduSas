@@ -183,7 +183,7 @@ const EmployeeDetailPage = () => {
   const isTheirManager  = isManager && employee && myEmployee && employee.managerId === myEmployee.id;
   const canEdit         = isAdmin || isHR || isTheirManager || isOwnProfile;
   const canViewFull     = isAdmin || isHR || isOwnProfile || isTheirManager;
-  const canViewCourses  = isAdmin || isOwnProfile || isTheirManager;
+  const canViewCourses  = isAdmin || isHR || isOwnProfile || isTheirManager;
 
   // Load viewer's own employee record
   useEffect(() => {

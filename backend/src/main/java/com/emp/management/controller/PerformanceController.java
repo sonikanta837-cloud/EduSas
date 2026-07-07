@@ -39,7 +39,7 @@ public class PerformanceController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR', 'MANAGER', 'ASSISTANT_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER')")
     public ResponseEntity<List<PerformanceReviewDTO>> getAllReviews() {
         return ResponseEntity.ok(performanceService.getAllReviews());
     }

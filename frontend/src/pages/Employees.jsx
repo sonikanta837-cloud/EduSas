@@ -1080,7 +1080,7 @@ const CoursesTab = ({ user }) => {
   const [learnersMap,    setLearnersMap]    = useState({});
   const [learnersLoading, setLearnersLoading] = useState({});
 
-  const isAdminRole   = user?.role === 'ADMIN' || user?.role === 'DIRECTOR';
+  const isAdminRole   = user?.role === 'ADMIN' || user?.role === 'DIRECTOR' || user?.role === 'HR';
   const isManagerRole = user?.role === 'MANAGER' || user?.role === 'ASSISTANT_MANAGER';
 
   useEffect(() => {
@@ -1567,10 +1567,13 @@ const EmployeesPage = () => {
       ? employeeApi.getTeam(user.employeeId)
       : employeeApi.getAll();
     const exRequest = (isAdmin || (empPerms?.canExEmployees)) ? employeeApi.getExEmployees() : Promise.resolve([]);
-    Promise.all([activeRequest, exRequest])
-      .then(([active, ex]) => { setEmployees(active); setExEmployees(ex); })
+    activeRequest
+      .then(setEmployees)
       .catch(() => toast.error('Failed to load employees'))
       .finally(() => setLoading(false));
+    exRequest
+      .then(setExEmployees)
+      .catch(() => setExEmployees([]));
   };
 
   useEffect(() => { fetchEmployees(); }, [user?.role, user?.employeeId]); // eslint-disable-line react-hooks/exhaustive-deps

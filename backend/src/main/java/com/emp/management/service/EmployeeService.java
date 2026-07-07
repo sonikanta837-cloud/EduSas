@@ -36,11 +36,6 @@ public class EmployeeService {
 
     @Transactional(readOnly = true)
     public List<EmployeeDTO> getAllEmployees(String requesterEmail) {
-        EmployeeDetails requester = employeeDetailsRepository.findByUserEmail(requesterEmail).orElse(null);
-        if (requester != null && "HR".equals(requester.getUser().getRole().name())) {
-            return employeeDetailsRepository.findByAssignedHrIdAndActiveTrue(requester.getId())
-                    .stream().filter(e -> !isDirector(e)).map(this::toDTO).collect(Collectors.toList());
-        }
         return employeeDetailsRepository.findByActive(true).stream()
                 .map(this::toDTO).collect(Collectors.toList());
     }
@@ -76,25 +71,19 @@ public class EmployeeService {
         if (requester != null) {
             String role = requester.getUser().getRole().name();
 
-            if (!target.isActive() && !"ADMIN".equals(role) && !"DIRECTOR".equals(role)) {
+            boolean isFullAccess = "ADMIN".equals(role) || "DIRECTOR".equals(role) || "HR".equals(role);
+
+            if (!target.isActive() && !isFullAccess) {
                 throw new AccessDeniedException("Only admins can view inactive employee profiles");
             }
 
-            boolean isAdmin       = "ADMIN".equals(role) || "DIRECTOR".equals(role);
-            boolean isHrRole      = "HR".equals(role);
             boolean isManagerRole = "MANAGER".equals(role) || "ASSISTANT_MANAGER".equals(role);
             boolean isOwnProfile  = requester.getId().equals(id);
-            boolean isAssignedHr  = isHrRole && target.getAssignedHr() != null
-                    && target.getAssignedHr().getId().equals(requester.getId());
             boolean isDirectReport = isManagerRole
                     && target.getManager() != null
                     && target.getManager().getId().equals(requester.getId());
 
-            if (isHrRole && isDirector(target) && !isOwnProfile) {
-                throw new AccessDeniedException("HR does not have permission to view director profiles");
-            }
-
-            if (!isAdmin && !isAssignedHr && !isOwnProfile && !isDirectReport) {
+            if (!isFullAccess && !isOwnProfile && !isDirectReport) {
                 throw new AccessDeniedException("You do not have permission to view this employee's profile");
             }
         }
@@ -116,11 +105,6 @@ public class EmployeeService {
 
     @Transactional(readOnly = true)
     public List<EmployeeDTO> searchEmployees(String query, String requesterEmail) {
-        EmployeeDetails requester = employeeDetailsRepository.findByUserEmail(requesterEmail).orElse(null);
-        if (requester != null && "HR".equals(requester.getUser().getRole().name())) {
-            return employeeDetailsRepository.searchActiveEmployeesByHr(query, requester.getId())
-                    .stream().filter(e -> !isDirector(e)).map(this::toDTO).collect(Collectors.toList());
-        }
         return employeeDetailsRepository.searchActiveEmployees(query).stream()
                 .map(this::toDTO).collect(Collectors.toList());
     }

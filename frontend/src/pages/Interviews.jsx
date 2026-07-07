@@ -26,6 +26,7 @@ import AssignmentIcon     from '@mui/icons-material/Assignment';
 import HowToRegIcon       from '@mui/icons-material/HowToReg';
 import EmojiEventsIcon    from '@mui/icons-material/EmojiEvents';
 import GroupIcon          from '@mui/icons-material/Group';
+import AppDateTimePicker  from '../components/AppDateTimePicker';
 import { interviewApi }   from '../api/interviewApi';
 import { employeeApi }    from '../api/employeeApi';
 import { toast }          from 'react-toastify';
@@ -2750,10 +2751,11 @@ const ATSPage = () => {
                     </MenuItem>
                   ))}
               </TextField>
-              <TextField label="Interview Date & Time" type="datetime-local" fullWidth size="small"
+              <AppDateTimePicker
+                label="Interview Date & Time"
                 value={assignForm.scheduledAt}
-                onChange={e => setAssignForm(f => ({ ...f, scheduledAt: e.target.value }))}
-                InputLabelProps={{ shrink: true }} />
+                onChange={(val) => setAssignForm(f => ({ ...f, scheduledAt: val }))}
+              />
               <Alert severity="info" sx={{ fontSize: 12 }}>
                 The interviewer will receive an email notification. The candidate status will move to <strong>Technical Pending</strong>.
               </Alert>
