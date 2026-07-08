@@ -119,8 +119,35 @@ public class AtsService {
             "applying", "seeking", "looking", "available", "open",
             // Certification abbreviations
             "acca", "cpa", "cfa", "mba", "bca", "mca", "bsc", "msc", "bcom", "mcom",
-            "bba", "llb", "llm", "phd", "pgdm", "icai", "icsi", "icwa"
+            "bba", "llb", "llm", "phd", "pgdm", "icai", "icsi", "icwa",
+            // More section headings not already covered above/by substring matching
+            "qualification", "qualifications", "educational", "personal", "details",
+            "particulars", "declare", "hereby", "sincerely", "signature", "annexure",
+            "undersigned", "enclosed", "achievements", "hobbies", "interests",
+            "extracurricular", "strengths", "responsibilities", "overview"
     ));
+
+    // Real given/family-name words are almost never this long. PDF text extraction
+    // sometimes glues two adjacent section-heading words together with no space in
+    // between (e.g. "Career Objective" -> "Careerobjective"), which otherwise slips
+    // past an exact NAME_STOP_WORDS match. Only tokens at least this long are checked
+    // for an embedded stop word, so short legitimate names are never rejected.
+    private static final int GLUED_HEADING_MIN_LENGTH = 10;
+
+    /** True if {@code word} is CV boilerplate/section-heading text and therefore can
+     *  never be part of a candidate's real name — see {@link #GLUED_HEADING_MIN_LENGTH}. */
+    private boolean isNameStopToken(String word) {
+        if (word == null || word.isEmpty()) return false;
+        String w = word.toLowerCase();
+        if (NAME_STOP_WORDS.contains(w)) return true;
+        if (w.length() >= GLUED_HEADING_MIN_LENGTH) {
+            for (String stop : NAME_STOP_WORDS) {
+                if (stop.length() >= 5 && w.contains(stop)) return true;
+            }
+        }
+        return false;
+    }
+
     private static final Pattern LINKEDIN_PATTERN =
             Pattern.compile("linkedin\\.com/in/[a-zA-Z0-9_%\\-]+", Pattern.CASE_INSENSITIVE);
     private static final Pattern GITHUB_PATTERN =
@@ -379,7 +406,7 @@ public class AtsService {
     public Map<String, String> parseResume(MultipartFile file) {
         try {
             String text = extractText(file);
-            return deepParseText(text, file.getOriginalFilename());
+            return deepParseText(text);
         } catch (Exception e) {
             log.warn("Resume parse failed: {}", e.getMessage());
             return new HashMap<>();
@@ -389,7 +416,7 @@ public class AtsService {
     /** Called by the browser-OCR flow: parses raw OCR text into structured fields. */
     public Map<String, String> parseTextFields(String text) {
         if (text == null || text.isBlank()) return new HashMap<>();
-        return deepParseText(text, null);
+        return deepParseText(text);
     }
 
     /**
@@ -434,7 +461,7 @@ public class AtsService {
                         log.warn("Image-based PDF detected but Claude API key not configured — no fields extracted");
                         parsed = new HashMap<>();
                     } else {
-                        parsed = deepParseText(text, file.getOriginalFilename());
+                        parsed = deepParseText(text);
                     }
                 }
             } else {
@@ -445,7 +472,7 @@ public class AtsService {
                 String text = extractTextFromPath(savedFile, file.getOriginalFilename());
                 log.warn(">>> DOCX extract DONE: {} chars\n{}", text.length(), text);
                 raw = text.length() > 12000 ? text.substring(0, 12000) : text;
-                parsed = deepParseText(text, file.getOriginalFilename());
+                parsed = deepParseText(text);
             }
 
             Map<String, Object> result = new LinkedHashMap<>();
@@ -1272,7 +1299,7 @@ public class AtsService {
         return m.groupCount() >= 1 && m.group(1) != null ? m.group(1) : m.group();
     }
 
-    private Map<String, String> deepParseText(String text, String filename) {
+    private Map<String, String> deepParseText(String text) {
         Map<String, String> r = new HashMap<>();
         if (text == null || text.isBlank()) return r;
 
@@ -1283,11 +1310,10 @@ public class AtsService {
             String cleanPhone = rawPhone.replaceAll("[^\\d]", "");
             if (cleanPhone.length() == 10) put(r, "phone", cleanPhone);
         }
-        // Filename is the highest-confidence name source (e.g. "Charchit Gupta_ payment.pdf" → "Charchit Gupta").
-        // Fall back to text-only heuristics when filename yields nothing.
-        String name = extractNameFromFilename(filename);
-        if (name == null) name = extractNameFromText(text);
-        put(r, "name", name);
+        // Name must come from the resume body only — the uploaded file name/title is
+        // author-chosen metadata (e.g. "Resume_Sakshi.pdf"), not reliable evidence of
+        // who the candidate actually is, so it is never used here.
+        put(r, "name", extractNameFromText(text));
         // Log first 40 extracted lines so address-parsing failures can be diagnosed
         String[] _dbgLines = text.split("\\r?\\n");
         StringBuilder _dbg = new StringBuilder("=== CV TEXT LINES ===\n");
@@ -1886,7 +1912,7 @@ public class AtsService {
                         boolean isProbablyName = nw.length <= 3
                                 && !s.matches(".*\\d.*")
                                 && java.util.Arrays.stream(nw).allMatch(w -> w.length() >= 1 && Character.isUpperCase(w.charAt(0)))
-                                && java.util.Arrays.stream(nw).map(String::toLowerCase).noneMatch(NAME_STOP_WORDS::contains)
+                                && java.util.Arrays.stream(nw).noneMatch(this::isNameStopToken)
                                 && !DESIGNATION_PATTERN.matcher(s).find();
                         if (isProbablyName) continue;
                     }
@@ -1963,7 +1989,7 @@ public class AtsService {
                         boolean isProbablyName = nw.length <= 3
                                 && !t.matches(".*\\d.*")
                                 && java.util.Arrays.stream(nw).allMatch(w -> w.length() >= 1 && Character.isUpperCase(w.charAt(0)))
-                                && java.util.Arrays.stream(nw).map(String::toLowerCase).noneMatch(NAME_STOP_WORDS::contains)
+                                && java.util.Arrays.stream(nw).noneMatch(this::isNameStopToken)
                                 && !DESIGNATION_PATTERN.matcher(t).find();
                         if (isProbablyName) continue;
                     }
@@ -2285,64 +2311,6 @@ public class AtsService {
         return null;
     }
 
-    /**
-     * Extracts the candidate's name from the CV filename — the most reliable source.
-     *
-     * Indian CV naming conventions covered:
-     *   "2. Charchit Gupta_ payment collection for samsung mobile.pdf" → "Charchit Gupta"
-     *   "1. Ashish Nalwade_ Accountant.pdf"                            → "Ashish Nalwade"
-     *   "Aayushi Bhawsar.pdf"                                          → "Aayushi Bhawsar"
-     *   "Resume_Rahul_Sharma.pdf"                                      → "Rahul Sharma"
-     *   "Pooja Soni CV.pdf"                                            → "Pooja Soni"
-     *
-     * Algorithm:
-     *   1. Strip extension + leading "N. " prefix.
-     *   2. If "_" is present, take the first segment as the name candidate.
-     *   3. Otherwise use the full base.
-     *   4. Remove non-alpha characters; left-trim and right-trim NAME_STOP_WORDs.
-     *   5. Validate that the remaining 2-4 words look like a person name.
-     */
-    private String extractNameFromFilename(String filename) {
-        if (filename == null || filename.isBlank()) return null;
-        String base = filename.replaceFirst("\\.[a-zA-Z0-9]{2,5}$", "").trim();
-        base = base.replaceFirst("^\\d+[.)\\s]+", "").trim();
-
-        // Build candidate list: each "_"-segment individually, then all segments joined.
-        // This handles "CV_Shreya Mehta" (first seg = "CV" → skip → "Shreya Mehta" ✓)
-        // and "Resume_Rahul_Sharma" (each seg = 1 word → skip → joined = "Resume Rahul Sharma" → trim "Resume" → ✓).
-        List<String> candidates = new ArrayList<>();
-        if (base.contains("_")) {
-            for (String seg : base.split("_")) candidates.add(seg.trim());
-            candidates.add(base.replace("_", " ").trim()); // fallback: all joined
-        } else {
-            candidates.add(base);
-        }
-
-        for (String candidate : candidates) {
-            candidate = candidate.replaceAll("[^A-Za-z\\s]", " ").replaceAll("\\s+", " ").trim();
-            List<String> words = new ArrayList<>(Arrays.asList(candidate.split("\\s+")));
-            words.removeIf(String::isBlank);
-
-            while (!words.isEmpty() && NAME_STOP_WORDS.contains(words.get(0).toLowerCase()))
-                words.remove(0);
-            while (!words.isEmpty()) {
-                String last = words.get(words.size() - 1);
-                if (NAME_STOP_WORDS.contains(last.toLowerCase())
-                        || DESIGNATION_PATTERN.matcher(last).find())
-                    words.remove(words.size() - 1);
-                else break;
-            }
-
-            if (words.size() < 2 || words.size() > 4) continue;
-            String result = String.join(" ", words.subList(0, Math.min(words.size(), 3)));
-            String[] rw = result.split("\\s+");
-            if (Stream.of(rw).map(String::toLowerCase).anyMatch(NAME_STOP_WORDS::contains)) continue;
-            if (DESIGNATION_PATTERN.matcher(result).find()) continue;
-            return toTitleCase(result);
-        }
-        return null;
-    }
-
     private String extractNameFromText(String text) {
         if (text == null) return null;
         String[] lines = text.split("\\r?\\n");
@@ -2357,7 +2325,7 @@ public class AtsService {
             String candidate = nm.group(1).trim().replaceAll("[^A-Za-z\\s.]", "").trim();
             String[] cw = candidate.split("\\s+");
             if (cw.length >= 2 && cw.length <= 4
-                    && Stream.of(cw).map(String::toLowerCase).noneMatch(NAME_STOP_WORDS::contains)
+                    && Stream.of(cw).noneMatch(this::isNameStopToken)
                     && !DESIGNATION_PATTERN.matcher(candidate).find()) {
                 return toTitleCase(candidate);
             }
@@ -2372,7 +2340,7 @@ public class AtsService {
                 String token = raw.replaceAll("[^A-Za-z]", "");
                 if (token.length() >= 3
                         && token.equals(token.toUpperCase())
-                        && !NAME_STOP_WORDS.contains(token.toLowerCase())) {
+                        && !isNameStopToken(token)) {
                     lineTokens.add(token);
                 }
             }
@@ -2404,7 +2372,7 @@ public class AtsService {
             List<String> nameWords = new ArrayList<>();
             for (String w : words) {
                 if (w.isBlank()) continue;
-                if (NAME_STOP_WORDS.contains(w.toLowerCase()) || nameWords.size() == 3) break;
+                if (isNameStopToken(w) || nameWords.size() == 3) break;
                 nameWords.add(w);
             }
             if (nameWords.size() >= 2) return toTitleCase(String.join(" ", nameWords));
@@ -2431,7 +2399,7 @@ public class AtsService {
             List<String> parts = Arrays.stream(local.split("[._\\-]+"))
                     .map(p -> p.replaceAll("\\d+$", ""))   // strip trailing digits: "charchit456" → "charchit"
                     .filter(p -> p.matches("[a-zA-Z]{2,}")
-                            && !NAME_STOP_WORDS.contains(p.toLowerCase()))
+                            && !isNameStopToken(p))
                     .collect(Collectors.toList());
             if (parts.size() < 2) continue;
             // Scan full document for the earliest line containing ALL email name parts
@@ -2444,7 +2412,7 @@ public class AtsService {
                     String[] cw = ct.split("\\s+");
                     if (cw.length >= 2 && cw.length <= 4
                             && ct.matches("[A-Za-z][A-Za-z\\s.]{1,40}")
-                            && Stream.of(cw).map(String::toLowerCase).noneMatch(NAME_STOP_WORDS::contains)
+                            && Stream.of(cw).noneMatch(this::isNameStopToken)
                             && !DESIGNATION_PATTERN.matcher(ct).find()) {
                         return ct;
                     }
@@ -2492,12 +2460,12 @@ public class AtsService {
             List<String> wlist = new ArrayList<>(Arrays.asList(stripped.split("\\s+")));
             wlist.removeIf(String::isBlank);
             while (!wlist.isEmpty()
-                    && NAME_STOP_WORDS.contains(wlist.get(wlist.size() - 1).toLowerCase())) {
+                    && isNameStopToken(wlist.get(wlist.size() - 1))) {
                 wlist.remove(wlist.size() - 1);
             }
             // Left-trim NAME_STOP_WORDs too
             while (!wlist.isEmpty()
-                    && NAME_STOP_WORDS.contains(wlist.get(0).toLowerCase())) {
+                    && isNameStopToken(wlist.get(0))) {
                 wlist.remove(0);
             }
             stripped = String.join(" ", wlist).trim();
@@ -2511,7 +2479,7 @@ public class AtsService {
             boolean allTitleCase = Stream.of(words)
                     .allMatch(w -> w.length() >= 1 && Character.isUpperCase(w.charAt(0)));
             if (!allTitleCase) continue;
-            if (Stream.of(words).map(String::toLowerCase).anyMatch(NAME_STOP_WORDS::contains)) continue;
+            if (Stream.of(words).anyMatch(this::isNameStopToken)) continue;
             if (DESIGNATION_PATTERN.matcher(stripped).find()) continue;
             return stripped;
         }
@@ -2542,6 +2510,20 @@ public class AtsService {
                         .map(p -> Character.toUpperCase(p.charAt(0)) + p.substring(1).toLowerCase())
                         .collect(Collectors.joining(" "));
             }
+        }
+
+        // Strategy G: Single-word (mononym) fallback — many Indian CVs list only a first
+        // name above the contact block, with no surname anywhere in the document. Runs
+        // last because a lone word is weaker evidence than any multi-word match above,
+        // but it is still read from the resume body itself, never from the file name.
+        for (String line : preContactLines) {
+            String[] words = line.trim().split("\\s+");
+            if (words.length != 1) continue;
+            String word = words[0];
+            if (!word.matches("[A-Z][a-zA-Z]{2,19}")) continue;
+            if (isNameStopToken(word)) continue;
+            if (DESIGNATION_PATTERN.matcher(word).find()) continue;
+            return toTitleCase(word);
         }
 
         return null;
