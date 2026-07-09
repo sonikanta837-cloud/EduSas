@@ -34,4 +34,9 @@ public interface InterviewQuestionRepository extends JpaRepository<InterviewQues
     @Query(value = "SELECT * FROM interview_questions WHERE status = 'ACTIVE' AND LOWER(technology) = LOWER(:tech) AND difficulty = :diff ORDER BY RAND() LIMIT :cnt",
            nativeQuery = true)
     List<InterviewQuestion> findRandomByTechnologyAndDifficulty(@Param("tech") String technology, @Param("diff") String difficulty, @Param("cnt") int count);
+
+    /** Random active questions across all technologies — last-resort fallback so results are never a fixed, deterministic set. */
+    @Query(value = "SELECT * FROM interview_questions WHERE status = 'ACTIVE' ORDER BY RAND() LIMIT :cnt",
+           nativeQuery = true)
+    List<InterviewQuestion> findRandomActive(@Param("cnt") int count);
 }

@@ -17,6 +17,7 @@ public class DirectorRoomDTO {
     private String appliedProfile;
     private String interviewStatus;
 
+    private LocalDateTime scheduledAt;
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;
     private LocalDateTime evaluatedAt;

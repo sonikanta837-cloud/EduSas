@@ -14,6 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -206,9 +207,10 @@ public class InterviewController {
             @RequestBody Map<String, Object> body,
             Authentication auth) {
         String technology   = (String) body.get("technology");
+        String difficulty   = (String) body.get("difficulty");
         Integer questionCount = body.get("questionCount") != null
                 ? Integer.parseInt(body.get("questionCount").toString()) : null;
-        return ResponseEntity.ok(atsService.generateInterviewLink(id, technology, questionCount, auth.getName()));
+        return ResponseEntity.ok(atsService.generateInterviewLink(id, technology, difficulty, questionCount, auth.getName()));
     }
 
     @GetMapping("/technical/{id}/room")
@@ -332,8 +334,9 @@ public class InterviewController {
         return ResponseEntity.ok(atsService.getEligibleDirectors());
     }
 
-    // ── Final Round (legacy form-based) ──────────────────────────────────────
+    // ── Final Round completion — Director notes, then HR decision ─────────────
 
+    /** Director step: submits interview notes + an advisory recommendation. Only the assigned Director (or Admin) may call this. */
     @PostMapping("/candidates/{id}/final")
     @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
     public ResponseEntity<AtsFinalRoundDTO> saveFinalRound(
@@ -343,8 +346,9 @@ public class InterviewController {
         return ResponseEntity.ok(atsService.saveFinalRound(id, dto, auth.getName()));
     }
 
+    /** HR step: reviews the Director's notes and records the actual hiring decision + offer/rejection email. */
     @PostMapping("/final/{id}/decision")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
     public ResponseEntity<AtsCandidateDTO> submitFinalDecision(
             @PathVariable Long id,
             @RequestBody AtsFinalRoundDTO dto,
@@ -352,23 +356,36 @@ public class InterviewController {
         return ResponseEntity.ok(atsService.submitFinalDecision(id, dto, auth.getName()));
     }
 
-    // ── Final Round Video Interview — Director Endpoints ──────────────────────
+    // ── Final Round Video Interview — HR/Director Endpoints ────────────────────
 
-    @PostMapping("/candidates/{id}/final/generate-link")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR', 'HR')")
-    public ResponseEntity<AtsFinalRoundDTO> generateFinalInterviewLink(
+    /** HR/Admin step: assigns the candidate to a Director for the Final Round. */
+    @PostMapping("/candidates/{id}/final/assign-director")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HR')")
+    public ResponseEntity<AtsFinalRoundDTO> assignFinalRoundDirector(
             @PathVariable Long id,
             @RequestBody Map<String, Object> body,
             Authentication auth) {
         Long directorId = body.get("directorId") != null
                 ? Long.parseLong(body.get("directorId").toString()) : null;
-        return ResponseEntity.ok(atsService.generateFinalInterviewLink(id, directorId, auth.getName()));
+        return ResponseEntity.ok(atsService.assignFinalRoundDirector(id, directorId, auth.getName()));
+    }
+
+    /** Director step: schedules the Final Interview and (re)generates the secure candidate link. */
+    @PostMapping("/candidates/{id}/final/generate-link")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
+    public ResponseEntity<AtsFinalRoundDTO> generateFinalInterviewLink(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body,
+            Authentication auth) {
+        LocalDateTime scheduledAt = body.get("scheduledAt") != null && !body.get("scheduledAt").toString().isBlank()
+                ? LocalDateTime.parse(body.get("scheduledAt").toString()) : null;
+        return ResponseEntity.ok(atsService.generateFinalInterviewLink(id, scheduledAt, auth.getName()));
     }
 
     @GetMapping("/final/{id}/director-room")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<DirectorRoomDTO> getDirectorRoom(@PathVariable Long id, Authentication auth) {
-        return ResponseEntity.ok(atsService.getDirectorRoom(id));
+        return ResponseEntity.ok(atsService.getDirectorRoom(id, auth.getName()));
     }
 
     @PostMapping("/final/{id}/evaluate")

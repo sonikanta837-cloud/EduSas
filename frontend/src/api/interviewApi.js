@@ -123,6 +123,7 @@ export const interviewApi = {
   submitFinalDecision: (id, data) => api.post(`/interviews/final/${id}/decision`, data),
 
   // ── Final Round Video Interview ────────────────────────────────────────────
+  assignFinalRoundDirector:     (candidateId, data) => api.post(`/interviews/candidates/${candidateId}/final/assign-director`, data),
   generateFinalInterviewLink:   (candidateId, data) => api.post(`/interviews/candidates/${candidateId}/final/generate-link`, data),
   getDirectorRoom:              (id)       => api.get(`/interviews/final/${id}/director-room`),
   submitDirectorEvaluation:     (id, data) => api.post(`/interviews/final/${id}/evaluate`, data),

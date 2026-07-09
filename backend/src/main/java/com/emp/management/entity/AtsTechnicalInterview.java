@@ -55,6 +55,11 @@ public class AtsTechnicalInterview {
     @Column(name = "interview_technology", length = 100)
     private String interviewTechnology;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "interview_difficulty", length = 10)
+    @Builder.Default
+    private InterviewDifficulty interviewDifficulty = InterviewDifficulty.MIXED;
+
     @Column(name = "question_count")
     @Builder.Default
     private Integer questionCount = 20;

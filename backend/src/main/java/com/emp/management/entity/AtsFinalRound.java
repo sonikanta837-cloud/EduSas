@@ -38,6 +38,9 @@ public class AtsFinalRound {
     @Builder.Default
     private AtsFinalInterviewStatus interviewStatus = AtsFinalInterviewStatus.PENDING_LINK;
 
+    @Column(name = "scheduled_at")
+    private LocalDateTime scheduledAt;
+
     @Column(name = "started_at")
     private LocalDateTime startedAt;
 
@@ -96,6 +99,15 @@ public class AtsFinalRound {
     @Column(name = "joining_date")
     private LocalDate joiningDate;
 
+    // Director's recommendation, submitted alongside their interview notes — advisory only.
+    // The actual hiring outcome is `finalDecision`, recorded separately by HR.
+    @Column(name = "director_recommendation", length = 10)
+    @Builder.Default
+    private String directorRecommendation = "PENDING"; // PENDING / APPROVE / HOLD / REJECT
+
+    @Column(name = "director_notes_at")
+    private LocalDateTime directorNotesAt;
+
     @Column(name = "final_decision", length = 10)
     @Builder.Default
     private String finalDecision = "PENDING"; // PENDING / APPROVE / HOLD / REJECT
@@ -105,6 +117,23 @@ public class AtsFinalRound {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private EmployeeDetails conductedBy;
+
+    // HR/Admin who assigned this candidate to the Director above
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_by_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private EmployeeDetails assignedBy;
+
+    // HR/Admin who recorded the final hiring decision (`finalDecision`)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "decided_by_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private EmployeeDetails decidedBy;
+
+    @Column(name = "decided_at")
+    private LocalDateTime decidedAt;
 
     @CreationTimestamp
     private LocalDateTime createdAt;

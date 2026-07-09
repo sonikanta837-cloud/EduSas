@@ -20,6 +20,7 @@ public class AtsFinalRoundDTO {
     private String token;
     private String interviewStatus;
     private String interviewLink;
+    private LocalDateTime scheduledAt;
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;
     private LocalDateTime evaluatedAt;
@@ -35,17 +36,28 @@ public class AtsFinalRoundDTO {
     private String  noticePeriod;
     private String  directorRemarks;
 
-    // ── Legacy / form fields ──────────────────────────────────────────────────
+    // ── Director's interview notes ──────────────────────────────────────────────
     private LocalDate finalInterviewDate;
     private String    finalRemarks;
     private String    salaryRecommendation;
     private LocalDate joiningDate;
 
-    // PENDING / APPROVE / HOLD / REJECT
+    // Director's advisory recommendation — PENDING / APPROVE / HOLD / REJECT
+    private String        directorRecommendation;
+    private LocalDateTime directorNotesAt;
+
+    // ── HR's hiring decision — PENDING / APPROVE / HOLD / REJECT ────────────────
     private String finalDecision;
+
+    private Long           decidedById;
+    private String         decidedByName;
+    private LocalDateTime  decidedAt;
 
     private Long   conductedById;
     private String conductedByName;
+
+    private Long   assignedById;
+    private String assignedByName;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

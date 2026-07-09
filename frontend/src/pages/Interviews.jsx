@@ -34,6 +34,7 @@ import { toast }          from 'react-toastify';
 /* ── Constants ─────────────────────────────────────────────────────────────── */
 const OFFICE_LOCATIONS  = ['Mandsaur', 'Jamnagar', 'Ahmedabad', 'WFH'];
 const CANDIDATE_SOURCES = ['LinkedIn', 'Naukri', 'Referral', 'Company Website', 'Walk-in', 'Consultant', 'Whatsapp', 'Outlook', 'Other'];
+const DIFF_OPTIONS = ['EASY', 'MEDIUM', 'HARD', 'MIXED'];
 const APPLIED_PROFILES  = ['Accounts', 'Book Keeper', 'Personal Tax', 'Corporate Tax', 'Payroll'];
 const STAGE_STEPS       = ['CV Bank', 'HR Screening', 'Technical Interview', 'Final Round'];
 
@@ -64,7 +65,9 @@ const EMPTY_UPLOAD = {
 };
 const EMPTY_HR     = { currentRoleResponsibilities: '', reasonForChange: '', currentCtc: '', expectedCtc: '', noticePeriod: '', preferredLocation: '', workBase: '', totalExperience: '', currentCompany: '', screeningDate: '', communicationSkills: '', hrComments: '', rejectionReason: '', relevantExperience: '', availability: '' };
 const EMPTY_TECH   = { technicalSkillsRating: 3, communicationRating: 3, problemSolvingRating: 3, codingAbilityRating: 3, architectureKnowledgeRating: 3, comments: '', decision: '' };
-const EMPTY_FINAL  = { finalInterviewDate: '', finalRemarks: '', salaryRecommendation: '', joiningDate: '' };
+const EMPTY_FINAL  = { finalInterviewDate: '', finalRemarks: '', salaryRecommendation: '', directorRecommendation: 'PENDING' };
+const EMPTY_HR_DECISION = { offeredCtc: '', joiningDate: '' };
+const RECOMMENDATION_OPTIONS = ['PENDING', 'APPROVE', 'HOLD', 'REJECT'];
 
 const fmtDate = (v) => v ? new Date(v).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 const fmtDt   = (v) => v ? new Date(v).toLocaleString('en-IN',  { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -188,16 +191,28 @@ const ATSPage = () => {
   /* ── Generate Interview Link Dialog ─────────────────────────────────────── */
   const [linkDialog,      setLinkDialog]      = useState(false);
   const [linkTechId,      setLinkTechId]      = useState(null);
-  const [linkForm,        setLinkForm]        = useState({ technology: '', questionCount: 20 });
+  const [linkForm,        setLinkForm]        = useState({ technology: '', difficulty: 'MIXED', questionCount: 20 });
   const [linkGenerating,  setLinkGenerating]  = useState(false);
   const [generatedLink,   setGeneratedLink]   = useState('');
 
-  /* ── Final Round form ──────────────────────────────────────────────────── */
+  /* ── Final Round: Director's interview notes ─────────────────────────────── */
   const [finalForm,        setFinalForm]        = useState(EMPTY_FINAL);
   const [finalSaving,      setFinalSaving]      = useState(false);
+
+  /* ── Final Round: HR's hiring decision ───────────────────────────────────── */
+  const [hrDecisionForm,   setHrDecisionForm]   = useState(EMPTY_HR_DECISION);
+  const [hrDeciding,       setHrDeciding]       = useState(false);
+
+  /* ── Assign Director dialog (HR/Admin) ───────────────────────────────────── */
+  const [assignDirectorDialog,  setAssignDirectorDialog]  = useState(false);
+  const [assignDirectorCandId,  setAssignDirectorCandId]  = useState(null);
+  const [assignDirectorForm,    setAssignDirectorForm]    = useState({ directorId: '' });
+  const [assigningDirector,     setAssigningDirector]     = useState(false);
+
+  /* ── Schedule & Generate Final Interview Link dialog (Director) ─────────── */
   const [finalLinkDialog,  setFinalLinkDialog]  = useState(false);
   const [finalLinkCandId,  setFinalLinkCandId]  = useState(null);
-  const [finalLinkForm,    setFinalLinkForm]     = useState({ directorId: '' });
+  const [finalLinkForm,    setFinalLinkForm]     = useState({ scheduledAt: '' });
   const [finalLinkGenerating, setFinalLinkGenerating] = useState(false);
 
   /* ── Edit Candidate ────────────────────────────────────────────────────── */
@@ -279,11 +294,15 @@ const ATSPage = () => {
     } : EMPTY_HR);
     const f = c.finalRound;
     setFinalForm(f ? {
-      finalInterviewDate:   f.finalInterviewDate   || '',
-      finalRemarks:         f.finalRemarks         || '',
-      salaryRecommendation: f.salaryRecommendation || '',
-      joiningDate:          f.joiningDate          || '',
+      finalInterviewDate:     f.finalInterviewDate     || '',
+      finalRemarks:           f.finalRemarks           || '',
+      salaryRecommendation:   f.salaryRecommendation   || '',
+      directorRecommendation: f.directorRecommendation || 'PENDING',
     } : EMPTY_FINAL);
+    setHrDecisionForm(f ? {
+      offeredCtc:  f.offeredCtc  || '',
+      joiningDate: f.joiningDate || '',
+    } : EMPTY_HR_DECISION);
     setStageTab(statusToStep(c.status));
   };
 
@@ -469,6 +488,7 @@ const ATSPage = () => {
     setSelectedCand(null);
     setHrForm(EMPTY_HR);
     setFinalForm(EMPTY_FINAL);
+    setHrDecisionForm(EMPTY_HR_DECISION);
     setDetailLoading(true);
     try {
       const full = await interviewApi.getCandidate(c.id);
@@ -597,7 +617,11 @@ const ATSPage = () => {
         ...hrForm,
         decision:     'SUITABLE',
         interviewerId: Number(assignForm.interviewerId),
-        scheduledAt:   assignForm.scheduledAt ? new Date(assignForm.scheduledAt).toISOString() : null,
+        // assignForm.scheduledAt is already a naive local "YYYY-MM-DDTHH:mm" string from
+        // AppDateTimePicker — send it as-is so the exact wall-clock time the HR/Admin picked
+        // is preserved. Converting via `new Date(...).toISOString()` shifts it by the
+        // browser's UTC offset before the backend's zoneless LocalDateTime field stores it.
+        scheduledAt:   assignForm.scheduledAt || null,
       });
       toast.success('Marked Suitable — Technical interview assigned, manager notified');
       setAssignDialog(false);
@@ -625,7 +649,11 @@ const ATSPage = () => {
 
   const openGenerateLinkDialog = (tech) => {
     setLinkTechId(tech.id);
-    setLinkForm({ technology: tech.interviewTechnology || tech.candidateAppliedProfile || '', questionCount: tech.questionCount || 20 });
+    setLinkForm({
+      technology: tech.interviewTechnology || tech.candidateAppliedProfile || '',
+      difficulty: tech.interviewDifficulty || 'MIXED',
+      questionCount: tech.questionCount || 20,
+    });
     setGeneratedLink(tech.interviewLink || '');
     setLinkDialog(true);
   };
@@ -634,7 +662,7 @@ const ATSPage = () => {
     setLinkGenerating(true);
     try {
       const updated = await interviewApi.generateInterviewLink(linkTechId, {
-        technology: linkForm.technology, questionCount: linkForm.questionCount,
+        technology: linkForm.technology, difficulty: linkForm.difficulty, questionCount: linkForm.questionCount,
       });
       setGeneratedLink(updated.interviewLink || '');
       toast.success('Interview link generated and emailed to candidate!');
@@ -664,36 +692,61 @@ const ATSPage = () => {
     finally { setTechSaving(false); }
   };
 
-  /* ── Final Round ───────────────────────────────────────────────────────── */
+  /* ── Final Round: Director submits interview notes + recommendation ─────── */
   const handleSaveFinal = async () => {
     if (!finalForm.finalInterviewDate) { toast.error('Final Interview Date is required'); return; }
     setFinalSaving(true);
     try {
       await interviewApi.saveFinalRound(selectedCand.id, finalForm);
-      toast.success('Final round details saved');
+      toast.success('Interview notes submitted — HR has been notified');
       await refreshDetail(selectedCand.id);
-    } catch { toast.error('Failed to save'); }
+    } catch (err) { toast.error(err?.response?.data?.message || 'Failed to save'); }
     finally { setFinalSaving(false); }
   };
 
+  /* ── Final Round: HR reviews the Director's notes and records the decision ── */
   const handleFinalDecision = async (decision) => {
-    if (!selectedCand.finalRound?.id) { toast.error('Save final round details first'); return; }
-    setFinalSaving(true);
+    if (!selectedCand.finalRound?.id) { toast.error('The Director must submit interview notes first'); return; }
+    if (decision === 'APPROVE' && (!hrDecisionForm.offeredCtc || !hrDecisionForm.joiningDate)) {
+      toast.error('Offered CTC and Joining Date are required to approve');
+      return;
+    }
+    setHrDeciding(true);
     try {
-      const updated = await interviewApi.submitFinalDecision(selectedCand.finalRound.id, { ...finalForm, finalDecision: decision });
-      toast.success(decision === 'APPROVE' ? 'Candidate Selected — offer email sent!' : 'Candidate rejected');
+      const updated = await interviewApi.submitFinalDecision(selectedCand.finalRound.id, { ...hrDecisionForm, finalDecision: decision });
+      toast.success(decision === 'APPROVE' ? 'Candidate Selected — offer email sent!' : decision === 'REJECT' ? 'Candidate rejected' : 'Candidate placed on hold');
       setSelectedCand(updated);
       populateForms(updated);
       await refreshCandidates();
     } catch (err) { toast.error(err?.response?.data?.message || 'Failed'); }
-    finally { setFinalSaving(false); }
+    finally { setHrDeciding(false); }
+  };
+
+  const handleAssignFinalDirector = async () => {
+    if (!assignDirectorForm.directorId) { toast.error('Please select a Director'); return; }
+    setAssigningDirector(true);
+    try {
+      await interviewApi.assignFinalRoundDirector(assignDirectorCandId, {
+        directorId: Number(assignDirectorForm.directorId),
+      });
+      toast.success('Candidate assigned to Director — they have been notified');
+      setAssignDirectorDialog(false);
+      await refreshDetail(assignDirectorCandId);
+      await refreshCandidates();
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Failed to assign Director');
+    } finally {
+      setAssigningDirector(false);
+    }
   };
 
   const handleGenerateFinalLink = async () => {
     setFinalLinkGenerating(true);
     try {
+      // finalLinkForm.scheduledAt is a naive local "YYYY-MM-DDTHH:mm" string from
+      // AppDateTimePicker — send it as-is (see handleAssignTechnical for why).
       const updated = await interviewApi.generateFinalInterviewLink(finalLinkCandId, {
-        directorId: finalLinkForm.directorId ? Number(finalLinkForm.directorId) : null,
+        scheduledAt: finalLinkForm.scheduledAt || null,
       });
       toast.success('Final interview link generated — email sent to candidate');
       setFinalLinkDialog(false);
@@ -776,7 +829,17 @@ const ATSPage = () => {
     const finalData  = c.finalRound;
     const hrData     = c.hrScreening;
     const canHrAct   = canManage && c.status === 'UNDER_HR_REVIEW';
-    const canFinalAct= isAdmin   && c.status === 'FINAL_ROUND_PENDING';
+    const techApproved      = [...techs].reverse().find(t => t.decision === 'APPROVE');
+    const hasDirector        = !!finalData?.conductedById;
+    const isAssignedDirector = hasDirector && Number(user?.employeeId) === Number(finalData.conductedById);
+    // Any Admin, or specifically the Director this Final Round was assigned to — mirrors the
+    // backend's requireFinalRoundOwner() check, which is the real enforcement point.
+    const canActOnFinalRound = user?.role === 'ADMIN' || isAssignedDirector;
+    // Director submits notes; only HR/Admin record the actual hiring decision — separation of duties.
+    const canSubmitDirectorNotes = canActOnFinalRound && c.status === 'FINAL_ROUND_PENDING';
+    const directorNotesSubmitted = !!finalData?.directorNotesAt;
+    const canRecordHrDecision = (user?.role === 'ADMIN' || user?.role === 'HR')
+      && c.status === 'FINAL_ROUND_PENDING' && directorNotesSubmitted;
 
     return (
       <Box sx={{ bgcolor: '#f8fafc', minHeight: '100%' }}>
@@ -1542,6 +1605,42 @@ const ATSPage = () => {
           <Grid container spacing={3}>
             <Grid item xs={12} md={8}>
 
+              {/* Technical Evaluation Summary — for HR/Director review before/while handling Final Round */}
+              {techApproved && (
+                <Card sx={{ borderRadius: 3, mb: 2 }}>
+                  <CardContent>
+                    <SectionTitle>Technical Evaluation Summary</SectionTitle>
+                    <Grid container spacing={1.5} sx={{ mt: 0.5 }}>
+                      {[
+                        ['Technical Skills',      techApproved.technicalSkillsRating],
+                        ['Communication',         techApproved.communicationRating],
+                        ['Problem Solving',       techApproved.problemSolvingRating],
+                        ['Coding Ability',        techApproved.codingAbilityRating],
+                        ['Architecture Knowledge',techApproved.architectureKnowledgeRating],
+                      ].map(([label, val]) => val && (
+                        <Grid item xs={12} sm={4} key={label}>
+                          <Typography variant="caption" color="text.secondary">{label}</Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Rating value={val} readOnly size="small" />
+                            <Typography variant="caption" fontWeight={700}>{val}/5</Typography>
+                          </Box>
+                        </Grid>
+                      ))}
+                      {techApproved.comments && (
+                        <Grid item xs={12}>
+                          <Typography variant="caption" color="text.secondary">Interviewer Comments</Typography>
+                          <Typography variant="body2">{techApproved.comments}</Typography>
+                        </Grid>
+                      )}
+                    </Grid>
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
+                      Approved by {techApproved.interviewerName || 'the interviewer'}
+                      {techApproved.updatedAt && ` · ${fmtDt(techApproved.updatedAt)}`}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Video Interview Card */}
               <Card sx={{ borderRadius: 3, mb: 2 }}>
                 <CardContent>
@@ -1556,12 +1655,27 @@ const ATSPage = () => {
                       )}
                     </Box>
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      {/* Generate / Regenerate link */}
-                      {canManage && (fivStatus === 'PENDING_LINK' || fivStatus === 'LINK_GENERATED') && (
+                      {/* HR/Admin: assign a Director before anything else can happen */}
+                      {canManage && !hasDirector && (
+                        <Button variant="contained" size="small"
+                          onClick={() => { setAssignDirectorCandId(c.id); setAssignDirectorForm({ directorId: '' }); setAssignDirectorDialog(true); }}
+                          sx={{ bgcolor: '#7c3aed', '&:hover': { bgcolor: '#6d28d9' }, textTransform: 'none', fontWeight: 700 }}>
+                          Assign to Director
+                        </Button>
+                      )}
+                      {canManage && hasDirector && (fivStatus === 'PENDING_LINK' || fivStatus === 'LINK_GENERATED') && (
                         <Button variant="outlined" size="small"
-                          onClick={() => { setFinalLinkCandId(c.id); setFinalLinkForm({ directorId: finalData?.conductedById || '' }); setFinalLinkDialog(true); }}
+                          onClick={() => { setAssignDirectorCandId(c.id); setAssignDirectorForm({ directorId: finalData?.conductedById || '' }); setAssignDirectorDialog(true); }}
+                          sx={{ textTransform: 'none', borderColor: '#94a3b8', color: '#475569', fontWeight: 600 }}>
+                          Reassign Director
+                        </Button>
+                      )}
+                      {/* Director: schedule the interview & generate the secure link */}
+                      {hasDirector && canActOnFinalRound && (fivStatus === 'PENDING_LINK' || fivStatus === 'LINK_GENERATED') && (
+                        <Button variant="outlined" size="small"
+                          onClick={() => { setFinalLinkCandId(c.id); setFinalLinkForm({ scheduledAt: finalData?.scheduledAt ? finalData.scheduledAt.slice(0, 16) : '' }); setFinalLinkDialog(true); }}
                           sx={{ textTransform: 'none', borderColor: '#7c3aed', color: '#7c3aed', fontWeight: 600 }}>
-                          {fivStatus === 'LINK_GENERATED' ? 'Regenerate Link' : 'Generate Final Interview Link'}
+                          {fivStatus === 'LINK_GENERATED' ? 'Reschedule / Regenerate Link' : 'Schedule & Generate Interview Link'}
                         </Button>
                       )}
                       {/* Join Room */}
@@ -1582,6 +1696,26 @@ const ATSPage = () => {
                       )}
                     </Box>
                   </Box>
+
+                  {/* Director assignment / schedule */}
+                  {!hasDirector ? (
+                    <Alert severity="warning" sx={{ mb: 1.5, py: 0.5 }}>
+                      No Director assigned yet — {canManage ? 'assign one above to proceed.' : 'awaiting HR to assign a Director.'}
+                    </Alert>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 1.5 }}>
+                      <Box>
+                        <Typography variant="caption" color="text.disabled" display="block">Assigned Director</Typography>
+                        <Typography variant="caption" fontWeight={600}>{finalData.conductedByName}</Typography>
+                      </Box>
+                      {finalData?.scheduledAt && (
+                        <Box>
+                          <Typography variant="caption" color="text.disabled" display="block">Scheduled For</Typography>
+                          <Typography variant="caption" fontWeight={600}>{fmtDt(finalData.scheduledAt)}</Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  )}
 
                   {/* Interview link */}
                   {finalData?.interviewLink && fivStatus !== 'PENDING_LINK' && (
@@ -1656,52 +1790,112 @@ const ATSPage = () => {
                 </CardContent>
               </Card>
 
-              {/* Legacy form (offline interview fallback) */}
-              <Card sx={{ borderRadius: 3 }}>
+              {/* Director's interview notes + advisory recommendation */}
+              <Card sx={{ borderRadius: 3, mb: 2 }}>
                 <CardContent>
-                  <SectionTitle>Manual Notes</SectionTitle>
+                  <SectionTitle>Director's Interview Notes</SectionTitle>
                   <Grid container spacing={2}>
                     <Grid item xs={12} sm={6}>
                       <TextField fullWidth size="small" label="Final Interview Date *" type="date"
                         value={finalForm.finalInterviewDate}
                         onChange={e => setFinalForm(f => ({ ...f, finalInterviewDate: e.target.value }))}
-                        disabled={!canFinalAct} InputLabelProps={{ shrink: true }} />
+                        disabled={!canSubmitDirectorNotes} InputLabelProps={{ shrink: true }} />
                     </Grid>
                     <Grid item xs={12} sm={6}>
-                      <TextField fullWidth size="small" label="Joining Date" type="date"
-                        value={finalForm.joiningDate}
-                        onChange={e => setFinalForm(f => ({ ...f, joiningDate: e.target.value }))}
-                        disabled={!canFinalAct} InputLabelProps={{ shrink: true }} />
+                      <TextField fullWidth size="small" label="Your Recommendation"
+                        select SelectProps={{ native: true }}
+                        value={finalForm.directorRecommendation}
+                        onChange={e => setFinalForm(f => ({ ...f, directorRecommendation: e.target.value }))}
+                        disabled={!canSubmitDirectorNotes}>
+                        {RECOMMENDATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                      </TextField>
                     </Grid>
                     <Grid item xs={12}>
                       <TextField fullWidth size="small" label="Salary Recommendation"
                         value={finalForm.salaryRecommendation}
                         onChange={e => setFinalForm(f => ({ ...f, salaryRecommendation: e.target.value }))}
-                        disabled={!canFinalAct} placeholder="e.g. ₹12 LPA" />
+                        disabled={!canSubmitDirectorNotes} placeholder="e.g. ₹12 LPA" />
                     </Grid>
                     <Grid item xs={12}>
                       <TextField fullWidth size="small" label="Remarks" multiline rows={2}
                         value={finalForm.finalRemarks}
                         onChange={e => setFinalForm(f => ({ ...f, finalRemarks: e.target.value }))}
-                        disabled={!canFinalAct} />
+                        disabled={!canSubmitDirectorNotes} />
                     </Grid>
                   </Grid>
-                  {finalData?.conductedByName && (
+                  {directorNotesSubmitted ? (
                     <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
-                      Conducted by {finalData.conductedByName} · {fmtDate(finalData.updatedAt)}
+                      Submitted by {finalData.conductedByName} · {fmtDt(finalData.directorNotesAt)}
                     </Typography>
+                  ) : hasDirector && (
+                    <Alert severity="info" sx={{ mt: 1.5, py: 0.5 }}>
+                      Notes not submitted yet — HR cannot record a hiring decision until the Director submits them.
+                    </Alert>
                   )}
-                  {canFinalAct && (
+                  {canSubmitDirectorNotes && (
                     <Box sx={{ display: 'flex', gap: 1.5, mt: 2, flexWrap: 'wrap' }}>
                       <Button variant="outlined" onClick={handleSaveFinal}
                         disabled={finalSaving || !finalForm.finalInterviewDate}
                         sx={{ textTransform: 'none', borderColor: '#e2e8f0', color: '#475569', fontWeight: 600 }}>
-                        {finalSaving ? 'Saving…' : 'Save Notes'}
+                        {finalSaving ? 'Saving…' : directorNotesSubmitted ? 'Update Notes' : 'Submit Notes'}
                       </Button>
                     </Box>
                   )}
                 </CardContent>
               </Card>
+
+              {/* HR's hiring decision — reviews the Director's notes, sends the offer/rejection */}
+              {(directorNotesSubmitted || finalData?.decidedAt) && (
+                <Card sx={{ borderRadius: 3 }}>
+                  <CardContent>
+                    <SectionTitle>HR Hiring Decision</SectionTitle>
+                    {finalData?.directorRecommendation && finalData.directorRecommendation !== 'PENDING' && (
+                      <Alert severity="info" sx={{ mb: 2, py: 0.5 }}>
+                        Director recommends: <strong>{finalData.directorRecommendation}</strong>
+                        {finalData.salaryRecommendation && ` · Suggested salary: ${finalData.salaryRecommendation}`}
+                      </Alert>
+                    )}
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField fullWidth size="small" label="Offered CTC *"
+                          value={hrDecisionForm.offeredCtc}
+                          onChange={e => setHrDecisionForm(f => ({ ...f, offeredCtc: e.target.value }))}
+                          disabled={!canRecordHrDecision} placeholder="e.g. ₹12 LPA" />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField fullWidth size="small" label="Joining Date *" type="date"
+                          value={hrDecisionForm.joiningDate}
+                          onChange={e => setHrDecisionForm(f => ({ ...f, joiningDate: e.target.value }))}
+                          disabled={!canRecordHrDecision} InputLabelProps={{ shrink: true }} />
+                      </Grid>
+                    </Grid>
+                    {finalData?.decidedAt && (
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
+                        Decision recorded by {finalData.decidedByName} · {fmtDt(finalData.decidedAt)}
+                      </Typography>
+                    )}
+                    {canRecordHrDecision && (
+                      <Box sx={{ display: 'flex', gap: 1.5, mt: 2, flexWrap: 'wrap' }}>
+                        <Button variant="contained" onClick={() => handleFinalDecision('APPROVE')}
+                          disabled={hrDeciding}
+                          sx={{ bgcolor: '#16a34a', '&:hover': { bgcolor: '#15803d' }, textTransform: 'none', fontWeight: 700 }}>
+                          {hrDeciding ? 'Sending…' : 'Approve & Send Offer'}
+                        </Button>
+                        <Button variant="outlined" onClick={() => handleFinalDecision('HOLD')}
+                          disabled={hrDeciding}
+                          sx={{ textTransform: 'none', borderColor: '#d97706', color: '#d97706', fontWeight: 600 }}>
+                          Hold
+                        </Button>
+                        <Button variant="outlined" onClick={() => handleFinalDecision('REJECT')}
+                          disabled={hrDeciding}
+                          sx={{ textTransform: 'none', borderColor: '#dc2626', color: '#dc2626', fontWeight: 600 }}>
+                          Reject
+                        </Button>
+                      </Box>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </Grid>
 
             <Grid item xs={12} md={4}>
@@ -2781,12 +2975,19 @@ const ATSPage = () => {
                 value={linkForm.technology}
                 onChange={e => setLinkForm(f => ({ ...f, technology: e.target.value }))}
                 placeholder="e.g. React, Java, Accounting, General" />
+              <FormControl fullWidth size="small">
+                <InputLabel>Question Difficulty</InputLabel>
+                <Select value={linkForm.difficulty} label="Question Difficulty"
+                  onChange={e => setLinkForm(f => ({ ...f, difficulty: e.target.value }))}>
+                  {DIFF_OPTIONS.map(d => <MenuItem key={d} value={d}>{d.charAt(0) + d.slice(1).toLowerCase()}</MenuItem>)}
+                </Select>
+              </FormControl>
               <TextField fullWidth size="small" label="Number of Questions (5–40)"
                 type="number" inputProps={{ min: 5, max: 40 }}
                 value={linkForm.questionCount}
                 onChange={e => setLinkForm(f => ({ ...f, questionCount: Number(e.target.value) }))} />
               <Alert severity="info" sx={{ py: 0.5 }}>
-                Questions are randomly selected from the Question Bank for the chosen technology. The candidate gets a 45-minute timer.
+                Questions are randomly selected from the Question Bank for the chosen technology and difficulty — every candidate gets a unique shuffle. The candidate gets a 45-minute timer.
               </Alert>
               {generatedLink && (
                 <Box sx={{ p: 2, bgcolor: '#f0fdf4', borderRadius: 2, border: '1px solid #86efac' }}>
@@ -2811,21 +3012,22 @@ const ATSPage = () => {
           </DialogActions>
         </Dialog>
 
-        {/* ── Generate Final Interview Link ── */}
-        <Dialog open={finalLinkDialog} onClose={() => !finalLinkGenerating && setFinalLinkDialog(false)}
+        {/* ── Assign to Director (HR/Admin) ── */}
+        <Dialog open={assignDirectorDialog} onClose={() => !assigningDirector && setAssignDirectorDialog(false)}
           maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-          <DialogTitle sx={{ fontWeight: 700 }}>Generate Final Interview Link</DialogTitle>
+          <DialogTitle sx={{ fontWeight: 700 }}>Assign to Director</DialogTitle>
           <DialogContent dividers>
             <Stack spacing={2} sx={{ pt: 1 }}>
               <Alert severity="info" sx={{ fontSize: 12 }}>
-                A secure video interview link will be generated and emailed to the candidate.<br />
-                The Director can join the room at <strong>/interview/final-room/:id</strong>.
+                The candidate has cleared the Technical Interview. Pick the Director who will conduct
+                the Final Round — they'll be notified by email and can then schedule the interview
+                and generate the candidate's secure interview link.
               </Alert>
-              <TextField fullWidth size="small" label="Assign Director (optional)"
+              <TextField fullWidth size="small" label="Director *"
                 select SelectProps={{ native: true }}
                 InputLabelProps={{ shrink: true }}
-                value={finalLinkForm.directorId}
-                onChange={e => setFinalLinkForm(f => ({ ...f, directorId: e.target.value }))}>
+                value={assignDirectorForm.directorId}
+                onChange={e => setAssignDirectorForm(f => ({ ...f, directorId: e.target.value }))}>
                 <option value="">— Select Director —</option>
                 {directors.map(e => (
                   <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>
@@ -2834,10 +3036,37 @@ const ATSPage = () => {
             </Stack>
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setAssignDirectorDialog(false)} disabled={assigningDirector}>Close</Button>
+            <Button variant="contained" onClick={handleAssignFinalDirector}
+              disabled={assigningDirector || !assignDirectorForm.directorId}
+              sx={{ bgcolor: '#7c3aed', '&:hover': { bgcolor: '#6d28d9' }, textTransform: 'none', fontWeight: 700 }}>
+              {assigningDirector ? 'Assigning…' : 'Assign & Notify Director'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* ── Schedule & Generate Final Interview Link (Director) ── */}
+        <Dialog open={finalLinkDialog} onClose={() => !finalLinkGenerating && setFinalLinkDialog(false)}
+          maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700 }}>Schedule Final Interview</DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2} sx={{ pt: 1 }}>
+              <Alert severity="info" sx={{ fontSize: 12 }}>
+                A secure video interview link will be generated and emailed to the candidate along
+                with the scheduled time. You can join the room at <strong>/interview/final-room/:id</strong>.
+              </Alert>
+              <AppDateTimePicker
+                label="Interview Date & Time"
+                value={finalLinkForm.scheduledAt}
+                onChange={(val) => setFinalLinkForm(f => ({ ...f, scheduledAt: val }))}
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
             <Button onClick={() => setFinalLinkDialog(false)} disabled={finalLinkGenerating}>Close</Button>
             <Button variant="contained" onClick={handleGenerateFinalLink} disabled={finalLinkGenerating}
               sx={{ bgcolor: '#7c3aed', '&:hover': { bgcolor: '#6d28d9' }, textTransform: 'none', fontWeight: 700 }}>
-              {finalLinkGenerating ? 'Generating…' : 'Generate & Send Email'}
+              {finalLinkGenerating ? 'Generating…' : 'Schedule & Send Email'}
             </Button>
           </DialogActions>
         </Dialog>

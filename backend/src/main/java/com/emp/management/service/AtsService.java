@@ -838,51 +838,100 @@ public class AtsService {
 
     // ── Final Round ───────────────────────────────────────────────────────────
 
+    /**
+     * Director step: submits their Final Round interview notes and an advisory recommendation.
+     * This never decides the candidate's fate — it only records the Director's evaluation and
+     * notifies HR that it's ready for review. HR alone records the actual hiring decision
+     * (see {@link #submitFinalDecision}), keeping the recommend/decide responsibilities separate
+     * and giving each step its own timestamped audit entry.
+     */
     @Transactional
     public AtsFinalRoundDTO saveFinalRound(Long candidateId, AtsFinalRoundDTO dto, String callerEmail) {
         AtsCandidate c = findCandidate(candidateId);
-        EmployeeDetails caller = findEmployee(callerEmail).orElse(null);
-
         AtsFinalRound round = finalRepo.findByCandidateId(candidateId)
-                .orElseGet(() -> AtsFinalRound.builder().candidate(c).finalDecision("PENDING").build());
+                .orElseThrow(() -> new ResourceNotFoundException("Final round not found for candidate: " + candidateId));
+
+        if (round.getConductedBy() == null) {
+            throw new com.emp.management.exception.BadRequestException(
+                    "Assign a Director to this candidate before submitting interview notes.");
+        }
+        requireFinalRoundOwner(round, callerEmail);
 
         round.setFinalInterviewDate(dto.getFinalInterviewDate());
         round.setFinalRemarks(dto.getFinalRemarks());
         round.setSalaryRecommendation(dto.getSalaryRecommendation());
-        round.setJoiningDate(dto.getJoiningDate());
-        round.setConductedBy(caller);
+        round.setDirectorRecommendation(dto.getDirectorRecommendation() != null ? dto.getDirectorRecommendation() : "PENDING");
+        round.setDirectorNotesAt(LocalDateTime.now());
+        finalRepo.save(round);
+
+        notifyHrDirectorNotesReady(round, c);
 
         return toFinalRoundDTO(finalRepo.save(round));
     }
 
+    /** Notifies whoever assigned the Director (falling back to all active Admins/HR) that notes are ready for review. */
+    private void notifyHrDirectorNotesReady(AtsFinalRound round, AtsCandidate c) {
+        String directorName = round.getConductedBy() != null
+                ? round.getConductedBy().getFirstName() + " " + round.getConductedBy().getLastName() : "the Director";
+        String recommendation = round.getDirectorRecommendation() != null ? round.getDirectorRecommendation() : "PENDING";
+        if (round.getAssignedBy() != null && round.getAssignedBy().getUser() != null) {
+            sendDirectorNotesReadyEmail(round.getAssignedBy().getUser().getEmail(), directorName, c.getName(), c.getAppliedProfile(), recommendation);
+        } else {
+            employeeRepo.findActiveAdmins().forEach(admin -> {
+                String adminEmail = admin.getUser() != null ? admin.getUser().getEmail() : null;
+                sendDirectorNotesReadyEmail(adminEmail, directorName, c.getName(), c.getAppliedProfile(), recommendation);
+            });
+        }
+    }
+
+    /**
+     * HR step: reviews the Director's interview notes/recommendation and records the actual
+     * hiring decision, sending the offer or rejection email. Requires the Director to have
+     * already submitted notes, and refuses to re-decide a candidate that's already been
+     * selected or rejected — both guard against skipping or duplicating a step in the audit trail.
+     */
     @Transactional
     public AtsCandidateDTO submitFinalDecision(Long finalId, AtsFinalRoundDTO dto, String callerEmail) {
         AtsFinalRound round = finalRepo.findById(finalId)
                 .orElseThrow(() -> new ResourceNotFoundException("Final round not found: " + finalId));
         EmployeeDetails caller = findEmployee(callerEmail).orElse(null);
 
-        round.setFinalInterviewDate(dto.getFinalInterviewDate());
-        round.setFinalRemarks(dto.getFinalRemarks());
-        round.setSalaryRecommendation(dto.getSalaryRecommendation());
+        if (round.getDirectorNotesAt() == null) {
+            throw new com.emp.management.exception.BadRequestException(
+                    "The Director must submit their interview notes before a hiring decision can be recorded.");
+        }
+        AtsCandidate c = round.getCandidate();
+        if (AtsCandidateStatus.SELECTED.equals(c.getStatus()) || AtsCandidateStatus.REJECTED.equals(c.getStatus())) {
+            throw new com.emp.management.exception.BadRequestException(
+                    "A hiring decision has already been recorded for this candidate.");
+        }
+
+        round.setOfferedCtc(dto.getOfferedCtc());
         round.setJoiningDate(dto.getJoiningDate());
         round.setFinalDecision(dto.getFinalDecision());
-        round.setConductedBy(caller);
+        round.setDecidedBy(caller);
+        round.setDecidedAt(LocalDateTime.now());
         finalRepo.save(round);
 
-        AtsCandidate c = round.getCandidate();
+        String directorEmail = round.getConductedBy() != null && round.getConductedBy().getUser() != null
+                ? round.getConductedBy().getUser().getEmail() : null;
 
         if ("APPROVE".equals(dto.getFinalDecision())) {
             c.setStatus(AtsCandidateStatus.SELECTED);
             String joiningStr = dto.getJoiningDate() != null ? dto.getJoiningDate().toString() : "TBD";
-            String salary = dto.getOfferedCtc() != null ? dto.getOfferedCtc() : dto.getSalaryRecommendation();
+            String salary = dto.getOfferedCtc() != null ? dto.getOfferedCtc() : round.getSalaryRecommendation();
             sendOfferEmail(c.getEmail(), c.getName(), c.getAppliedProfile(), salary, joiningStr);
+            sendHrDecisionToDirectorEmail(directorEmail, c.getName(), c.getAppliedProfile(), "Approved — offer sent");
 
         } else if ("REJECT".equals(dto.getFinalDecision())) {
             c.setStatus(AtsCandidateStatus.REJECTED);
             sendRejectionEmail(c.getEmail(), c.getName(), c.getAppliedProfile());
+            sendHrDecisionToDirectorEmail(directorEmail, c.getName(), c.getAppliedProfile(), "Rejected");
 
+        } else if ("HOLD".equals(dto.getFinalDecision())) {
+            // Status stays FINAL_ROUND_PENDING, no candidate email
+            sendHrDecisionToDirectorEmail(directorEmail, c.getName(), c.getAppliedProfile(), "On hold");
         }
-        // HOLD — status stays FINAL_ROUND_PENDING, no email
 
         return toCandidateDTO(candidateRepo.save(c), true);
     }
@@ -2748,6 +2797,7 @@ public class AtsService {
                 .interviewStatus(t.getInterviewStatus() != null ? t.getInterviewStatus().name() : AtsTechInterviewStatus.PENDING_LINK.name())
                 .interviewLink(link)
                 .interviewTechnology(t.getInterviewTechnology())
+                .interviewDifficulty(t.getInterviewDifficulty() != null ? t.getInterviewDifficulty().name() : null)
                 .questionCount(t.getQuestionCount())
                 .durationMinutes(t.getDurationMinutes())
                 .startedAt(t.getStartedAt())
@@ -2786,6 +2836,7 @@ public class AtsService {
                 .token(r.getToken())
                 .interviewStatus(r.getInterviewStatus() != null ? r.getInterviewStatus().name() : AtsFinalInterviewStatus.PENDING_LINK.name())
                 .interviewLink(link)
+                .scheduledAt(r.getScheduledAt())
                 .startedAt(r.getStartedAt())
                 .completedAt(r.getCompletedAt())
                 .evaluatedAt(r.getEvaluatedAt())
@@ -2802,12 +2853,21 @@ public class AtsService {
                 .finalRemarks(r.getFinalRemarks())
                 .salaryRecommendation(r.getSalaryRecommendation())
                 .joiningDate(r.getJoiningDate())
+                .directorRecommendation(r.getDirectorRecommendation() != null ? r.getDirectorRecommendation() : "PENDING")
+                .directorNotesAt(r.getDirectorNotesAt())
                 .finalDecision(r.getFinalDecision() != null ? r.getFinalDecision() : "PENDING")
+                .decidedAt(r.getDecidedAt())
                 .createdAt(r.getCreatedAt())
                 .updatedAt(r.getUpdatedAt());
         if (r.getConductedBy() != null)
             b.conductedById(r.getConductedBy().getId())
              .conductedByName(r.getConductedBy().getFirstName() + " " + r.getConductedBy().getLastName());
+        if (r.getAssignedBy() != null)
+            b.assignedById(r.getAssignedBy().getId())
+             .assignedByName(r.getAssignedBy().getFirstName() + " " + r.getAssignedBy().getLastName());
+        if (r.getDecidedBy() != null)
+            b.decidedById(r.getDecidedBy().getId())
+             .decidedByName(r.getDecidedBy().getFirstName() + " " + r.getDecidedBy().getLastName());
         return b.build();
     }
 
@@ -2942,25 +3002,26 @@ public class AtsService {
     }
 
     @Transactional
-    public AtsTechnicalInterviewDTO generateInterviewLink(Long techId, String technology, Integer questionCount, String callerEmail) {
+    public AtsTechnicalInterviewDTO generateInterviewLink(Long techId, String technology, String difficulty, Integer questionCount, String callerEmail) {
         AtsTechnicalInterview tech = techRepo.findById(techId)
                 .orElseThrow(() -> new ResourceNotFoundException("Technical interview not found: " + techId));
 
         int qCount = (questionCount != null && questionCount >= 5 && questionCount <= 40) ? questionCount : 20;
         String tech2 = (technology != null && !technology.isBlank()) ? technology : "General";
+        InterviewDifficulty diff = parseInterviewDifficulty(difficulty);
 
-        // Select random questions
-        List<InterviewQuestion> questions = questionRepo.findRandomByTechnology(tech2, qCount);
-        if (questions.isEmpty()) {
-            // Fallback: pick any active questions
-            questions = questionRepo.findByStatusOrderByCreatedAtDesc(QuestionStatus.ACTIVE)
-                    .stream().limit(qCount).collect(Collectors.toList());
-        }
+        // Select a fresh, randomized set of questions every time this is called —
+        // each candidate gets their own shuffle, never a fixed/deterministic list.
+        List<InterviewQuestion> questions = selectRandomQuestions(tech2, diff, qCount);
         if (questions.isEmpty()) throw new com.emp.management.exception.BadRequestException(
                 "No active questions found for technology: " + tech2 + ". Add questions in the Question Bank first.");
 
         // Clear any previous questions for this interview
         techQRepo.deleteByInterview(tech);
+
+        // Re-shuffle in application memory too, so the question ORDER a candidate sees
+        // is independent of whatever order the DB happened to return them in.
+        Collections.shuffle(questions, SECURE_RANDOM);
 
         // Store shuffled questions
         List<String> letters = List.of("A", "B", "C", "D");
@@ -2990,6 +3051,7 @@ public class AtsService {
         tech.setToken(token);
         tech.setInterviewStatus(AtsTechInterviewStatus.LINK_GENERATED);
         tech.setInterviewTechnology(tech2);
+        tech.setInterviewDifficulty(diff);
         tech.setQuestionCount(questions.size());
         tech.setTotalMarks(totalMarks);
         tech.setOfferSdp(null);
@@ -3006,6 +3068,41 @@ public class AtsService {
         }
 
         return toTechInterviewDTO(tech);
+    }
+
+    private InterviewDifficulty parseInterviewDifficulty(String difficulty) {
+        if (difficulty == null || difficulty.isBlank()) return InterviewDifficulty.MIXED;
+        try {
+            return InterviewDifficulty.valueOf(difficulty.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return InterviewDifficulty.MIXED;
+        }
+    }
+
+    /**
+     * Randomly selects up to {@code count} ACTIVE questions for the given technology,
+     * honoring difficulty when specified. Falls back to MIXED (any difficulty) for the
+     * same technology when too few match the requested difficulty, then — only if the
+     * technology itself has no active questions at all — to a random sample across all
+     * technologies, so a candidate is never left with an empty or fixed question set.
+     */
+    private List<InterviewQuestion> selectRandomQuestions(String technology, InterviewDifficulty difficulty, int count) {
+        List<InterviewQuestion> selected;
+        if (difficulty == InterviewDifficulty.MIXED) {
+            selected = new ArrayList<>(questionRepo.findRandomByTechnology(technology, count));
+        } else {
+            selected = new ArrayList<>(questionRepo.findRandomByTechnologyAndDifficulty(technology, difficulty.name(), count));
+            if (selected.size() < count) {
+                List<InterviewQuestion> more = questionRepo.findRandomByTechnology(technology, count - selected.size());
+                for (InterviewQuestion q : more) {
+                    if (selected.stream().noneMatch(s -> s.getId().equals(q.getId()))) selected.add(q);
+                }
+            }
+        }
+        if (selected.isEmpty()) {
+            selected = new ArrayList<>(questionRepo.findRandomActive(count));
+        }
+        return selected.stream().limit(count).collect(Collectors.toList());
     }
 
     // ── Video Interview — Candidate Public Endpoints ──────────────────────────
@@ -3389,17 +3486,48 @@ public class AtsService {
     private final java.util.concurrent.ConcurrentHashMap<String, java.util.List<String>> finalCandidateIceMap = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.concurrent.ConcurrentHashMap<String, java.util.List<String>> finalDirectorIceMap  = new java.util.concurrent.ConcurrentHashMap<>();
 
+    /** HR/Admin step: assigns the Director who will conduct the Final Round. No link is generated yet. */
     @Transactional
-    public AtsFinalRoundDTO generateFinalInterviewLink(Long candidateId, Long directorId, String callerEmail) {
+    public AtsFinalRoundDTO assignFinalRoundDirector(Long candidateId, Long directorId, String callerEmail) {
         AtsCandidate c = findCandidate(candidateId);
+        if (!AtsCandidateStatus.FINAL_ROUND_PENDING.equals(c.getStatus())) {
+            throw new com.emp.management.exception.BadRequestException(
+                    "Candidate must have cleared the Technical Interview before assigning a Director.");
+        }
+        EmployeeDetails caller = findEmployee(callerEmail).orElse(null);
+        EmployeeDetails director = employeeRepo.findById(directorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Director not found: " + directorId));
+
         AtsFinalRound round = finalRepo.findByCandidateId(candidateId)
                 .orElseGet(() -> AtsFinalRound.builder().candidate(c).finalDecision("PENDING").build());
+        round.setConductedBy(director);
+        round.setAssignedBy(caller);
+        // Reassigning to a different director invalidates any link already generated
+        if (round.getInterviewStatus() == null) round.setInterviewStatus(AtsFinalInterviewStatus.PENDING_LINK);
+        finalRepo.save(round);
 
-        if (directorId != null) {
-            EmployeeDetails director = employeeRepo.findById(directorId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Director not found: " + directorId));
-            round.setConductedBy(director);
+        String directorEmail = director.getUser() != null ? director.getUser().getEmail() : null;
+        sendFinalRoundAssignedEmail(directorEmail,
+                director.getFirstName() + " " + director.getLastName(),
+                c.getName(), c.getAppliedProfile());
+
+        return toFinalRoundDTO(finalRepo.save(round));
+    }
+
+    /** Director step: schedules the Final Interview and (re)generates the secure candidate link. */
+    @Transactional
+    public AtsFinalRoundDTO generateFinalInterviewLink(Long candidateId, LocalDateTime scheduledAt, String callerEmail) {
+        AtsCandidate c = findCandidate(candidateId);
+        AtsFinalRound round = finalRepo.findByCandidateId(candidateId)
+                .orElseThrow(() -> new ResourceNotFoundException("Final round not found for candidate: " + candidateId));
+
+        if (round.getConductedBy() == null) {
+            throw new com.emp.management.exception.BadRequestException(
+                    "Assign a Director to this candidate before scheduling the final interview.");
         }
+        requireFinalRoundOwner(round, callerEmail);
+
+        if (scheduledAt != null) round.setScheduledAt(scheduledAt);
 
         String token = (round.getToken() != null) ? round.getToken() : generateUniqueFinalToken();
         round.setToken(token);
@@ -3409,10 +3537,23 @@ public class AtsService {
         finalRepo.save(round);
 
         String link = baseUrl + "/interview/final/" + token;
+        String scheduledStr = round.getScheduledAt() != null ? round.getScheduledAt().format(DT_FMT) : "TBD";
         if (c.getEmail() != null && !c.getEmail().isBlank()) {
-            sendFinalInterviewLinkEmail(c.getEmail(), c.getName(), c.getAppliedProfile(), link);
+            sendFinalInterviewLinkEmail(c.getEmail(), c.getName(), c.getAppliedProfile(), link, scheduledStr);
         }
         return toFinalRoundDTO(finalRepo.save(round));
+    }
+
+    /** Throws 403 unless the caller is the Director assigned to this Final Round (or an Admin). */
+    private void requireFinalRoundOwner(AtsFinalRound round, String callerEmail) {
+        EmployeeDetails caller = findEmployee(callerEmail).orElse(null);
+        boolean isAdmin = caller != null && caller.getUser() != null && caller.getUser().getRole() == Role.ADMIN;
+        boolean isOwner = caller != null && round.getConductedBy() != null
+                && round.getConductedBy().getId().equals(caller.getId());
+        if (!isAdmin && !isOwner) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Only the assigned Director can perform this action.");
+        }
     }
 
     private String generateUniqueFinalToken() {
@@ -3454,9 +3595,10 @@ public class AtsService {
     }
 
     @Transactional(readOnly = true)
-    public DirectorRoomDTO getDirectorRoom(Long finalRoundId) {
+    public DirectorRoomDTO getDirectorRoom(Long finalRoundId, String callerEmail) {
         AtsFinalRound round = finalRepo.findById(finalRoundId)
                 .orElseThrow(() -> new ResourceNotFoundException("Final round not found: " + finalRoundId));
+        requireFinalRoundOwner(round, callerEmail);
         AtsCandidate cand = round.getCandidate();
         return DirectorRoomDTO.builder()
                 .finalRoundId(round.getId())
@@ -3465,6 +3607,7 @@ public class AtsService {
                 .candidateEmail(cand != null ? cand.getEmail() : null)
                 .appliedProfile(cand != null ? cand.getAppliedProfile() : null)
                 .interviewStatus(round.getInterviewStatus() != null ? round.getInterviewStatus().name() : AtsFinalInterviewStatus.PENDING_LINK.name())
+                .scheduledAt(round.getScheduledAt())
                 .startedAt(round.getStartedAt())
                 .completedAt(round.getCompletedAt())
                 .evaluatedAt(round.getEvaluatedAt())
@@ -3486,6 +3629,7 @@ public class AtsService {
     public AtsCandidateDTO submitDirectorEvaluation(Long finalRoundId, AtsFinalRoundDTO dto, String callerEmail) {
         AtsFinalRound round = finalRepo.findById(finalRoundId)
                 .orElseThrow(() -> new ResourceNotFoundException("Final round not found: " + finalRoundId));
+        requireFinalRoundOwner(round, callerEmail);
         EmployeeDetails caller = findEmployee(callerEmail).orElse(null);
 
         round.setOverallRating(dto.getOverallRating());
@@ -3595,13 +3739,62 @@ public class AtsService {
         return finalDirectorIceMap.getOrDefault(token, List.of());
     }
 
-    private void sendFinalInterviewLinkEmail(String to, String candidateName, String position, String link) {
+    private void sendFinalRoundAssignedEmail(String to, String directorName, String candidateName, String position) {
+        if (to == null || to.isBlank()) return;
+        try {
+            sendMail(to, "Final Round Assigned — " + candidateName,
+                html("Final Round Assigned to You",
+                    "<p>Dear <strong>" + directorName + "</strong>,</p>" +
+                    "<p>You have been assigned to conduct the <strong>Final Round</strong> for the following candidate, who has already cleared the Technical Interview:</p>" +
+                    "<table style='border-collapse:collapse;width:100%;margin:16px 0;font-size:14px;'>" +
+                    row("Candidate", candidateName) + row("Position", position) +
+                    "</table>" +
+                    "<p>Please log in to the portal to review the technical evaluation, schedule the final interview and generate the candidate's secure interview link.</p>"));
+        } catch (Exception e) {
+            log.warn("Final round assigned email failed for {}: {}", to, e.getMessage());
+        }
+    }
+
+    private void sendDirectorNotesReadyEmail(String to, String directorName, String candidateName, String position, String recommendation) {
+        if (to == null || to.isBlank()) return;
+        try {
+            sendMail(to, "Final Round Notes Submitted — " + candidateName,
+                html("Final Round Evaluation Ready for Review",
+                    "<p><strong>" + directorName + "</strong> has submitted their Final Round interview notes for the following candidate:</p>" +
+                    "<table style='border-collapse:collapse;width:100%;margin:16px 0;font-size:14px;'>" +
+                    row("Candidate", candidateName) + row("Position", position) + row("Director's Recommendation", recommendation) +
+                    "</table>" +
+                    "<p>Please review the evaluation in the portal and record the hiring decision.</p>"));
+        } catch (Exception e) {
+            log.warn("Director notes ready email failed for {}: {}", to, e.getMessage());
+        }
+    }
+
+    private void sendHrDecisionToDirectorEmail(String to, String candidateName, String position, String outcome) {
+        if (to == null || to.isBlank()) return;
+        try {
+            sendMail(to, "Hiring Decision Recorded — " + candidateName,
+                html("Hiring Decision Recorded",
+                    "<p>HR has recorded the final hiring decision for the candidate you interviewed:</p>" +
+                    "<table style='border-collapse:collapse;width:100%;margin:16px 0;font-size:14px;'>" +
+                    row("Candidate", candidateName) + row("Position", position) + row("Outcome", outcome) +
+                    "</table>" +
+                    "<p>Thank you for conducting the Final Round interview.</p>"));
+        } catch (Exception e) {
+            log.warn("HR decision to director email failed for {}: {}", to, e.getMessage());
+        }
+    }
+
+    private void sendFinalInterviewLinkEmail(String to, String candidateName, String position, String link, String scheduledAt) {
         if (to == null || to.isBlank()) return;
         try {
             sendMail(to, "Final Interview Invitation — " + position,
                 html("Final Interview Invitation",
                     "<p>Dear <strong>" + candidateName + "</strong>,</p>" +
                     "<p>Congratulations on clearing the Technical Round! You have been invited to attend the <strong>Final Interview</strong> for the position of <strong>" + position + "</strong>.</p>" +
+                    "<table style='border-collapse:collapse;width:100%;margin:16px 0;font-size:14px;'>" +
+                    row("Scheduled At", scheduledAt) +
+                    "</table>" +
                     "<p>The interview will be conducted via a secure video call. Please ensure you are in a quiet, professional environment.</p>" +
                     "<p style='text-align:center;margin:24px 0;'>" +
                     "<a href='" + link + "' style='background:#1e3a5f;color:#fff;padding:14px 32px;text-decoration:none;border-radius:8px;font-size:15px;font-weight:bold;display:inline-block;'>Join Final Interview</a>" +

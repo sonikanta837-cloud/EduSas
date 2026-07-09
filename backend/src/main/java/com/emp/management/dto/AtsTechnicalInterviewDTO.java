@@ -30,6 +30,7 @@ public class AtsTechnicalInterviewDTO {
     private String interviewStatus;  // AtsTechInterviewStatus name
     private String interviewLink;    // full frontend URL for candidate
     private String interviewTechnology;
+    private String interviewDifficulty;
     private Integer questionCount;
     private Integer durationMinutes;
     private LocalDateTime startedAt;
