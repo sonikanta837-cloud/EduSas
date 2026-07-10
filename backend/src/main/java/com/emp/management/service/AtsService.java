@@ -3621,10 +3621,19 @@ public class AtsService {
                 .offeredCtc(round.getOfferedCtc())
                 .noticePeriod(round.getNoticePeriod())
                 .directorRemarks(round.getDirectorRemarks())
+                .directorRecommendation(round.getDirectorRecommendation())
+                .directorNotesAt(round.getDirectorNotesAt())
                 .finalDecision(round.getFinalDecision())
                 .build();
     }
 
+    /**
+     * Director step (video-interview flow): submits their Final Round evaluation and an advisory
+     * recommendation. Mirrors {@link #saveFinalRound} — this never decides the candidate's fate,
+     * it only records the Director's evaluation and notifies HR that it's ready for review. HR
+     * alone records the binding hiring decision, via {@link #submitFinalDecision}, keeping the
+     * recommend/decide responsibilities separate regardless of which Final Round path was used.
+     */
     @Transactional
     public AtsCandidateDTO submitDirectorEvaluation(Long finalRoundId, AtsFinalRoundDTO dto, String callerEmail) {
         AtsFinalRound round = finalRepo.findById(finalRoundId)
@@ -3640,37 +3649,15 @@ public class AtsService {
         round.setOfferedCtc(dto.getOfferedCtc());
         round.setNoticePeriod(dto.getNoticePeriod());
         round.setDirectorRemarks(dto.getDirectorRemarks());
-        round.setJoiningDate(dto.getJoiningDate());
-        round.setFinalDecision(dto.getFinalDecision());
+        round.setDirectorRecommendation(dto.getDirectorRecommendation() != null ? dto.getDirectorRecommendation() : "PENDING");
+        round.setDirectorNotesAt(LocalDateTime.now());
         round.setInterviewStatus(AtsFinalInterviewStatus.EVALUATED);
         round.setEvaluatedAt(LocalDateTime.now());
         round.setConductedBy(caller);
         finalRepo.save(round);
 
         AtsCandidate c = round.getCandidate();
-
-        if ("APPROVE".equals(dto.getFinalDecision())) {
-            c.setStatus(AtsCandidateStatus.SELECTED);
-            String joiningStr = dto.getJoiningDate() != null ? dto.getJoiningDate().toString() : "TBD";
-            String salary = dto.getOfferedCtc() != null ? dto.getOfferedCtc() : dto.getSalaryDiscussion();
-            sendOfferEmail(c.getEmail(), c.getName(), c.getAppliedProfile(), salary, joiningStr);
-            // Notify HR
-            employeeRepo.findActiveAdmins().forEach(admin -> {
-                String adminEmail = admin.getUser() != null ? admin.getUser().getEmail() : null;
-                sendFinalApprovedHrEmail(adminEmail, c.getName(), c.getAppliedProfile(), salary, joiningStr);
-            });
-
-        } else if ("REJECT".equals(dto.getFinalDecision())) {
-            c.setStatus(AtsCandidateStatus.REJECTED);
-            sendRejectionEmail(c.getEmail(), c.getName(), c.getAppliedProfile());
-
-        } else if ("HOLD".equals(dto.getFinalDecision())) {
-            // Status stays FINAL_ROUND_PENDING
-            employeeRepo.findActiveAdmins().forEach(admin -> {
-                String adminEmail = admin.getUser() != null ? admin.getUser().getEmail() : null;
-                sendFinalHoldHrEmail(adminEmail, c.getName(), c.getAppliedProfile());
-            });
-        }
+        notifyHrDirectorNotesReady(round, c);
 
         return toCandidateDTO(candidateRepo.save(c), true);
     }
@@ -3806,35 +3793,4 @@ public class AtsService {
         }
     }
 
-    private void sendFinalApprovedHrEmail(String to, String candidateName, String position, String salary, String joiningDate) {
-        if (to == null || to.isBlank()) return;
-        try {
-            sendMail(to, "Final Round Approved — " + candidateName,
-                html("Candidate Selected",
-                    "<p>The Director has <strong>approved</strong> the following candidate after the Final Interview:</p>" +
-                    "<table style='border-collapse:collapse;width:100%;margin:16px 0;font-size:14px;'>" +
-                    row("Candidate", candidateName) + row("Position", position) +
-                    (salary != null && !salary.isBlank() ? row("Offered CTC", salary) : "") +
-                    row("Joining Date", joiningDate) +
-                    "</table>" +
-                    "<p>Please proceed with offer letter generation and onboarding.</p>"));
-        } catch (Exception e) {
-            log.warn("Final approved HR email failed for {}: {}", to, e.getMessage());
-        }
-    }
-
-    private void sendFinalHoldHrEmail(String to, String candidateName, String position) {
-        if (to == null || to.isBlank()) return;
-        try {
-            sendMail(to, "Final Round On Hold — " + candidateName,
-                html("Candidate On Hold",
-                    "<p>The Director has placed the following candidate <strong>on hold</strong> after the Final Interview:</p>" +
-                    "<table style='border-collapse:collapse;width:100%;margin:16px 0;font-size:14px;'>" +
-                    row("Candidate", candidateName) + row("Position", position) +
-                    "</table>" +
-                    "<p>Please await further instructions from the Director before proceeding.</p>"));
-        } catch (Exception e) {
-            log.warn("Final hold HR email failed for {}: {}", to, e.getMessage());
-        }
-    }
 }

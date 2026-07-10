@@ -35,5 +35,11 @@ public class DirectorRoomDTO {
     private String  offeredCtc;
     private String  noticePeriod;
     private String  directorRemarks;
-    private String  finalDecision;
+
+    // Director's advisory recommendation — PENDING / APPROVE / HOLD / REJECT
+    private String directorRecommendation;
+    private LocalDateTime directorNotesAt;
+
+    // HR's binding hiring decision, recorded separately once HR reviews the evaluation above
+    private String finalDecision;
 }

@@ -835,11 +835,10 @@ const ATSPage = () => {
     // Any Admin, or specifically the Director this Final Round was assigned to — mirrors the
     // backend's requireFinalRoundOwner() check, which is the real enforcement point.
     const canActOnFinalRound = user?.role === 'ADMIN' || isAssignedDirector;
-    // Director submits notes; only HR/Admin record the actual hiring decision — separation of duties.
+    // Director submits notes; only HR records the actual hiring decision — separation of duties.
     const canSubmitDirectorNotes = canActOnFinalRound && c.status === 'FINAL_ROUND_PENDING';
     const directorNotesSubmitted = !!finalData?.directorNotesAt;
-    const canRecordHrDecision = (user?.role === 'ADMIN' || user?.role === 'HR')
-      && c.status === 'FINAL_ROUND_PENDING' && directorNotesSubmitted;
+    const canRecordHrDecision = isHR && c.status === 'FINAL_ROUND_PENDING' && directorNotesSubmitted;
 
     return (
       <Box sx={{ bgcolor: '#f8fafc', minHeight: '100%' }}>
@@ -1678,16 +1677,16 @@ const ATSPage = () => {
                           {fivStatus === 'LINK_GENERATED' ? 'Reschedule / Regenerate Link' : 'Schedule & Generate Interview Link'}
                         </Button>
                       )}
-                      {/* Join Room */}
-                      {canJoin && (
+                      {/* Join Room — Director's live/review room; not shown to HR */}
+                      {!isHR && canJoin && (
                         <Button variant="contained" size="small"
                           onClick={() => window.open(`/interview/final-room/${finalData.id}`, '_blank')}
                           sx={{ bgcolor: '#7c3aed', '&:hover': { bgcolor: '#6d28d9' }, textTransform: 'none', fontWeight: 700 }}>
                           {fivStatus === 'IN_PROGRESS' ? '🔴 Join Live Room' : 'Review Interview'}
                         </Button>
                       )}
-                      {/* View evaluation */}
-                      {isEvaluated && finalData?.id && (
+                      {/* View evaluation — Director's room; HR sees the read-only summary below instead */}
+                      {!isHR && isEvaluated && finalData?.id && (
                         <Button variant="outlined" size="small"
                           onClick={() => window.open(`/interview/final-room/${finalData.id}`, '_blank')}
                           sx={{ textTransform: 'none', borderColor: '#7c3aed', color: '#7c3aed', fontWeight: 600 }}>
@@ -1844,8 +1843,9 @@ const ATSPage = () => {
                 </CardContent>
               </Card>
 
-              {/* HR's hiring decision — reviews the Director's notes, sends the offer/rejection */}
-              {(directorNotesSubmitted || finalData?.decidedAt) && (
+              {/* HR's hiring decision — reviews the Director's notes, sends the offer/rejection.
+                  Only HR sees this section; Admin and Director never do. */}
+              {isHR && (directorNotesSubmitted || finalData?.decidedAt) && (
                 <Card sx={{ borderRadius: 3 }}>
                   <CardContent>
                     <SectionTitle>HR Hiring Decision</SectionTitle>
@@ -2112,7 +2112,7 @@ const ATSPage = () => {
                 ? tabLabel('My Assignments', myAssignments.length)
                 : tabLabel('Technical', techCount)}
               value="technical" />
-            {isAdmin && (
+            {canManage && (
               <Tab icon={<EmojiEventsIcon fontSize="small" />} iconPosition="start"
                 label={tabLabel('Final Round', finalCands.length)} value="final" />
             )}
@@ -2493,7 +2493,7 @@ const ATSPage = () => {
       )}
 
       {/* ═══ FINAL ROUND TAB ════════════════════════════════════════════════ */}
-      {tab === 'final' && isAdmin && (
+      {tab === 'final' && canManage && (
         <Box>
           {finalCands.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 8 }}>

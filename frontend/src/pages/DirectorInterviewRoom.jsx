@@ -25,10 +25,12 @@ const STATUS_CFG = {
   EVALUATED:           { label: 'Evaluated',            bg: '#f3e8ff', color: '#7c3aed' },
 };
 
+const RECOMMENDATION_OPTIONS = ['PENDING', 'APPROVE', 'HOLD', 'REJECT'];
+
 const EMPTY_EVAL = {
   overallRating: 3, communicationRating: 3, cultureFitRating: 3,
   salaryDiscussion: '', expectedCtc: '', offeredCtc: '',
-  noticePeriod: '', joiningDate: '', directorRemarks: '', finalDecision: '',
+  noticePeriod: '', directorRemarks: '', directorRecommendation: 'PENDING',
 };
 
 export default function DirectorInterviewRoom() {
@@ -138,25 +140,12 @@ export default function DirectorInterviewRoom() {
   };
 
   /* ── Evaluation submit ──────────────────────────────────────────────────── */
-  const handleEvaluate = async (decision) => {
+  const handleSubmitEvaluation = async () => {
     if (!evalForm.directorRemarks?.trim()) { toast.error('Director Remarks are required'); return; }
-    if (decision === 'APPROVE' && (!evalForm.offeredCtc?.trim() || !evalForm.joiningDate)) {
-      toast.error('Offered CTC and Joining Date are required to approve');
-      return;
-    }
     setSaving(true);
     try {
-      await interviewApi.submitDirectorEvaluation(id, {
-        ...evalForm,
-        finalDecision: decision,
-        joiningDate: evalForm.joiningDate || null,
-      });
-      const msg = decision === 'APPROVE'
-        ? 'Approved — offer email sent, HR notified'
-        : decision === 'HOLD'
-        ? 'On Hold — HR notified'
-        : 'Rejected — candidate notified';
-      toast.success(msg);
+      await interviewApi.submitDirectorEvaluation(id, evalForm);
+      toast.success('Evaluation submitted — HR will review it and record the final hiring decision');
       setEvalDialog(false);
       loadRoom();
     } catch (e) {
@@ -210,9 +199,9 @@ export default function DirectorInterviewRoom() {
         </Tooltip>
         {canEval && (
           <Button variant="contained"
-            onClick={() => { setEvalForm({ ...EMPTY_EVAL, ...(room.overallRating ? { overallRating: room.overallRating, communicationRating: room.communicationRating, cultureFitRating: room.cultureFitRating, salaryDiscussion: room.salaryDiscussion || '', expectedCtc: room.expectedCtc || '', offeredCtc: room.offeredCtc || '', noticePeriod: room.noticePeriod || '', directorRemarks: room.directorRemarks || '', finalDecision: room.finalDecision || '' } : {}) }); setEvalDialog(true); }}
+            onClick={() => { setEvalForm({ ...EMPTY_EVAL, ...(room.overallRating ? { overallRating: room.overallRating, communicationRating: room.communicationRating, cultureFitRating: room.cultureFitRating, salaryDiscussion: room.salaryDiscussion || '', expectedCtc: room.expectedCtc || '', offeredCtc: room.offeredCtc || '', noticePeriod: room.noticePeriod || '', directorRemarks: room.directorRemarks || '', directorRecommendation: room.directorRecommendation || 'PENDING' } : {}) }); setEvalDialog(true); }}
             sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, textTransform: 'none', fontWeight: 700 }}>
-            {room.finalDecision === 'HOLD' ? 'Update Decision' : 'Submit Evaluation'}
+            {evaluated ? 'Update Evaluation' : 'Submit Evaluation'}
           </Button>
         )}
       </Box>
@@ -272,22 +261,42 @@ export default function DirectorInterviewRoom() {
           </Card>
         </Grid>
 
-        {/* ── Right: Evaluation Summary ── */}
+        {/* ── Right: Evaluation Summary ──
+            The Director only ever sees their own evaluation + advisory recommendation here.
+            The binding hiring decision (finalDecision) is recorded separately by HR — this page
+            shows it read-only once HR has acted, but never lets the Director set it. */}
         <Grid item xs={12} md={7}>
-          {evaluated && room.finalDecision && (
+          {evaluated && (
             <Card sx={{ borderRadius: 3, mb: 2,
-              bgcolor: room.finalDecision === 'APPROVE' ? '#f0fdf4' : room.finalDecision === 'HOLD' ? '#fffbeb' : '#fef2f2',
-              border: `1px solid ${room.finalDecision === 'APPROVE' ? '#bbf7d0' : room.finalDecision === 'HOLD' ? '#fde68a' : '#fecaca'}` }}>
+              ...(room.finalDecision && room.finalDecision !== 'PENDING'
+                ? {
+                    bgcolor: room.finalDecision === 'APPROVE' ? '#f0fdf4' : room.finalDecision === 'HOLD' ? '#fffbeb' : '#fef2f2',
+                    border: `1px solid ${room.finalDecision === 'APPROVE' ? '#bbf7d0' : room.finalDecision === 'HOLD' ? '#fde68a' : '#fecaca'}`,
+                  }
+                : { bgcolor: '#eff6ff', border: '1px solid #bfdbfe' }) }}>
               <CardContent sx={{ p: 2.5 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
                   {room.finalDecision === 'APPROVE' ? <CheckCircleIcon sx={{ color: '#16a34a', fontSize: 28 }} />
                    : room.finalDecision === 'HOLD'   ? <PauseCircleIcon sx={{ color: '#d97706', fontSize: 28 }} />
-                   : <CancelIcon sx={{ color: '#dc2626', fontSize: 28 }} />}
+                   : room.finalDecision === 'REJECT' ? <CancelIcon sx={{ color: '#dc2626', fontSize: 28 }} />
+                   : null}
                   <Typography variant="h6" fontWeight={700}
-                    color={room.finalDecision === 'APPROVE' ? '#16a34a' : room.finalDecision === 'HOLD' ? '#d97706' : '#dc2626'}>
-                    {room.finalDecision === 'APPROVE' ? 'Approved — Selected' : room.finalDecision === 'HOLD' ? 'On Hold' : 'Rejected'}
+                    color={room.finalDecision === 'APPROVE' ? '#16a34a' : room.finalDecision === 'HOLD' ? '#d97706' : room.finalDecision === 'REJECT' ? '#dc2626' : '#1d4ed8'}>
+                    {room.finalDecision === 'APPROVE' ? 'Approved — Selected'
+                      : room.finalDecision === 'HOLD' ? 'On Hold'
+                      : room.finalDecision === 'REJECT' ? 'Rejected'
+                      : 'Evaluation Submitted — Awaiting HR Decision'}
                   </Typography>
                 </Box>
+
+                {(!room.finalDecision || room.finalDecision === 'PENDING') && (
+                  <Alert severity="info" sx={{ mb: 2, py: 0.5 }}>
+                    Your recommendation has been sent to HR
+                    {room.directorRecommendation && room.directorRecommendation !== 'PENDING' && (
+                      <>: <strong>{room.directorRecommendation}</strong></>
+                    )}. HR will review it and record the final hiring decision.
+                  </Alert>
+                )}
 
                 <Grid container spacing={1.5}>
                   {[
@@ -295,7 +304,7 @@ export default function DirectorInterviewRoom() {
                     ['Communication',    room.communicationRating,  'rating'],
                     ['Culture Fit',      room.cultureFitRating,     'rating'],
                     ['Expected CTC',     room.expectedCtc,          'text'],
-                    ['Offered CTC',      room.offeredCtc,           'text'],
+                    ['Discussed CTC',    room.offeredCtc,           'text'],
                     ['Notice Period',    room.noticePeriod,         'text'],
                   ].map(([label, val, type]) => (
                     <Grid item xs={12} sm={6} key={label}>
@@ -372,22 +381,16 @@ export default function DirectorInterviewRoom() {
                 placeholder="e.g. ₹8 LPA" />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth size="small" label="Offered CTC"
+              <TextField fullWidth size="small" label="Discussed CTC"
                 value={evalForm.offeredCtc}
                 onChange={e => setEvalForm(f => ({ ...f, offeredCtc: e.target.value }))}
-                placeholder="e.g. ₹10 LPA" helperText="Required to approve" />
+                placeholder="e.g. ₹10 LPA" />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth size="small" label="Notice Period"
                 value={evalForm.noticePeriod}
                 onChange={e => setEvalForm(f => ({ ...f, noticePeriod: e.target.value }))}
                 placeholder="e.g. 30 days" />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField fullWidth size="small" label="Joining Date" type="date"
-                value={evalForm.joiningDate}
-                onChange={e => setEvalForm(f => ({ ...f, joiningDate: e.target.value }))}
-                InputLabelProps={{ shrink: true }} helperText="Required to approve" />
             </Grid>
             <Grid item xs={12}>
               <TextField fullWidth size="small" label="Salary Discussion" multiline rows={2}
@@ -401,33 +404,28 @@ export default function DirectorInterviewRoom() {
                 onChange={e => setEvalForm(f => ({ ...f, directorRemarks: e.target.value }))}
                 placeholder="Overall impression, strengths, concerns…" />
             </Grid>
+            <Grid item xs={12}>
+              <TextField fullWidth size="small" label="Your Recommendation"
+                select SelectProps={{ native: true }}
+                value={evalForm.directorRecommendation}
+                onChange={e => setEvalForm(f => ({ ...f, directorRecommendation: e.target.value }))}
+                helperText="Advisory only — HR reviews your evaluation and records the final hiring decision separately.">
+                {RECOMMENDATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </TextField>
+            </Grid>
           </Grid>
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2, gap: 1, flexWrap: 'wrap' }}>
+        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
           <Button onClick={() => setEvalDialog(false)} disabled={saving} sx={{ textTransform: 'none' }}>
             Cancel
           </Button>
           <Box sx={{ flex: 1 }} />
-          <Button variant="outlined" color="error"
-            disabled={saving || !evalForm.directorRemarks?.trim()}
-            startIcon={<CancelIcon />}
-            onClick={() => handleEvaluate('REJECT')}
-            sx={{ textTransform: 'none', fontWeight: 600 }}>
-            Reject
-          </Button>
-          <Button variant="outlined"
-            disabled={saving || !evalForm.directorRemarks?.trim()}
-            startIcon={<PauseCircleIcon />}
-            onClick={() => handleEvaluate('HOLD')}
-            sx={{ textTransform: 'none', fontWeight: 600, borderColor: '#d97706', color: '#d97706' }}>
-            Hold
-          </Button>
           <Button variant="contained"
-            disabled={saving || !evalForm.directorRemarks?.trim() || !evalForm.offeredCtc?.trim() || !evalForm.joiningDate}
+            disabled={saving || !evalForm.directorRemarks?.trim()}
             startIcon={<CheckCircleIcon />}
-            onClick={() => handleEvaluate('APPROVE')}
-            sx={{ bgcolor: '#16a34a', '&:hover': { bgcolor: '#15803d' }, textTransform: 'none', fontWeight: 700 }}>
-            {saving ? 'Saving…' : 'Approve'}
+            onClick={handleSubmitEvaluation}
+            sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, textTransform: 'none', fontWeight: 700 }}>
+            {saving ? 'Submitting…' : 'Submit Evaluation'}
           </Button>
         </DialogActions>
       </Dialog>
