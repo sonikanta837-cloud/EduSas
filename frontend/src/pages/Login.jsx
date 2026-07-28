@@ -14,7 +14,6 @@ import CheckCircleIcon  from '@mui/icons-material/CheckCircle';
 import ArrowBackIcon    from '@mui/icons-material/ArrowBack';
 import { login, clearError, setEmployeeId } from '../store/authSlice';
 import { employeeApi } from '../api/employeeApi';
-import { timesheetApi } from '../api/timesheetApi';
 import api from '../api/axios';
 
 const GOLD      = '#CAA763';
@@ -91,7 +90,6 @@ const LoginPage = () => {
       try {
         const emp = await employeeApi.getByUserId(result.payload.userId);
         dispatch(setEmployeeId(emp.id));
-        await timesheetApi.checkIn(emp.id);
       } catch { /* never block login */ }
     }
   };

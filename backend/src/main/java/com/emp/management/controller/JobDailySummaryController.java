@@ -7,6 +7,8 @@ import com.emp.management.repository.EmployeeDetailsRepository;
 import com.emp.management.service.JobDailySummaryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -40,5 +42,37 @@ public class JobDailySummaryController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
         return ResponseEntity.ok(jobDailySummaryService.getRange(employeeId, start, end));
+    }
+
+    // Team/org-wide attendance report — ADMIN/DIRECTOR/HR see everyone, managers see their direct reports
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR','MANAGER','ASSISTANT_MANAGER')")
+    public ResponseEntity<List<JobDailySummaryDTO>> getTeam(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
+            Authentication authentication) {
+        return ResponseEntity.ok(jobDailySummaryService.getTeamRange(authentication.getName(), start, end));
+    }
+
+    @GetMapping("/export")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR','MANAGER','ASSISTANT_MANAGER')")
+    public ResponseEntity<byte[]> exportCsv(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
+            Authentication authentication) {
+        byte[] csv = jobDailySummaryService.exportToCsv(authentication.getName(), start, end);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=attendance-report.csv")
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .body(csv);
+    }
+
+    @PostMapping("/generate/range")
+    @PreAuthorize("hasAnyRole('ADMIN','DIRECTOR','HR')")
+    public ResponseEntity<Void> generateRange(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
+        jobDailySummaryService.generateAllForRange(start, end);
+        return ResponseEntity.ok().build();
     }
 }

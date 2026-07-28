@@ -23,7 +23,6 @@ import ResourcesPage from './pages/Resources';
 import LeaveUploadPage from './pages/LeaveUpload';
 import HolidaysPage from './pages/Holidays';
 import RolesPermissionsPage   from './pages/RolesPermissions';
-import DailyWorkReportsPage   from './pages/DailyWorkReports';
 import SettingsPage           from './pages/Settings';
 import InterviewsPage             from './pages/Interviews';
 import InterviewFeedbackPage      from './pages/InterviewFeedback';
@@ -114,7 +113,6 @@ function App() {
             <Route path="/leave-upload" element={<LeaveUploadPage />} />
             <Route path="/holidays" element={<HolidaysPage />} />
             <Route path="/roles-permissions" element={<RolesPermissionsPage />} />
-            <Route path="/work-reports" element={<DailyWorkReportsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/interviews" element={<InterviewsPage />} />
             <Route path="/interviews/feedback/:roundId" element={<InterviewFeedbackPage />} />

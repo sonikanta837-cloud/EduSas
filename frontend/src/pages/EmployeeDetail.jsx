@@ -37,10 +37,32 @@ import SupportAgentIcon    from '@mui/icons-material/SupportAgent';
 import { employeeApi }      from '../api/employeeApi';
 import { performanceApi }   from '../api/performanceApi';
 import { leaveApi }         from '../api/leaveApi';
-import { timesheetApi }      from '../api/timesheetApi';
+import { jobSummaryApi }     from '../api/jobSummaryApi';
 import { timesheetEntryApi } from '../api/timesheetEntryApi';
 import { courseApi }         from '../api/courseApi';
 import { toast }            from 'react-toastify';
+
+// ── Attendance formatting helpers ───────────────────────────────────────────
+const fmtAttTime = (iso) => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return isNaN(d) ? '—' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+const fmtAttMinutes = (mins) => {
+  if (mins == null) return '—';
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  return `${h}h ${String(m).padStart(2, '0')}m`;
+};
+const ATT_STATUS_STYLES = {
+  PRESENT:     { label: 'Present',     color: '#16a34a', bg: '#dcfce7' },
+  UNDER_HOURS: { label: 'Under Hours', color: '#c2410c', bg: '#ffedd5' },
+  OVERTIME:    { label: 'Overtime',    color: '#7c3aed', bg: '#ede9fe' },
+  ABSENT:      { label: 'Absent',      color: '#dc2626', bg: '#fee2e2' },
+  LEAVE:       { label: 'Leave',       color: '#2563eb', bg: '#dbeafe' },
+  HOLIDAY:     { label: 'Holiday',     color: '#7e22ce', bg: '#f3e8ff' },
+  WEEKEND:     { label: 'Weekly Off',  color: '#b45309', bg: '#fef3c7' },
+};
 
 // ── ManageListDialog ──────────────────────────────────────────────────────────
 const ManageListDialog = ({ open, onClose, title, items, onAdd, onEdit, onDelete }) => {
@@ -231,7 +253,13 @@ const EmployeeDetailPage = () => {
     if (!canViewFull) return;
     if (tab === 'leave')        leaveApi.getMyLeaves(id).then(setLeaves).catch(() => {});
     if (tab === 'performance')  performanceApi.getByEmployee(id).then(setReviews).catch(() => {});
-    if (tab === 'attendance')   timesheetApi.getAttendance(id).then(setAttendance).catch(() => {});
+    if (tab === 'attendance') {
+      const end = new Date().toISOString().slice(0, 10);
+      const start = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      jobSummaryApi.getForEmployee(id, start, end).then((data) => {
+        setAttendance(Array.isArray(data) ? [...data].reverse() : []);
+      }).catch(() => {});
+    }
     if (tab === 'timesheets') {
       const now = new Date();
       const yr  = now.getFullYear();
@@ -1070,7 +1098,7 @@ const EmployeeDetailPage = () => {
           {tab === 'attendance' && (
             canViewFull ? (
               <Card sx={{ p: 3, borderRadius: 2, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                <Typography fontWeight={700} mb={2}>Attendance Records</Typography>
+                <Typography fontWeight={700} mb={2}>Attendance Records (Job Time Tracking, last 90 days)</Typography>
                 {attendance.length === 0 ? (
                   <Box sx={{ textAlign: 'center', py: 4 }}>
                     <AccessTimeIcon sx={{ fontSize: 40, color: '#cbd5e1', mb: 1 }} />
@@ -1080,7 +1108,7 @@ const EmployeeDetailPage = () => {
                   <Table size="small">
                     <TableHead>
                       <TableRow sx={{ bgcolor: '#f8fafc' }}>
-                        {['Date','Check In','Check Out','Hours','Status'].map((h) => (
+                        {['Date','First Login','Last Logout','Working','Break','Office','Overtime','Status'].map((h) => (
                           <TableCell key={h} sx={{ fontWeight: 600, fontSize: 12 }}>{h}</TableCell>
                         ))}
                       </TableRow>
@@ -1088,15 +1116,22 @@ const EmployeeDetailPage = () => {
                     <TableBody>
                       {attendance.slice(0, 30).map((a, i) => (
                         <TableRow key={i} hover>
-                          <TableCell sx={{ fontSize: 13 }}>{a.workDate || a.date}</TableCell>
-                          <TableCell sx={{ fontSize: 13 }}>{a.loginTime || '—'}</TableCell>
-                          <TableCell sx={{ fontSize: 13 }}>{a.logoutTime || '—'}</TableCell>
-                          <TableCell sx={{ fontSize: 13 }}>{a.workingHours != null ? `${a.workingHours}h` : '—'}</TableCell>
+                          <TableCell sx={{ fontSize: 13 }}>{a.workDate}</TableCell>
+                          <TableCell sx={{ fontSize: 13 }}>{fmtAttTime(a.firstLoginTime)}</TableCell>
+                          <TableCell sx={{ fontSize: 13 }}>{fmtAttTime(a.lastLogoutTime)}</TableCell>
+                          <TableCell sx={{ fontSize: 13 }}>{fmtAttMinutes(a.totalWorkingMinutes)}</TableCell>
+                          <TableCell sx={{ fontSize: 13 }}>{fmtAttMinutes(a.totalBreakMinutes)}</TableCell>
+                          <TableCell sx={{ fontSize: 13 }}>{fmtAttMinutes(a.totalOfficeMinutes)}</TableCell>
+                          <TableCell sx={{ fontSize: 13 }}>{a.overtimeMinutes > 0 ? `+${fmtAttMinutes(a.overtimeMinutes)}` : '—'}</TableCell>
                           <TableCell>
                             <Chip
-                              label={a.logoutTime ? 'Present' : a.loginTime ? 'In Progress' : 'Present'}
+                              label={ATT_STATUS_STYLES[a.status]?.label || a.status}
                               size="small"
-                              color={a.logoutTime ? 'success' : 'warning'}
+                              sx={{
+                                bgcolor: ATT_STATUS_STYLES[a.status]?.bg || '#f1f5f9',
+                                color: ATT_STATUS_STYLES[a.status]?.color || '#64748b',
+                                fontWeight: 600,
+                              }}
                             />
                           </TableCell>
                         </TableRow>

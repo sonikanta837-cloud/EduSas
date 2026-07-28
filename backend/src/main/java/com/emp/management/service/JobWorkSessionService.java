@@ -325,35 +325,36 @@ public class JobWorkSessionService {
             return;
         }
 
-        String[] to = Stream.of(managerEmail, selfEmail)
-                .filter(e -> e != null && !e.isBlank())
-                .distinct()
-                .toArray(String[]::new);
-
+        final String primaryManager = managerEmail;
         String[] cc = Stream.concat(
                 userRepository.findByRole(Role.HR).stream(),
                 userRepository.findByRoleIn(List.of(Role.ADMIN, Role.DIRECTOR)).stream()
         )
         .map(User::getEmail)
-        .filter(e -> e != null && !e.isBlank() && Arrays.stream(to).noneMatch(e::equalsIgnoreCase))
+        .filter(e -> e != null && !e.isBlank() && !e.equalsIgnoreCase(primaryManager) && !e.equalsIgnoreCase(selfEmail))
         .distinct()
         .toArray(String[]::new);
 
         String client  = session.getClient() != null ? session.getClient().getValue() : "—";
         String jobName = session.getJob() != null ? session.getJob().getValue() : "—";
         String jobTask = session.getDescription();
-        String durationStr = formatMinutes((int) minutesOnBreak);
 
-        emailService.sendJobBreakAlertEmail(
-                to, cc,
-                emp.getFullName(),
-                emp.getEmployeeCode(),
-                emp.getDepartment(),
-                client, jobName, jobTask,
-                openBreak.getBreakStartTime(),
-                durationStr,
-                session.getWorkDate()
+        emailService.sendJobBreakAlertToManager(
+                managerEmail, cc,
+                emp.getFullName(), emp.getEmployeeCode(), emp.getDepartment(), emp.getPosition(), jobName,
+                openBreak.getBreakStartTime(), (int) minutesOnBreak, breakThresholdMinutes, session.getWorkDate()
         );
+        if (selfEmail != null) {
+            emailService.sendJobBreakAlertToEmployee(
+                    selfEmail, emp.getFullName(), jobName,
+                    openBreak.getBreakStartTime(), (int) minutesOnBreak, breakThresholdMinutes, session.getWorkDate()
+            );
+        }
+
+        String[] recipients = Stream.of(managerEmail, selfEmail)
+                .filter(e -> e != null && !e.isBlank())
+                .distinct()
+                .toArray(String[]::new);
 
         breakAlertLogRepository.save(JobBreakAlertLog.builder()
                 .employee(emp)
@@ -367,12 +368,12 @@ public class JobWorkSessionService {
                 .jobTask(jobTask)
                 .breakStartTime(openBreak.getBreakStartTime())
                 .breakDurationMinutes((int) minutesOnBreak)
-                .recipientEmails(String.join(", ", to))
+                .recipientEmails(String.join(", ", recipients))
                 .sentAt(now)
                 .build());
 
-        log.info("Active break alert sent to {} (cc: {}) for {} — on break since {} ({} min)",
-                Arrays.toString(to), Arrays.toString(cc), emp.getFullName(), openBreak.getBreakStartTime(), minutesOnBreak);
+        log.info("Active break alert sent — manager: {} (cc: {}), employee: {} — for {} on break since {} ({} min)",
+                managerEmail, Arrays.toString(cc), selfEmail, emp.getFullName(), openBreak.getBreakStartTime(), minutesOnBreak);
     }
 
     private void dispatchBreakAlert(EmployeeDetails emp, JobWorkSession lastClosed, long minutesSinceLogout) {
@@ -391,35 +392,32 @@ public class JobWorkSessionService {
             return;
         }
 
-        String[] to = Stream.of(managerEmail, selfEmail)
-                .filter(e -> e != null && !e.isBlank())
-                .distinct()
-                .toArray(String[]::new);
-
+        final String primaryManager = managerEmail;
         String[] cc = Stream.concat(
                 userRepository.findByRole(Role.HR).stream(),
                 userRepository.findByRoleIn(List.of(Role.ADMIN, Role.DIRECTOR)).stream()
         )
         .map(User::getEmail)
-        .filter(e -> e != null && !e.isBlank() && Arrays.stream(to).noneMatch(e::equalsIgnoreCase))
+        .filter(e -> e != null && !e.isBlank() && !e.equalsIgnoreCase(primaryManager) && !e.equalsIgnoreCase(selfEmail))
         .distinct()
         .toArray(String[]::new);
 
-        emailService.sendJobBreakAlertEmail(
-                to, cc,
-                emp.getFullName(),
-                emp.getEmployeeCode(),
-                emp.getDepartment(),
-                lastClosed.getClient() != null ? lastClosed.getClient().getValue() : "—",
-                lastClosed.getJob() != null ? lastClosed.getJob().getValue() : "—",
-                lastClosed.getDescription(),
-                lastClosed.getLogoutTime(),
-                formatMinutes((int) minutesSinceLogout),
-                lastClosed.getWorkDate()
-        );
+        String jobName = lastClosed.getJob() != null ? lastClosed.getJob().getValue() : "—";
 
-        log.info("Job break alert sent to {} (cc: {}) for {} — inactive since {}",
-                Arrays.toString(to), Arrays.toString(cc), emp.getFullName(), lastClosed.getLogoutTime());
+        emailService.sendJobBreakAlertToManager(
+                managerEmail, cc,
+                emp.getFullName(), emp.getEmployeeCode(), emp.getDepartment(), emp.getPosition(), jobName,
+                lastClosed.getLogoutTime(), (int) minutesSinceLogout, breakThresholdMinutes, lastClosed.getWorkDate()
+        );
+        if (selfEmail != null) {
+            emailService.sendJobBreakAlertToEmployee(
+                    selfEmail, emp.getFullName(), jobName,
+                    lastClosed.getLogoutTime(), (int) minutesSinceLogout, breakThresholdMinutes, lastClosed.getWorkDate()
+            );
+        }
+
+        log.info("Job break alert sent — manager: {} (cc: {}), employee: {} — for {} inactive since {}",
+                managerEmail, Arrays.toString(cc), selfEmail, emp.getFullName(), lastClosed.getLogoutTime());
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────

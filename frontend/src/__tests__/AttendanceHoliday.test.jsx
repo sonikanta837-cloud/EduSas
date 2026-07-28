@@ -1,22 +1,22 @@
 /**
- * Tests for holiday/weekend status display in frontend/src/pages/Attendance.jsx
+ * Tests for holiday/weekend/leave status display in frontend/src/pages/Attendance.jsx
+ *
+ * Attendance status (Present/Under Hours/Overtime/Absent/Leave/Holiday/Weekend) is
+ * now computed server-side by JobDailySummaryService and delivered via
+ * jobSummaryApi — the page just renders whatever `status` each day's summary
+ * carries. Holiday names still come from leaveUploadApi.getHolidays (used for
+ * the display label only; the HOLIDAY/WEEKEND/LEAVE classification itself is
+ * driven entirely by the mocked summary `status`).
  *
  * Coverage areas:
- *  - Holiday status shown for a date matching the holidays map
- *  - Weekly Off shown for Saturday/Sunday
- *  - Holiday takes priority over Weekly Off (holiday on a weekend)
- *  - Future date shows no Absent chip
- *  - Normal workday with sessions shows Present/Overtime
- *  - Status priority: Holiday > Weekly Off > Future > Absent > In Progress > Present/Overtime
- *
- * Strategy: DayCard component logic is exercised via the integration of
- * AttendancePage which renders DayCards for the current week.
- * We control the holidayMap and session data via mocked APIs to trigger
- * specific code paths in DayCard's statusChip derivation.
+ *  - Holidays API is called on mount
+ *  - Today banner: Holiday / Weekly Off / Leave, driven by the today summary's status
+ *  - DayCard chip reflects each backend status value for a day in the current week
+ *  - Holiday name chip (with truncation) shown for a HOLIDAY day
  */
 
 import React from 'react';
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { MemoryRouter } from 'react-router-dom';
@@ -30,11 +30,16 @@ jest.mock('react-toastify', () => ({
   toast: { error: jest.fn(), success: jest.fn() },
 }));
 
-jest.mock('../api/timesheetApi', () => ({
-  timesheetApi: {
-    getSessionsByRange: jest.fn(),
-    getTodaySessions: jest.fn(),
-    getAttendanceByRange: jest.fn(),
+jest.mock('../api/jobWorkSessionApi', () => ({
+  jobWorkSessionApi: {
+    getRange: jest.fn(),
+    getToday: jest.fn(),
+  },
+}));
+
+jest.mock('../api/jobSummaryApi', () => ({
+  jobSummaryApi: {
+    getMy: jest.fn(),
   },
 }));
 
@@ -46,15 +51,24 @@ jest.mock('../api/leaveUploadApi', () => ({
   leaveUploadApi: { getHolidays: jest.fn() },
 }));
 
-import { timesheetApi }   from '../api/timesheetApi';
-import { employeeApi }    from '../api/employeeApi';
-import { leaveUploadApi } from '../api/leaveUploadApi';
-import AttendancePage     from '../pages/Attendance';
+import { jobWorkSessionApi } from '../api/jobWorkSessionApi';
+import { jobSummaryApi }     from '../api/jobSummaryApi';
+import { employeeApi }       from '../api/employeeApi';
+import { leaveUploadApi }    from '../api/leaveUploadApi';
+import AttendancePage        from '../pages/Attendance';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
 const EMPLOYEE = { id: 42, fullName: 'Test Employee' };
 const USER     = { userId: 7, email: 'test@company.com', role: 'EMPLOYEE', fullName: 'Test Employee' };
+const EMPTY_TODAY = { sessions: [], totalMinutesToday: 0, totalFormatted: '0h 00m', openSession: null };
+
+const summaryFor = (workDate, status, extra = {}) => ({
+  employeeId: 42, employeeName: 'Test Employee', department: 'Engineering',
+  workDate, totalWorkingMinutes: 0, totalBreakMinutes: 0, totalOfficeMinutes: 0,
+  overtimeMinutes: 0, sessionCount: 0, firstLoginTime: null, lastLogoutTime: null,
+  primaryClient: null, status, ...extra,
+});
 
 // ── Store + render helpers ─────────────────────────────────────────────────────
 
@@ -80,9 +94,9 @@ const renderPage = () => {
 beforeEach(() => {
   jest.clearAllMocks();
   employeeApi.getByUserId.mockResolvedValue(EMPLOYEE);
-  timesheetApi.getSessionsByRange.mockResolvedValue([]);
-  timesheetApi.getTodaySessions.mockResolvedValue([]);
-  timesheetApi.getAttendanceByRange.mockResolvedValue([]);
+  jobWorkSessionApi.getRange.mockResolvedValue([]);
+  jobWorkSessionApi.getToday.mockResolvedValue(EMPTY_TODAY);
+  jobSummaryApi.getMy.mockResolvedValue([]);
   leaveUploadApi.getHolidays.mockResolvedValue([]);
 });
 
@@ -114,285 +128,109 @@ describe('AttendancePage — holidays API', () => {
   });
 });
 
-// ── Today is a holiday banner ─────────────────────────────────────────────────
+// ── Today banner — driven by today's summary status ──────────────────────────
 
-describe('AttendancePage — holiday banner for today', () => {
-  it('shows holiday banner when today is a holiday', async () => {
-    const todayStr = dayjs().format('YYYY-MM-DD');
+describe('AttendancePage — today banner', () => {
+  const todayStr = dayjs().format('YYYY-MM-DD');
+
+  it('shows holiday banner when today\'s status is HOLIDAY', async () => {
     leaveUploadApi.getHolidays.mockResolvedValue([{ date: todayStr, name: 'Republic Day' }]);
+    jobSummaryApi.getMy.mockResolvedValue([summaryFor(todayStr, 'HOLIDAY')]);
 
     renderPage();
 
     expect(await screen.findByText(/Today is a public holiday/i)).toBeInTheDocument();
-    expect(screen.getByText(/Republic Day/i)).toBeInTheDocument();
+    // "Republic Day" appears both in the banner and in today's DayCard chip
+    expect(screen.getAllByText(/Republic Day/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/No attendance required/i)).toBeInTheDocument();
   });
 
-  it('shows no-attendance-required message on holiday', async () => {
-    const todayStr = dayjs().format('YYYY-MM-DD');
-    leaveUploadApi.getHolidays.mockResolvedValue([{ date: todayStr, name: 'Diwali' }]);
+  it('shows weekly off banner when today\'s status is WEEKEND', async () => {
+    jobSummaryApi.getMy.mockResolvedValue([summaryFor(todayStr, 'WEEKEND')]);
 
     renderPage();
 
-    expect(await screen.findByText(/No attendance required/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Today is a weekly off/i)).toBeInTheDocument();
   });
 
-  it('does not show holiday banner when today is not a holiday', async () => {
-    leaveUploadApi.getHolidays.mockResolvedValue([{ date: '1900-01-01', name: 'Far Past Holiday' }]);
+  it('shows leave banner when today\'s status is LEAVE', async () => {
+    jobSummaryApi.getMy.mockResolvedValue([summaryFor(todayStr, 'LEAVE')]);
+
+    renderPage();
+
+    expect(await screen.findByText(/You are on approved leave today/i)).toBeInTheDocument();
+  });
+
+  it('does not show any banner on a normal PRESENT day', async () => {
+    jobSummaryApi.getMy.mockResolvedValue([summaryFor(todayStr, 'PRESENT')]);
 
     renderPage();
 
     await screen.findByText('Attendance');
     expect(screen.queryByText(/Today is a public holiday/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Today is a weekly off/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/You are on approved leave today/i)).not.toBeInTheDocument();
   });
 });
 
-// ── Today is a weekend banner ─────────────────────────────────────────────────
+// ── DayCard status chips — one per backend status value ──────────────────────
 
-describe('AttendancePage — weekend banner for today', () => {
-  it('shows weekly off banner when today is Saturday or Sunday', async () => {
-    const today = dayjs();
-    const isWeekend = today.day() === 0 || today.day() === 6;
+describe('DayCard — status chip reflects backend status', () => {
+  const weekStart = dayjs().startOf('week');
+  const monday = weekStart.add(1, 'day');
+  const mondayStr = monday.format('YYYY-MM-DD');
+
+  it.each([
+    ['PRESENT', 'Present'],
+    ['UNDER_HOURS', 'Under Hours'],
+    ['OVERTIME', 'Overtime'],
+    ['ABSENT', 'Absent'],
+    ['LEAVE', 'Leave'],
+    ['WEEKEND', 'Weekly Off'],
+  ])('renders the %s status as "%s"', async (status, label) => {
+    jobSummaryApi.getMy.mockResolvedValue([summaryFor(mondayStr, status)]);
 
     renderPage();
     await screen.findByText('Attendance');
 
-    if (isWeekend) {
-      expect(screen.getByText(/Today is a weekly off/i)).toBeInTheDocument();
-    } else {
-      // On weekdays, no banner — test still passes
-      expect(screen.queryByText(/Today is a weekly off/i)).not.toBeInTheDocument();
-    }
-  });
-});
-
-// ── DayCard status — Holiday chip ─────────────────────────────────────────────
-
-describe('DayCard — Holiday status', () => {
-  it('shows a holiday name chip for a day in the current week that is a holiday', async () => {
-    // Find a day within the current week (Monday–Sunday)
-    const weekStart = dayjs().startOf('week');
-    // Pick Monday (index 1) — safe for a non-weekend holiday test
-    const monday = weekStart.add(1, 'day');
-    const mondayStr = monday.format('YYYY-MM-DD');
-    const isMondayWeekend = monday.day() === 0 || monday.day() === 6;
-
-    // Only run this assertion if Monday is not a weekend (standard calendar)
-    if (!isMondayWeekend) {
-      leaveUploadApi.getHolidays.mockResolvedValue([
-        { date: mondayStr, name: 'Test Holiday' },
-      ]);
-
-      renderPage();
-
-      await screen.findByText('Attendance');
-      await waitFor(() => {
-        // The chip text is truncated at 20 chars: "Test Holiday" is 12 chars, no truncation
-        const chips = screen.queryAllByText('Test Holiday');
-        expect(chips.length).toBeGreaterThanOrEqual(1);
-      });
-    }
-  });
-});
-
-// ── DayCard status — Weekly Off chip ──────────────────────────────────────────
-
-describe('DayCard — Weekly Off status', () => {
-  it('shows "Weekly Off" chip for Saturday/Sunday in current week view', async () => {
-    renderPage();
-    await screen.findByText('Attendance');
-
-    // The current week always has a Saturday and Sunday, so at least 2 "Weekly Off" chips
+    // The legend footer always renders one instance of every status label, so
+    // a day actually carrying this status must push the count to 2 or more.
     await waitFor(() => {
-      const weeklyOffChips = screen.queryAllByText('Weekly Off');
-      expect(weeklyOffChips.length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryAllByText(label).length).toBeGreaterThanOrEqual(2);
     });
   });
-});
 
-// ── DayCard status — Absent chip ──────────────────────────────────────────────
-
-describe('DayCard — Absent status', () => {
-  it('shows Absent chip for past weekdays with no sessions', async () => {
-    // Navigate to a past week to guarantee past weekdays
-    // Since we can't easily control DayCard dates directly, verify the
-    // Absent chip can appear — it shows for past non-holiday weekdays without sessions.
-    // The current week may have past weekdays (Mon–Fri before today).
-    renderPage();
-    await screen.findByText('Attendance');
-
-    // Absent chips may appear for past workdays this week
-    await waitFor(() => {
-      const absentChips = screen.queryAllByText('Absent');
-      // We cannot guarantee count as it depends on day of week, just check no crash
-      expect(document.body).toBeInTheDocument();
-    });
-  });
-});
-
-// ── DayCard status — Holiday takes priority over Weekly Off ───────────────────
-
-describe('DayCard — Holiday > Weekly Off priority', () => {
-  it('shows Holiday chip (not Weekly Off) when a weekend is also a holiday', async () => {
-    // Find Saturday in the current week
-    const weekStart = dayjs().startOf('week');
-    const saturday = weekStart.add(6, 'day'); // Saturday is index 6
-    const saturdayStr = saturday.format('YYYY-MM-DD');
-
-    leaveUploadApi.getHolidays.mockResolvedValue([
-      { date: saturdayStr, name: 'Special Holiday' },
-    ]);
+  it('shows the holiday name chip (not the generic "Holiday" label) for a HOLIDAY day', async () => {
+    leaveUploadApi.getHolidays.mockResolvedValue([{ date: mondayStr, name: 'Test Holiday' }]);
+    jobSummaryApi.getMy.mockResolvedValue([summaryFor(mondayStr, 'HOLIDAY')]);
 
     renderPage();
     await screen.findByText('Attendance');
 
     await waitFor(() => {
-      // "Special Holiday" chip should appear (holiday overrides weekly off)
-      const holidayChips = screen.queryAllByText('Special Holiday');
-      expect(holidayChips.length).toBeGreaterThanOrEqual(1);
-    });
-  });
-
-  it('holiday name takes priority — no Weekly Off chip for that day when holiday is set', async () => {
-    const weekStart = dayjs().startOf('week');
-    const saturday = weekStart.add(6, 'day');
-    const saturdayStr = saturday.format('YYYY-MM-DD');
-
-    leaveUploadApi.getHolidays.mockResolvedValue([
-      { date: saturdayStr, name: 'Weekend Holiday' },
-    ]);
-
-    renderPage();
-    await screen.findByText('Attendance');
-
-    // "Weekend Holiday" appears, and we should have at most 1 "Weekly Off" (Sunday)
-    await waitFor(() => {
-      const holidayChips = screen.queryAllByText('Weekend Holiday');
-      expect(holidayChips.length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryAllByText('Test Holiday').length).toBeGreaterThanOrEqual(1);
     });
   });
 });
 
-// ── DayCard status — Present / Overtime ──────────────────────────────────────
+// ── Holiday chip truncation (pure string logic used by DayCard) ──────────────
 
-describe('DayCard — Present and Overtime status', () => {
-  it('shows Present chip for past weekday with completed sessions (8h)', async () => {
-    const weekStart = dayjs().startOf('week');
-    const tuesday = weekStart.add(2, 'day');
-    const tuesdayStr = tuesday.format('YYYY-MM-DD');
-    const isFuture = tuesday.isAfter(dayjs(), 'day');
-    const isWeekend = tuesday.day() === 0 || tuesday.day() === 6;
-
-    if (!isFuture && !isWeekend) {
-      timesheetApi.getAttendanceByRange.mockResolvedValue([
-        { workDate: tuesdayStr, workingHours: 8 },
-      ]);
-
-      timesheetApi.getSessionsByRange.mockResolvedValue([
-        {
-          id: 1, workDate: tuesdayStr,
-          loginTime: '09:00:00', logoutTime: '17:00:00', sessionHours: 8,
-        },
-      ]);
-
-      renderPage();
-      await screen.findByText('Attendance');
-
-      await waitFor(() => {
-        const presentChips = screen.queryAllByText('Present');
-        expect(presentChips.length).toBeGreaterThanOrEqual(1);
-      });
-    }
+describe('DayCard — holiday name truncation', () => {
+  it('truncates holiday names longer than 20 characters', () => {
+    const holidayName = 'Very Long Holiday Name That Exceeds Twenty Chars';
+    const truncated = holidayName.length > 20
+      ? holidayName.slice(0, 20) + '…'
+      : holidayName;
+    expect(truncated).toBe('Very Long Holiday Na…');
+    expect(truncated.startsWith('Very Long Holiday Na')).toBe(true);
   });
 
-  it('shows Overtime chip for past weekday with more than 8 hours', async () => {
-    const weekStart = dayjs().startOf('week');
-    const tuesday = weekStart.add(2, 'day');
-    const tuesdayStr = tuesday.format('YYYY-MM-DD');
-    const isFuture = tuesday.isAfter(dayjs(), 'day');
-    const isWeekend = tuesday.day() === 0 || tuesday.day() === 6;
-
-    if (!isFuture && !isWeekend) {
-      timesheetApi.getAttendanceByRange.mockResolvedValue([
-        { workDate: tuesdayStr, workingHours: 9.5 },
-      ]);
-
-      timesheetApi.getSessionsByRange.mockResolvedValue([
-        {
-          id: 2, workDate: tuesdayStr,
-          loginTime: '08:00:00', logoutTime: '17:30:00', sessionHours: 9.5,
-        },
-      ]);
-
-      renderPage();
-      await screen.findByText('Attendance');
-
-      await waitFor(() => {
-        const overtimeChips = screen.queryAllByText('Overtime');
-        expect(overtimeChips.length).toBeGreaterThanOrEqual(1);
-      });
-    }
-  });
-});
-
-// ── DayCard status logic unit tests ──────────────────────────────────────────
-
-describe('DayCard status logic — pure derivation', () => {
-  /**
-   * These tests verify the status derivation logic using dayjs.
-   * They re-implement the exact priority chain from DayCard.
-   */
-
-  const deriveStatus = ({ isHoliday, isWeekend, isFuture, isPresent, openSession, totalHours }) => {
-    if (isHoliday) return 'Holiday';
-    if (isWeekend) return 'Weekly Off';
-    if (isFuture)  return 'Future';
-    if (!isPresent) return 'Absent';
-    if (openSession) return 'In Progress';
-    return totalHours > 8 ? 'Overtime' : 'Present';
-  };
-
-  it('Holiday takes highest priority over all other states', () => {
-    expect(deriveStatus({ isHoliday: true, isWeekend: true, isFuture: false, isPresent: false, openSession: false, totalHours: 0 })).toBe('Holiday');
-    expect(deriveStatus({ isHoliday: true, isWeekend: false, isFuture: true,  isPresent: true, openSession: true,  totalHours: 9 })).toBe('Holiday');
-  });
-
-  it('Weekly Off is second priority (when not a holiday)', () => {
-    expect(deriveStatus({ isHoliday: false, isWeekend: true, isFuture: false, isPresent: false, openSession: false, totalHours: 0 })).toBe('Weekly Off');
-    expect(deriveStatus({ isHoliday: false, isWeekend: true, isFuture: true,  isPresent: true,  openSession: true,  totalHours: 10 })).toBe('Weekly Off');
-  });
-
-  it('Future is third priority', () => {
-    expect(deriveStatus({ isHoliday: false, isWeekend: false, isFuture: true, isPresent: false, openSession: false, totalHours: 0 })).toBe('Future');
-  });
-
-  it('Absent shown for past non-holiday non-weekend days with no data', () => {
-    expect(deriveStatus({ isHoliday: false, isWeekend: false, isFuture: false, isPresent: false, openSession: false, totalHours: 0 })).toBe('Absent');
-  });
-
-  it('In Progress shown when open session exists', () => {
-    expect(deriveStatus({ isHoliday: false, isWeekend: false, isFuture: false, isPresent: true, openSession: true, totalHours: 5 })).toBe('In Progress');
-  });
-
-  it('Overtime shown when totalHours > 8 and no open session', () => {
-    expect(deriveStatus({ isHoliday: false, isWeekend: false, isFuture: false, isPresent: true, openSession: false, totalHours: 9 })).toBe('Overtime');
-    expect(deriveStatus({ isHoliday: false, isWeekend: false, isFuture: false, isPresent: true, openSession: false, totalHours: 8.1 })).toBe('Overtime');
-  });
-
-  it('Present shown when totalHours <= 8 and no open session', () => {
-    expect(deriveStatus({ isHoliday: false, isWeekend: false, isFuture: false, isPresent: true, openSession: false, totalHours: 8 })).toBe('Present');
-    expect(deriveStatus({ isHoliday: false, isWeekend: false, isFuture: false, isPresent: true, openSession: false, totalHours: 0 })).toBe('Present');
-  });
-
-  it('Holiday on Saturday still shows Holiday (not Weekly Off)', () => {
-    expect(deriveStatus({ isHoliday: true, isWeekend: true, isFuture: false, isPresent: false, openSession: false, totalHours: 0 })).toBe('Holiday');
-  });
-
-  it('Saturday without holiday shows Weekly Off', () => {
-    expect(deriveStatus({ isHoliday: false, isWeekend: true, isFuture: false, isPresent: false, openSession: false, totalHours: 0 })).toBe('Weekly Off');
-  });
-
-  it('Sunday without holiday shows Weekly Off', () => {
-    expect(deriveStatus({ isHoliday: false, isWeekend: true, isFuture: false, isPresent: false, openSession: false, totalHours: 0 })).toBe('Weekly Off');
+  it('does not truncate names of 20 characters or fewer', () => {
+    const holidayName = 'Republic Day';
+    const truncated = holidayName.length > 20
+      ? holidayName.slice(0, 20) + '…'
+      : holidayName;
+    expect(truncated).toBe('Republic Day');
   });
 });
 
@@ -426,43 +264,5 @@ describe('holidaysMap construction logic', () => {
     const map = {};
     list.forEach(h => { map[h.date] = h.name; });
     expect(map['2025-01-26']).toBe('Override');
-  });
-});
-
-// ── Holiday chip truncation ───────────────────────────────────────────────────
-
-describe('DayCard — holiday name truncation', () => {
-  it('truncates holiday names longer than 20 characters', () => {
-    const holidayName = 'Very Long Holiday Name That Exceeds Twenty Chars';
-    const truncated = holidayName.length > 20
-      ? holidayName.slice(0, 20) + '…'
-      : holidayName;
-    expect(truncated).toBe('Very Long Holiday Na…');
-    // 20 chars + '…' (the ellipsis character is 1 character but 3 UTF-8 bytes)
-    expect(truncated.startsWith('Very Long Holiday Na')).toBe(true);
-  });
-
-  it('does not truncate names of 20 characters or fewer', () => {
-    const holidayName = 'Republic Day';
-    const truncated = holidayName.length > 20
-      ? holidayName.slice(0, 20) + '…'
-      : holidayName;
-    expect(truncated).toBe('Republic Day');
-  });
-
-  it('shows truncated chip for long holiday name in page', async () => {
-    const todayStr = dayjs().format('YYYY-MM-DD');
-    const longName = 'A Very Long Holiday Name That Should Be Truncated';
-    leaveUploadApi.getHolidays.mockResolvedValue([{ date: todayStr, name: longName }]);
-
-    renderPage();
-    await screen.findByText('Attendance');
-
-    // The banner text includes the full name
-    await waitFor(() => {
-      const banner = screen.queryByText(new RegExp(longName.slice(0, 10)));
-      // Either full banner or truncated chip appears
-      expect(document.body).toBeInTheDocument();
-    });
   });
 });

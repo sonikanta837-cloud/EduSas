@@ -58,9 +58,9 @@ jest.mock('../api/courseApi', () => ({
   },
 }));
 
-jest.mock('../api/timesheetApi', () => ({
-  timesheetApi: {
-    getAttendance: jest.fn(),
+jest.mock('../api/jobSummaryApi', () => ({
+  jobSummaryApi: {
+    getMy: jest.fn(),
   },
 }));
 
@@ -74,7 +74,7 @@ import { dashboardApi }  from '../api/dashboardApi';
 import { employeeApi }   from '../api/employeeApi';
 import { leaveApi }      from '../api/leaveApi';
 import { courseApi }     from '../api/courseApi';
-import { timesheetApi }  from '../api/timesheetApi';
+import { jobSummaryApi } from '../api/jobSummaryApi';
 import { performanceApi } from '../api/performanceApi';
 import DashboardPage     from '../pages/Dashboard';
 
@@ -139,7 +139,7 @@ beforeEach(() => {
   // Employee defaults
   leaveApi.getMyLeaves.mockResolvedValue([]);
   courseApi.getForEmployee.mockResolvedValue([]);
-  timesheetApi.getAttendance.mockResolvedValue([]);
+  jobSummaryApi.getMy.mockResolvedValue([]);
   courseApi.getMyCertificates.mockResolvedValue([]);
 });
 

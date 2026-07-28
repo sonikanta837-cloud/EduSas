@@ -25,7 +25,7 @@ import { dashboardApi }    from '../api/dashboardApi';
 import { employeeApi }     from '../api/employeeApi';
 import { leaveApi }        from '../api/leaveApi';
 import { courseApi }       from '../api/courseApi';
-import { timesheetApi }    from '../api/timesheetApi';
+import { jobSummaryApi }   from '../api/jobSummaryApi';
 import { performanceApi }  from '../api/performanceApi';
 import { toast }           from 'react-toastify';
 
@@ -112,15 +112,17 @@ const AdminDashboard = ({ stats, leaves, employees, navigate }) => {
   const totalEmp   = stats?.totalEmployees      ?? 0;
   const completion = stats?.avgCourseCompletion ?? 0;
   const hoursToday = stats?.totalWorkHoursToday ?? 0;
-  const activeRate = totalEmp > 0 ? Math.round((activeEmp / totalEmp) * 100) : 0;
 
   const pendingLeaves  = leaves.filter(l => l.status === 'PENDING');
-  const approvedLeaves = leaves.filter(l => l.status === 'APPROVED');
 
-  /* attendance today */
-  const todayStr    = new Date().toISOString().split('T')[0];
-  const onLeaveToday = approvedLeaves.filter(l => l.startDate && l.endDate && l.startDate <= todayStr && l.endDate >= todayStr).length;
-  const presentToday = Math.max(activeEmp - onLeaveToday, 0);
+  /* attendance today — sourced from Job Time Tracking (JobDailySummary), not a leave-derived approximation */
+  const presentToday    = stats?.presentToday    ?? 0;
+  const underHoursToday = stats?.underHoursToday ?? 0;
+  const overtimeToday   = stats?.overtimeToday   ?? 0;
+  const onLeaveToday    = stats?.onLeaveToday    ?? 0;
+  const absentToday     = stats?.absentToday     ?? 0;
+  const showedUpToday   = presentToday + underHoursToday + overtimeToday;
+  const activeRate      = activeEmp > 0 ? Math.round((showedUpToday / activeEmp) * 100) : 0;
 
   /* new hires */
   const now = new Date();
@@ -216,8 +218,12 @@ const AdminDashboard = ({ stats, leaves, employees, navigate }) => {
 
   /* Doughnut chart */
   const donutData = {
-    labels: ['Present', 'On Leave', 'Inactive'],
-    datasets: [{ data: [presentToday, onLeaveToday, totalEmp - activeEmp], backgroundColor: ['#4f46e5', '#d97706', '#e2e8f0'], borderWidth: 0, hoverOffset: 6 }],
+    labels: ['Present', 'Under Hours', 'Overtime', 'On Leave', 'Absent'],
+    datasets: [{
+      data: [presentToday, underHoursToday, overtimeToday, onLeaveToday, absentToday],
+      backgroundColor: ['#4f46e5', '#d97706', '#7c3aed', '#0284c7', '#e11d48'],
+      borderWidth: 0, hoverOffset: 6,
+    }],
   };
   const donutOpts = { responsive: true, maintainAspectRatio: false, cutout: '73%', animation: { duration: 1000 }, plugins: { legend: { display: false }, tooltip } };
 
@@ -364,11 +370,13 @@ const AdminDashboard = ({ stats, leaves, employees, navigate }) => {
                 </Box>
               </Box>
               {[
-                { label: 'Present',  value: presentToday,         color: '#4f46e5' },
-                { label: 'On Leave', value: onLeaveToday,          color: '#d97706' },
-                { label: 'Inactive', value: totalEmp - activeEmp, color: '#e2e8f0' },
-              ].map(({ label, value, color }) => (
-                <Box key={label} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: .75, borderBottom: label !== 'Inactive' ? '1px solid #f8fafc' : 'none' }}>
+                { label: 'Present',     value: presentToday,    color: '#4f46e5' },
+                { label: 'Under Hours', value: underHoursToday, color: '#d97706' },
+                { label: 'Overtime',    value: overtimeToday,   color: '#7c3aed' },
+                { label: 'On Leave',    value: onLeaveToday,    color: '#0284c7' },
+                { label: 'Absent',      value: absentToday,     color: '#e11d48' },
+              ].map(({ label, value, color }, i, arr) => (
+                <Box key={label} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: .75, borderBottom: i < arr.length - 1 ? '1px solid #f8fafc' : 'none' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
                     <Box sx={{ width: 10, height: 10, borderRadius: '3px', bgcolor: color, flexShrink: 0 }} />
                     <Typography sx={{ fontSize: 13, color: '#475569' }}>{label}</Typography>
@@ -881,13 +889,13 @@ const DashboardPage = () => {
         if (isEmployee) {
           const emp   = await employeeApi.getByUserId(user.userId);
           const today = new Date().toISOString().split('T')[0];
-          const [lv, cr, att, cert] = await Promise.allSettled([leaveApi.getMyLeaves(emp.id), courseApi.getForEmployee(emp.id), timesheetApi.getAttendance(emp.id), courseApi.getMyCertificates()]);
+          const [lv, cr, att, cert] = await Promise.allSettled([leaveApi.getMyLeaves(emp.id), courseApi.getForEmployee(emp.id), jobSummaryApi.getMy(today, today), courseApi.getMyCertificates()]);
           const attList  = att.status === 'fulfilled' && Array.isArray(att.value) ? att.value : [];
-          const todayRec = attList.find(a => (a.date||a.workDate||'').toString().startsWith(today));
+          const todayRec = attList.find(a => a.workDate === today);
           setEmpData({
             leaves:       lv.status   === 'fulfilled' && Array.isArray(lv.value)   ? lv.value   : [],
             courses:      cr.status   === 'fulfilled' && Array.isArray(cr.value)   ? cr.value   : [],
-            todayHours:   parseFloat(todayRec?.totalHours || todayRec?.hoursWorked || 0),
+            todayHours:   (todayRec?.totalWorkingMinutes || 0) / 60,
             certificates: cert.status === 'fulfilled' && Array.isArray(cert.value)
               ? cert.value.filter(c => c.employeeName?.toLowerCase().includes(`${emp.firstName||''} ${emp.lastName||''}`.trim().toLowerCase())).length : 0,
           });

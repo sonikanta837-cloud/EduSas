@@ -24,7 +24,6 @@ import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import AssignmentLateIcon      from '@mui/icons-material/AssignmentLate';
 import { logout }                  from '../../store/authSlice';
 import { toggleMobileSidebar }      from '../../store/uiSlice';
-import { timesheetApi }            from '../../api/timesheetApi';
 import { announcementApi }         from '../../api/announcementApi';
 import { courseNotificationApi }   from '../../api/courseNotificationApi';
 import { pipNotificationApi }      from '../../api/pipNotificationApi';
@@ -178,9 +177,6 @@ const Header = () => {
   }, [unreadItems]);
 
   const handleLogout = () => {
-    if (user?.employeeId) {
-      timesheetApi.checkOut(user.employeeId).catch(() => {}); // fire-and-forget
-    }
     dispatch(logout()); // clears localStorage + fires backend invalidation async
     navigate('/login');
   };

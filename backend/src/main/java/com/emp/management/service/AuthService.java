@@ -34,7 +34,6 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final AuthenticationManager authenticationManager;
-    private final TimesheetService timesheetService;
     private final EmailService emailService;
     private final PortalPermissionService portalPermissionService;
 
@@ -58,9 +57,6 @@ public class AuthService {
 
         EmployeeDetails emp = user.getEmployeeDetails();
         String fullName = emp != null ? emp.getFullName() : user.getEmail();
-
-        // Record attendance login automatically
-        timesheetService.recordLogin(user.getId());
 
         return LoginResponse.builder()
                 .accessToken(accessToken)
@@ -200,9 +196,6 @@ public class AuthService {
 
     @Transactional
     public void logout(String email) {
-        // Record attendance logout before clearing token
-        timesheetService.recordLogout(email);
-
         userRepository.findByEmail(email).ifPresent(user -> {
             user.setRefreshToken(null);
             userRepository.save(user);

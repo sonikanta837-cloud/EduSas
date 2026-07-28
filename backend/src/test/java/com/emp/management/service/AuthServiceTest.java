@@ -39,7 +39,6 @@ class AuthServiceTest {
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private JwtTokenProvider tokenProvider;
     @Mock private AuthenticationManager authenticationManager;
-    @Mock private TimesheetService timesheetService;
     @Mock private EmailService emailService;
 
     @InjectMocks private AuthService authService;
@@ -82,7 +81,6 @@ class AuthServiceTest {
         when(tokenProvider.generateToken(auth)).thenReturn("access-token");
         when(tokenProvider.generateRefreshToken("alice@company.com")).thenReturn("refresh-token");
         when(userRepository.save(any())).thenReturn(testUser);
-        doNothing().when(timesheetService).recordLogin(anyLong());
 
         LoginResponse response = authService.login(req);
 
@@ -90,7 +88,6 @@ class AuthServiceTest {
         assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
         assertThat(response.getEmail()).isEqualTo("alice@company.com");
         assertThat(response.getRole()).isEqualTo("EMPLOYEE");
-        verify(timesheetService).recordLogin(1L);
     }
 
     @Test
@@ -297,18 +294,15 @@ class AuthServiceTest {
         testUser.setRefreshToken("some-refresh");
         when(userRepository.findByEmail("alice@company.com")).thenReturn(Optional.of(testUser));
         when(userRepository.save(any())).thenReturn(testUser);
-        doNothing().when(timesheetService).recordLogout(anyString());
 
         authService.logout("alice@company.com");
 
         assertThat(testUser.getRefreshToken()).isNull();
-        verify(timesheetService).recordLogout("alice@company.com");
     }
 
     @Test
     void logout_unknownEmail_doesNotThrow() {
         when(userRepository.findByEmail("nobody@example.com")).thenReturn(Optional.empty());
-        doNothing().when(timesheetService).recordLogout(anyString());
 
         authService.logout("nobody@example.com");
 

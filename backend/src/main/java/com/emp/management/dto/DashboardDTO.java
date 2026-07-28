@@ -18,4 +18,9 @@ public class DashboardDTO {
     private double totalWorkHoursToday;
     private long pendingReviews;
     private long totalManagers;
+    private long presentToday;
+    private long underHoursToday;
+    private long overtimeToday;
+    private long absentToday;
+    private long onLeaveToday;
 }

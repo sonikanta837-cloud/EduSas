@@ -4,7 +4,6 @@ import PeopleIcon             from '@mui/icons-material/People';
 import AccountTreeIcon        from '@mui/icons-material/AccountTree';
 import HowToRegIcon           from '@mui/icons-material/HowToReg';
 import AccessTimeIcon         from '@mui/icons-material/AccessTime';
-import AssessmentIcon         from '@mui/icons-material/Assessment';
 import BeachAccessIcon        from '@mui/icons-material/BeachAccess';
 import CelebrationIcon        from '@mui/icons-material/Celebration';
 import BarChartIcon           from '@mui/icons-material/BarChart';
@@ -45,7 +44,6 @@ export const hrMenu = [
     children: [
       { label: 'Attendance',   path: '/attendance',   icon: <HowToRegIcon />,    roles: ALL_ROLES },
       { label: 'Timesheets',   path: '/timesheets',   icon: <AccessTimeIcon />,  roles: ALL_ROLES },
-      { label: 'Work Reports', path: '/work-reports', icon: <AssessmentIcon />, roles: ALL_ROLES },
       { label: 'Leaves',       path: '/leaves',       icon: <BeachAccessIcon />, roles: ALL_ROLES },
       { label: 'Holidays',     path: '/holidays',     icon: <CelebrationIcon />, roles: ALL_ROLES },
       { label: 'Timesheet Master Data', path: '/timesheet-master-data', icon: <InventoryIcon />, roles: ['ADMIN', 'DIRECTOR', 'HR'] },
@@ -57,7 +55,7 @@ export const hrMenu = [
     label: 'Reports & Resources',
     icon: <SummarizeIcon />,
     children: [
-      { label: 'Reports',   path: '/reports',   icon: <BarChartIcon />,  roles: ['ADMIN', 'DIRECTOR'] },
+      { label: 'Reports',   path: '/reports',   icon: <BarChartIcon />,  roles: ALL_ROLES },
       { label: 'Resources', path: '/resources', icon: <InventoryIcon />, roles: ALL_ROLES },
     ],
   },

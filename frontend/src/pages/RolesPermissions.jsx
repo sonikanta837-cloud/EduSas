@@ -139,7 +139,6 @@ const ALL_MODULES = [
   { path: '/org-chart',    label: 'Organisation' },
   { path: '/attendance',   label: 'Attendance' },
   { path: '/timesheets',   label: 'Timesheets' },
-  { path: '/work-reports', label: 'Work Reports' },
   { path: '/leaves',       label: 'Leaves' },
   { path: '/holidays',     label: 'Holidays' },
   { path: '/timesheet-master-data', label: 'Timesheet Master Data' },
@@ -166,10 +165,10 @@ const ALL_EMP_ACTION_KEYS = EMPLOYEE_ACTIONS.map((a) => a.key);
 const DEFAULT_MODULES_BY_ROLE = {
   ADMIN:             [...ALL_MODULES.map((m) => m.path), ...ALL_EMP_ACTION_KEYS],
   DIRECTOR:          [...ALL_MODULES.map((m) => m.path), ...ALL_EMP_ACTION_KEYS],
-  HR:                ['/dashboard', '/employees', 'emp:view_detail', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/timesheet-master-data', '/work-reports', '/performance', '/performance-pip', '/interviews', '/question-bank', '/resources'],
-  MANAGER:           ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/performance-pip', '/interviews', '/question-bank', '/resources'],
-  ASSISTANT_MANAGER: ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/performance-pip', '/interviews', '/question-bank', '/resources'],
-  EMPLOYEE:          ['/dashboard', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/performance-pip', '/resources'],
+  HR:                ['/dashboard', '/employees', 'emp:view_detail', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/timesheet-master-data', '/reports', '/performance', '/performance-pip', '/interviews', '/question-bank', '/resources'],
+  MANAGER:           ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/reports', '/performance', '/performance-pip', '/interviews', '/question-bank', '/resources'],
+  ASSISTANT_MANAGER: ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/reports', '/performance', '/performance-pip', '/interviews', '/question-bank', '/resources'],
+  EMPLOYEE:          ['/dashboard', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/reports', '/performance', '/performance-pip', '/resources'],
 };
 
 const RolesPermissions = () => {

@@ -143,6 +143,11 @@ function BreakAlertPanel() {
       />
       <Box sx={{ px: 3, py: 3, display: 'flex', flexDirection: 'column', gap: 3.5 }}>
 
+        <Alert severity="warning">
+          Attendance is now sourced from Job Time Tracking, which has its own built-in break monitor
+          (post-logout gap and in-session break alerts). This legacy toggle no longer sends emails.
+        </Alert>
+
         {/* Enable toggle */}
         <Box sx={{ display:'flex', alignItems:'center', justifyContent:'space-between', p:2, borderRadius:2, bgcolor: settings.enabled ? 'rgba(20,184,166,0.06)' : '#f8fafc', border:'1px solid', borderColor: settings.enabled ? 'rgba(20,184,166,0.3)' : '#e2e8f0' }}>
           <Box>
@@ -258,6 +263,10 @@ function WorkReportEmailPanel() {
         enabled={settings.enabled}
       />
       <Box sx={{ px: 3, py: 3, display: 'flex', flexDirection: 'column', gap: 3.5 }}>
+
+        <Alert severity="warning">
+          Superseded by the Attendance Reports page (Job Time Tracking module) — this legacy toggle no longer sends emails.
+        </Alert>
 
         {/* Enable toggle */}
         <Box sx={{ display:'flex', alignItems:'center', justifyContent:'space-between', p:2, borderRadius:2, bgcolor: settings.enabled ? 'rgba(99,102,241,0.06)' : '#f8fafc', border:'1px solid', borderColor: settings.enabled ? 'rgba(99,102,241,0.3)' : '#e2e8f0' }}>

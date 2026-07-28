@@ -34,7 +34,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { employeeApi } from '../api/employeeApi';
 import { courseApi } from '../api/courseApi';
 import { performanceApi } from '../api/performanceApi';
-import { timesheetApi } from '../api/timesheetApi';
+import { jobSummaryApi } from '../api/jobSummaryApi';
 import { leaveApi } from '../api/leaveApi';
 import { toast } from 'react-toastify';
 
@@ -149,12 +149,14 @@ const ProfilePage = () => {
         const emp = await employeeApi.getByUserId(user.userId);
         setEmployee(emp);
         setForm(emp);
+        const attEnd   = new Date().toISOString().slice(0, 10);
+        const attStart = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
         const res = await Promise.allSettled([
           courseApi.getMyCertificates(),
           courseApi.getForEmployee(emp.id),
           performanceApi.getByEmployee(emp.id),
           leaveApi.getMyLeaves(emp.id),
-          timesheetApi.getAttendance(emp.id),
+          jobSummaryApi.getMy(attStart, attEnd),
         ]);
         if (res[0].status === 'fulfilled') setCertificates(Array.isArray(res[0].value) ? res[0].value : []);
         if (res[1].status === 'fulfilled') setCourses(Array.isArray(res[1].value) ? res[1].value : []);
@@ -246,10 +248,10 @@ const ProfilePage = () => {
   const monthlyAtt = useMemo(() => {
     const map = {};
     attendance.forEach(a => {
-      const d = new Date(a.date || a.workDate || a.createdAt);
+      const d = new Date(a.workDate);
       const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2,'0')}`;
       if (!map[key]) map[key] = { label: d.toLocaleString('default', { month: 'short' }), hours: 0, leavH: 0 };
-      map[key].hours += parseFloat(a.totalHours || a.hoursWorked || 0);
+      map[key].hours += (a.totalWorkingMinutes || 0) / 60;
     });
     return Object.entries(map).sort(([a],[b]) => a.localeCompare(b)).slice(-2).map(([,v]) => v);
   }, [attendance]);
@@ -639,7 +641,7 @@ const ProfilePage = () => {
                       <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                         {monthlyAtt.length === 0 ? (
                           (() => {
-                            const totalHrs = attendance.reduce((s, a) => s + parseFloat(a.totalHours || a.hoursWorked || 0), 0);
+                            const totalHrs = attendance.reduce((s, a) => s + (a.totalWorkingMinutes || 0) / 60, 0);
                             const pct = Math.min(100, Math.round((totalHrs / TARGET_HRS) * 100));
                             return (
                               <TimeDonut pct={pct} label="Total" hours={Math.round(totalHrs)} target={TARGET_HRS}

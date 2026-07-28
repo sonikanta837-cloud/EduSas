@@ -30,4 +30,9 @@ public interface JobWorkSessionRepository extends JpaRepository<JobWorkSession, 
            "WHERE s.workDate BETWEEN :start AND :end " +
            "ORDER BY s.workDate ASC, emp.lastName ASC, emp.firstName ASC")
     List<JobWorkSession> findAllForWorkReport(@Param("start") LocalDate start, @Param("end") LocalDate end);
+
+    // Bulk "all employees, one day" lookup — used for live org-wide today aggregates
+    // (dashboard KPIs, team reports) instead of one query per employee.
+    @Query("SELECT s FROM JobWorkSession s JOIN FETCH s.employee emp WHERE s.workDate = :date")
+    List<JobWorkSession> findAllByWorkDate(@Param("date") LocalDate date);
 }

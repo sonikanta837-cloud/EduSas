@@ -15,10 +15,13 @@ import java.time.LocalDateTime;
 public class JobDailySummaryDTO {
     private Long employeeId;
     private String employeeName;
+    private String employeeCode;
     private String department;
     private LocalDate workDate;
     private Integer totalWorkingMinutes;
     private Integer totalBreakMinutes;
+    private Integer totalOfficeMinutes;
+    private Integer overtimeMinutes;
     private Integer sessionCount;
     private LocalDateTime firstLoginTime;
     private LocalDateTime lastLogoutTime;

@@ -6,20 +6,21 @@
  *     through the rendered component's "Working Hours" clock display.
  *  2. Component-level render, loading, and empty-state behaviour.
  *
+ * Attendance now sources data from Job Time Tracking (jobWorkSessionApi /
+ * jobSummaryApi) rather than the legacy timesheetApi.
+ *
  * secToHm is not exported, so it is tested via the DOM output it drives.
  * A parallel pure-logic suite re-implements the same formula to document
  * expected values; the component integration tests prove the real code path.
  */
 
 import React from 'react';
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { MemoryRouter } from 'react-router-dom';
-import MockAdapter from 'axios-mock-adapter';
 
 import authReducer from '../store/authSlice';
-import api from '../api/axios';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -28,12 +29,17 @@ jest.mock('react-toastify', () => ({
   toast: { error: jest.fn(), success: jest.fn() },
 }));
 
-// timesheetApi — all methods are mocked so no real network calls fire
-jest.mock('../api/timesheetApi', () => ({
-  timesheetApi: {
-    getSessionsByRange: jest.fn(),
-    getTodaySessions: jest.fn(),
-    getAttendanceByRange: jest.fn(),
+// jobWorkSessionApi / jobSummaryApi — all methods are mocked so no real network calls fire
+jest.mock('../api/jobWorkSessionApi', () => ({
+  jobWorkSessionApi: {
+    getRange: jest.fn(),
+    getToday: jest.fn(),
+  },
+}));
+
+jest.mock('../api/jobSummaryApi', () => ({
+  jobSummaryApi: {
+    getMy: jest.fn(),
   },
 }));
 
@@ -44,8 +50,17 @@ jest.mock('../api/employeeApi', () => ({
   },
 }));
 
-import { timesheetApi } from '../api/timesheetApi';
+// leaveUploadApi — holidays list
+jest.mock('../api/leaveUploadApi', () => ({
+  leaveUploadApi: {
+    getHolidays: jest.fn(),
+  },
+}));
+
+import { jobWorkSessionApi } from '../api/jobWorkSessionApi';
+import { jobSummaryApi } from '../api/jobSummaryApi';
 import { employeeApi } from '../api/employeeApi';
+import { leaveUploadApi } from '../api/leaveUploadApi';
 import AttendancePage from '../pages/Attendance';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -58,6 +73,8 @@ const USER_FIXTURE = {
   role: 'EMPLOYEE',
   fullName: 'Test Employee',
 };
+
+const EMPTY_TODAY = { sessions: [], totalMinutesToday: 0, totalFormatted: '0h 00m', openSession: null };
 
 /** Build a minimal Redux store seeded with an authenticated user. */
 const buildStore = () =>
@@ -167,11 +184,12 @@ beforeEach(() => {
 
   // Default: employee lookup resolves
   employeeApi.getByUserId.mockResolvedValue(EMPLOYEE_FIXTURE);
+  leaveUploadApi.getHolidays.mockResolvedValue([]);
 
-  // Default: all timesheet calls return empty data
-  timesheetApi.getSessionsByRange.mockResolvedValue([]);
-  timesheetApi.getTodaySessions.mockResolvedValue([]);
-  timesheetApi.getAttendanceByRange.mockResolvedValue([]);
+  // Default: all job time tracking calls return empty data
+  jobWorkSessionApi.getRange.mockResolvedValue([]);
+  jobWorkSessionApi.getToday.mockResolvedValue(EMPTY_TODAY);
+  jobSummaryApi.getMy.mockResolvedValue([]);
 });
 
 describe('AttendancePage — render', () => {
@@ -182,9 +200,9 @@ describe('AttendancePage — render', () => {
 
   it('shows a loading spinner while data is being fetched', () => {
     // Delay all API calls so the spinner stays visible
-    timesheetApi.getSessionsByRange.mockReturnValue(new Promise(() => {}));
-    timesheetApi.getTodaySessions.mockReturnValue(new Promise(() => {}));
-    timesheetApi.getAttendanceByRange.mockReturnValue(new Promise(() => {}));
+    jobWorkSessionApi.getRange.mockReturnValue(new Promise(() => {}));
+    jobWorkSessionApi.getToday.mockReturnValue(new Promise(() => {}));
+    jobSummaryApi.getMy.mockReturnValue(new Promise(() => {}));
 
     renderPage();
     expect(document.querySelector('.MuiCircularProgress-root')).toBeInTheDocument();
@@ -231,21 +249,23 @@ describe('AttendancePage — empty state (no sessions)', () => {
 
 describe('AttendancePage — with an active session', () => {
   it('displays secToHm-formatted working hours when there is an open session', async () => {
-    // Provide one open session (no logoutTime) starting 90 seconds ago
-    // so secToHm(90) = "00:01:30" should appear in the Today Summary card.
-    // We cannot control real wall-clock time precisely in Jest, so instead
-    // we seed a loginTime that is far in the past (start of day)
-    // and assert that the clock shows a non-trivial HH:MM:SS value.
+    // Provide one open session (no logoutTime) starting at midnight today
+    // so a non-trivial HH:MM:SS clock value is guaranteed to show.
+    const midnight = new Date();
+    midnight.setHours(0, 0, 0, 0);
+
     const openSession = {
       id: 1,
       workDate: new Date().toISOString().slice(0, 10),
-      loginTime: '00:00:00', // midnight — guarantees >0 seconds elapsed
+      loginTime: midnight.toISOString(),
       logoutTime: null,
-      sessionHours: null,
+      sessionMinutes: null,
     };
 
-    timesheetApi.getTodaySessions.mockResolvedValue([openSession]);
-    timesheetApi.getSessionsByRange.mockResolvedValue([openSession]);
+    jobWorkSessionApi.getToday.mockResolvedValue({
+      sessions: [openSession], totalMinutesToday: 0, totalFormatted: '0h 00m', openSession,
+    });
+    jobWorkSessionApi.getRange.mockResolvedValue([openSession]);
 
     renderPage();
 
@@ -269,9 +289,9 @@ describe('AttendancePage — with an active session', () => {
 
 describe('AttendancePage — API failure', () => {
   it('does not crash the page when API calls reject', async () => {
-    timesheetApi.getSessionsByRange.mockRejectedValue(new Error('Network error'));
-    timesheetApi.getTodaySessions.mockRejectedValue(new Error('Network error'));
-    timesheetApi.getAttendanceByRange.mockRejectedValue(new Error('Network error'));
+    jobWorkSessionApi.getRange.mockRejectedValue(new Error('Network error'));
+    jobWorkSessionApi.getToday.mockRejectedValue(new Error('Network error'));
+    jobSummaryApi.getMy.mockRejectedValue(new Error('Network error'));
 
     renderPage();
 

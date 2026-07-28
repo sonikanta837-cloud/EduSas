@@ -12,6 +12,10 @@ public interface JobSessionBreakRepository extends JpaRepository<JobSessionBreak
 
     List<JobSessionBreak> findByJobWorkSessionIdOrderByBreakStartTimeAsc(Long jobWorkSessionId);
 
+    // Used to roll up a day's total break time (Attendance "Break Time") across
+    // all of an employee's job sessions for that day.
+    List<JobSessionBreak> findByJobWorkSessionIdIn(List<Long> jobWorkSessionIds);
+
     Optional<JobSessionBreak> findByJobWorkSessionIdAndBreakEndTimeIsNull(Long jobWorkSessionId);
 
     // Still-open breaks that haven't triggered the duration alert yet — polled by
