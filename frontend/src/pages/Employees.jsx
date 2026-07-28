@@ -34,8 +34,7 @@ import KeyboardArrowUpIcon   from '@mui/icons-material/KeyboardArrowUp';
 import DownloadIcon          from '@mui/icons-material/Download';
 import { employeeApi }    from '../api/employeeApi';
 import { resumeApi }      from '../api/resumeApi';
-import { timesheetApi }      from '../api/timesheetApi';
-import { timesheetEntryApi } from '../api/timesheetEntryApi';
+import { jobWorkSessionApi } from '../api/jobWorkSessionApi';
 import { performanceApi } from '../api/performanceApi';
 import { courseApi }      from '../api/courseApi';
 import { toast }          from 'react-toastify';
@@ -554,50 +553,44 @@ const TimesheetTab = ({ employees, user }) => {
   const [loading,    setLoading]    = useState(false);
   const [tsPage,     setTsPage]     = useState(0);
   const [tsRpp,      setTsRpp]      = useState(10);
-  // Calculate hours from checkIn / checkOut strings ("HH:MM:SS")
-  const calcHours = (checkIn, checkOut) => {
-    if (!checkIn || !checkOut) return null;
-    const toSec = (t) => { const [h, m, s] = t.split(':').map(Number); return h * 3600 + m * 60 + (s || 0); };
-    const diff = toSec(checkOut) - toSec(checkIn);
-    return diff > 0 ? Math.round((diff / 3600) * 100) / 100 : null;
-  };
 
   const load = useCallback(async (d) => {
     setLoading(true);
     try {
-      const [year, month] = d.split('-').map(Number);
       const activeEmps = employees.filter((e) => e.active);
+      const activeIds  = new Set(activeEmps.map((e) => e.id));
 
-      // For each employee: load stored TimesheetDTO (has workingHours from DB) + project entries
-      const results = await Promise.all(
-        activeEmps.map((emp) =>
-          Promise.all([
-            timesheetApi.getAttendanceByRange(emp.id, d, d)
-              .then((r) => (Array.isArray(r) ? r : [])[0] ?? null)
-              .catch(() => null),
-            timesheetEntryApi.getMonthly(emp.id, year, month)
-              .then((r) => (Array.isArray(r) ? r : []).filter((e) => String(e.date ?? e.workDate ?? '').slice(0, 10) === d))
-              .catch(() => []),
-          ]).then(([ts, entries]) => ({ emp, ts, entries }))
-        )
-      );
+      // Job Time Tracking is the single source of truth for the tab — one row
+      // per job session (client/job/task) for the selected date, across all
+      // employees in a single call.
+      const sessions = await jobWorkSessionApi.getWorkReport(d, d).catch(() => []);
 
-      // Build attendance map — calculate hours from checkIn/checkOut, not stored workingHours
       const attendanceMap = {};
       const entryMap      = {};
-      results.forEach(({ emp, ts, entries }) => {
-        const hasOpen = ts != null && ts.loginTime != null && ts.logoutTime == null;
-        const checkIn  = ts?.loginTime  ?? null;
-        const checkOut = ts?.logoutTime ?? null;
-        attendanceMap[emp.id] = {
-          checkIn,
-          checkOut,
-          totalHours: calcHours(checkIn, checkOut),
-          hasOpen:    !!hasOpen,
-          present:    ts != null && (ts.loginTime != null || ts.workingHours != null),
-        };
-        entryMap[emp.id] = entries;
-      });
+
+      (Array.isArray(sessions) ? sessions : [])
+        .filter((s) => activeIds.has(s.employeeId))
+        .forEach((s) => {
+          if (!entryMap[s.employeeId]) entryMap[s.employeeId] = [];
+          entryMap[s.employeeId].push({
+            projectName: s.projectName,
+            taskName:    s.taskName,
+            hours:       s.hours,
+          });
+
+          const cur = attendanceMap[s.employeeId] || {
+            checkIn: null, checkOut: null, totalHours: 0, hasOpen: false, present: false,
+          };
+          cur.present     = true;
+          cur.totalHours += s.hours || 0;
+          if (!s.logoutTime) cur.hasOpen = true;
+          if (!cur.checkIn || s.loginTime < cur.checkIn) cur.checkIn = s.loginTime;
+          if (s.logoutTime && (!cur.checkOut || s.logoutTime > cur.checkOut)) cur.checkOut = s.logoutTime;
+          attendanceMap[s.employeeId] = cur;
+        });
+
+      // While any session is still open, checkout time for the day is unknown/live
+      Object.values(attendanceMap).forEach((a) => { if (a.hasOpen) a.checkOut = null; });
 
       setRaw(attendanceMap);
       setEntriesMap(entryMap);
@@ -731,7 +724,7 @@ const TimesheetTab = ({ employees, user }) => {
                 return rows.map((r, i) => {
                   if (r._first) serial += 1;
                   const { checkIn, checkOut, totalHours, hasOpen, present } = r.att;
-                  const fmtHms = (t) => t ? t.substring(0, 5) : '—'; // HH:MM from HH:MM:SS
+                  const fmtHms = (t) => t ? t.split('T').pop().substring(0, 5) : '—'; // HH:MM from ISO datetime
                   const hrs    = totalHours != null ? Number(totalHours).toFixed(1) : null;
                   const bgColor = (serial % 2 === 0) ? '#f8fafc' : 'white';
                   return (
@@ -1721,13 +1714,34 @@ const EmployeesPage = () => {
   return (
     <Box>
       {/* ── Tab bar ── */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
-          <Tab icon={<PeopleIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Employees"    sx={{ minHeight: 48, gap: 0.5, textTransform: 'none', fontWeight: 600 }} />
-          <Tab icon={<AccessTimeIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Timesheet"    sx={{ minHeight: 48, gap: 0.5, textTransform: 'none', fontWeight: 600 }} />
-          <Tab icon={<TrendingUpIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Performance"  sx={{ minHeight: 48, gap: 0.5, textTransform: 'none', fontWeight: 600 }} />
-          <Tab icon={<SchoolIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Courses"          sx={{ minHeight: 48, gap: 0.5, textTransform: 'none', fontWeight: 600 }} />
-          {canExEmployees && <Tab icon={<PersonRemoveIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Ex-Employees" sx={{ minHeight: 48, gap: 0.5, textTransform: 'none', fontWeight: 600 }} />}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Tabs
+          value={activeTab}
+          onChange={(_, v) => setActiveTab(v)}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            minHeight: 42,
+            '& .MuiTabs-flexContainer': { gap: 0.25 },
+            '& .MuiTab-root': {
+              minHeight: 42,
+              minWidth: 'auto',
+              px: 1.25,
+              gap: 0.5,
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '0.82rem',
+            },
+          }}
+        >
+          <Tab icon={<PeopleIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Employees" />
+          <Tab icon={<AccessTimeIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Timesheet" />
+          <Tab icon={<TrendingUpIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Performance" />
+          <Tab icon={<SchoolIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Courses" />
+          {canExEmployees && <Tab icon={<PersonRemoveIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Ex-Employees" />}
         </Tabs>
         {activeTab === 0 && (canAddEmployee || canUploadResume) && (
           <Stack direction="row" spacing={1.5} sx={{ flexShrink: 0, pb: 0.5 }}>

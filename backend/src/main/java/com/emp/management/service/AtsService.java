@@ -565,6 +565,82 @@ public class AtsService {
                 .collect(Collectors.toList());
     }
 
+    // ── Candidate Pipeline Report (Excel) ───────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public byte[] exportCandidateReport() throws IOException {
+        List<AtsCandidateDTO> candidates = candidateRepo.findAllOrderByCvUploadDateDesc().stream()
+                .map(c -> toCandidateDTO(c, true))
+                .collect(Collectors.toList());
+
+        try (org.apache.poi.ss.usermodel.Workbook wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook()) {
+            org.apache.poi.ss.usermodel.Sheet sheet = wb.createSheet("Candidate Pipeline");
+
+            String[] headers = {
+                "Candidate ID", "Name", "Email", "Phone", "Applied Profile", "Source", "Status",
+                "HR Decision", "Current CTC", "Expected CTC", "Notice Period",
+                "Technical Interviewer", "Technical Score", "Technical Decision",
+                "Final Round Rating", "Director Recommendation", "Final Decision", "Offered CTC",
+                "Applied On"
+            };
+            org.apache.poi.ss.usermodel.Row hdr = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) hdr.createCell(i).setCellValue(headers[i]);
+
+            org.apache.poi.ss.usermodel.CellStyle dateStyle = wb.createCellStyle();
+            dateStyle.setDataFormat(wb.createDataFormat().getFormat("yyyy-mm-dd"));
+
+            int r = 1;
+            for (AtsCandidateDTO c : candidates) {
+                AtsHrScreeningDTO hr = c.getHrScreening();
+                AtsTechnicalInterviewDTO tech = latestTechInterview(c.getTechnicalInterviews());
+                AtsFinalRoundDTO fin = c.getFinalRound();
+
+                org.apache.poi.ss.usermodel.Row row = sheet.createRow(r++);
+                row.createCell(0).setCellValue(orBlank(c.getCandidateId()));
+                row.createCell(1).setCellValue(orBlank(c.getName()));
+                row.createCell(2).setCellValue(orBlank(c.getEmail()));
+                row.createCell(3).setCellValue(orBlank(c.getPhone()));
+                row.createCell(4).setCellValue(orBlank(c.getAppliedProfile()));
+                row.createCell(5).setCellValue(orBlank(c.getSource()));
+                row.createCell(6).setCellValue(orBlank(c.getStatus()));
+                row.createCell(7).setCellValue(hr != null ? orBlank(hr.getDecision()) : "");
+                row.createCell(8).setCellValue(hr != null ? orBlank(hr.getCurrentCtc()) : "");
+                row.createCell(9).setCellValue(hr != null ? orBlank(hr.getExpectedCtc()) : "");
+                row.createCell(10).setCellValue(hr != null ? orBlank(hr.getNoticePeriod()) : "");
+                row.createCell(11).setCellValue(tech != null ? orBlank(tech.getInterviewerName()) : "");
+                row.createCell(12).setCellValue(tech != null && tech.getScore() != null
+                        ? tech.getScore() + "/" + (tech.getTotalMarks() != null ? tech.getTotalMarks() : "-") : "");
+                row.createCell(13).setCellValue(tech != null ? orBlank(tech.getDecision()) : "");
+                row.createCell(14).setCellValue(fin != null && fin.getOverallRating() != null
+                        ? String.valueOf(fin.getOverallRating()) : "");
+                row.createCell(15).setCellValue(fin != null ? orBlank(fin.getDirectorRecommendation()) : "");
+                row.createCell(16).setCellValue(fin != null ? orBlank(fin.getFinalDecision()) : "");
+                row.createCell(17).setCellValue(fin != null ? orBlank(fin.getOfferedCtc()) : "");
+
+                org.apache.poi.ss.usermodel.Cell appliedCell = row.createCell(18);
+                if (c.getCreatedAt() != null) {
+                    appliedCell.setCellValue(java.sql.Timestamp.valueOf(c.getCreatedAt()));
+                    appliedCell.setCellStyle(dateStyle);
+                }
+            }
+            for (int i = 0; i < headers.length; i++) sheet.autoSizeColumn(i);
+
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            wb.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    private AtsTechnicalInterviewDTO latestTechInterview(List<AtsTechnicalInterviewDTO> interviews) {
+        if (interviews == null || interviews.isEmpty()) return null;
+        return interviews.stream()
+                .max(Comparator.comparing(AtsTechnicalInterviewDTO::getCreatedAt,
+                        Comparator.nullsFirst(Comparator.naturalOrder())))
+                .orElse(null);
+    }
+
+    private String orBlank(String s) { return s != null ? s : ""; }
+
     @Transactional(readOnly = true)
     public AtsCandidateDTO getCandidate(Long id) {
         return toCandidateDTO(findCandidate(id), true);

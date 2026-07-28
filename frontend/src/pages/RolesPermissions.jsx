@@ -8,7 +8,10 @@ import SearchIcon from '@mui/icons-material/Search';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import SaveIcon from '@mui/icons-material/Save';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import { permissionsApi } from '../api/permissionsApi';
+import { portalPermissionsApi } from '../api/portalPermissionsApi';
+import { portalRegistry } from '../components/Layout/portals';
 
 const ROLE_COLORS = {
   ADMIN: '#ef4444',
@@ -17,6 +20,117 @@ const ROLE_COLORS = {
   MANAGER: '#3b82f6',
   ASSISTANT_MANAGER: '#06b6d4',
   EMPLOYEE: '#10b981',
+};
+
+const ALL_ROLE_NAMES = Object.keys(ROLE_COLORS);
+
+// Role-level "which portals show up in the switcher" access — distinct from
+// the per-employee module toggles below, which fine-tune an individual
+// employee's sidebar within whichever portal(s) their role can already reach.
+const PortalAccessPanel = () => {
+  const [perms, setPerms]     = useState(null); // { ROLE: ['hr','training',...] }
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState('');
+  const [savingKey, setSavingKey] = useState(null); // `${role}:${portalId}` in flight
+
+  useEffect(() => {
+    portalPermissionsApi.getAllRoles()
+      .then(setPerms)
+      .catch(() => setError('Failed to load portal access'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const togglePortal = async (role, portalId) => {
+    const current = perms[role] || [];
+    const next = current.includes(portalId)
+      ? current.filter((id) => id !== portalId)
+      : [...current, portalId];
+
+    setSavingKey(`${role}:${portalId}`);
+    setPerms((prev) => ({ ...prev, [role]: next }));
+    try {
+      await portalPermissionsApi.updateRole(role, next);
+    } catch {
+      // Revert on failure
+      setPerms((prev) => ({ ...prev, [role]: current }));
+      setError('Failed to update portal access');
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card sx={{ mb: 3 }}>
+        <CardContent sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress size={26} />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card sx={{ mb: 3 }}>
+      <CardContent sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
+          <DashboardCustomizeIcon sx={{ color: 'primary.main', fontSize: 24 }} />
+          <Typography variant="h6">Portal Access by Role</Typography>
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+          Control which portal buttons appear in each role's sidebar switcher. Revoking a
+          portal removes it immediately; granting one appears the next time that role logs in
+          or refreshes.
+        </Typography>
+
+        {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+
+        <Box sx={{ overflowX: 'auto' }}>
+          <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
+            <Box component="thead">
+              <Box component="tr">
+                <Box component="th" sx={{ textAlign: 'left', py: 1, px: 1, fontSize: 12.5, color: 'text.secondary', fontWeight: 700 }}>
+                  Role
+                </Box>
+                {portalRegistry.map((portal) => (
+                  <Box component="th" key={portal.id} sx={{ textAlign: 'center', py: 1, px: 1, fontSize: 12.5, color: 'text.secondary', fontWeight: 700 }}>
+                    {portal.label}
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+            <Box component="tbody">
+              {ALL_ROLE_NAMES.map((role) => (
+                <Box component="tr" key={role} sx={{ borderTop: '1px solid #f1f5f9' }}>
+                  <Box component="td" sx={{ py: 1, px: 1 }}>
+                    <Chip
+                      label={role}
+                      size="small"
+                      sx={{ fontSize: '0.65rem', height: 20, bgcolor: ROLE_COLORS[role] + '22', color: ROLE_COLORS[role], fontWeight: 600 }}
+                    />
+                  </Box>
+                  {portalRegistry.map((portal) => {
+                    const active = (perms[role] || []).includes(portal.id);
+                    const key = `${role}:${portal.id}`;
+                    return (
+                      <Box component="td" key={portal.id} sx={{ textAlign: 'center', py: 1, px: 1 }}>
+                        <Switch
+                          size="small"
+                          checked={active}
+                          disabled={savingKey === key}
+                          onChange={() => togglePortal(role, portal.id)}
+                          color="primary"
+                        />
+                      </Box>
+                    );
+                  })}
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
 };
 
 const ALL_MODULES = [
@@ -28,13 +142,14 @@ const ALL_MODULES = [
   { path: '/work-reports', label: 'Work Reports' },
   { path: '/leaves',       label: 'Leaves' },
   { path: '/holidays',     label: 'Holidays' },
+  { path: '/timesheet-master-data', label: 'Timesheet Master Data' },
   { path: '/courses',      label: 'Courses' },
   { path: '/performance',  label: 'Performance' },
+  { path: '/performance-pip', label: 'Performance Improvement' },
   { path: '/interviews',    label: 'Interviews' },
   { path: '/question-bank', label: 'Question Bank' },
   { path: '/reports',      label: 'Reports' },
   { path: '/resources',    label: 'Resources' },
-  { path: '/profile',      label: 'My Profile',         always: true },
 ];
 
 // Granular action permissions inside the Employees module
@@ -51,10 +166,10 @@ const ALL_EMP_ACTION_KEYS = EMPLOYEE_ACTIONS.map((a) => a.key);
 const DEFAULT_MODULES_BY_ROLE = {
   ADMIN:             [...ALL_MODULES.map((m) => m.path), ...ALL_EMP_ACTION_KEYS],
   DIRECTOR:          [...ALL_MODULES.map((m) => m.path), ...ALL_EMP_ACTION_KEYS],
-  HR:                ['/dashboard', '/employees', 'emp:view_detail', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/interviews', '/question-bank', '/resources', '/profile'],
-  MANAGER:           ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/interviews', '/question-bank', '/resources', '/profile'],
-  ASSISTANT_MANAGER: ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/interviews', '/question-bank', '/resources', '/profile'],
-  EMPLOYEE:          ['/dashboard', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/resources', '/profile'],
+  HR:                ['/dashboard', '/employees', 'emp:view_detail', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/timesheet-master-data', '/work-reports', '/performance', '/performance-pip', '/interviews', '/question-bank', '/resources'],
+  MANAGER:           ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/performance-pip', '/interviews', '/question-bank', '/resources'],
+  ASSISTANT_MANAGER: ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/performance-pip', '/interviews', '/question-bank', '/resources'],
+  EMPLOYEE:          ['/dashboard', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/work-reports', '/performance', '/performance-pip', '/resources'],
 };
 
 const RolesPermissions = () => {
@@ -147,6 +262,8 @@ const RolesPermissions = () => {
           Select an employee to customise which modules they can access. By default employees follow their role's permissions.
         </Typography>
       </Box>
+
+      <PortalAccessPanel />
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
 

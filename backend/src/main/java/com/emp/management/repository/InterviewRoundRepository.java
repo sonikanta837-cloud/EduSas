@@ -22,6 +22,8 @@ public interface InterviewRoundRepository extends JpaRepository<InterviewRound, 
 
     List<InterviewRound> findByInterviewerIdAndStatusOrderByScheduledAtAsc(Long interviewerId, RoundStatus status);
 
+    boolean existsByInterviewerIdAndStatusIn(Long interviewerId, List<RoundStatus> statuses);
+
     @Query("SELECT MAX(r.roundNumber) FROM InterviewRound r WHERE r.candidate.id = :candidateId")
     Integer findMaxRoundNumberByCandidateId(Long candidateId);
 

@@ -2,6 +2,7 @@ package com.emp.management.dto;
 
 import lombok.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 @Builder
@@ -19,4 +20,6 @@ public class WorkReportDTO {
     private String   projectName;
     private String   taskName;
     private Double   hours;
+    private LocalDateTime loginTime;
+    private LocalDateTime logoutTime;
 }

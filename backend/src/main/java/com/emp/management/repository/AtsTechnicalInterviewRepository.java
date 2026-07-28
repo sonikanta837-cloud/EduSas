@@ -1,5 +1,6 @@
 package com.emp.management.repository;
 
+import com.emp.management.entity.AtsTechInterviewStatus;
 import com.emp.management.entity.AtsTechnicalInterview;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -15,4 +16,6 @@ public interface AtsTechnicalInterviewRepository extends JpaRepository<AtsTechni
     Optional<AtsTechnicalInterview> findByToken(String token);
 
     boolean existsByToken(String token);
+
+    boolean existsByInterviewerIdAndInterviewStatusNot(Long interviewerId, AtsTechInterviewStatus excludedStatus);
 }

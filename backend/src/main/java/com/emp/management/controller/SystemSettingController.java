@@ -2,6 +2,7 @@ package com.emp.management.controller;
 
 import com.emp.management.dto.AttendanceAuditSettingsDTO;
 import com.emp.management.dto.BreakAlertSettingsDTO;
+import com.emp.management.dto.PerformanceThresholdSettingsDTO;
 import com.emp.management.dto.WorkReportEmailSettingsDTO;
 import com.emp.management.service.SystemSettingService;
 import lombok.RequiredArgsConstructor;
@@ -53,5 +54,18 @@ public class SystemSettingController {
     public ResponseEntity<AttendanceAuditSettingsDTO> saveAttendanceAuditSettings(
             @RequestBody AttendanceAuditSettingsDTO dto) {
         return ResponseEntity.ok(systemSettingService.saveAttendanceAuditSettings(dto));
+    }
+
+    @GetMapping("/performance-threshold")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
+    public ResponseEntity<PerformanceThresholdSettingsDTO> getPerformanceThresholdSettings() {
+        return ResponseEntity.ok(systemSettingService.getPerformanceThresholdSettings());
+    }
+
+    @PutMapping("/performance-threshold")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
+    public ResponseEntity<PerformanceThresholdSettingsDTO> savePerformanceThresholdSettings(
+            @RequestBody PerformanceThresholdSettingsDTO dto) {
+        return ResponseEntity.ok(systemSettingService.savePerformanceThresholdSettings(dto));
     }
 }

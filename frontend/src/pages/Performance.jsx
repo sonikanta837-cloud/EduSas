@@ -6,6 +6,7 @@ import {
   CircularProgress, Rating, Avatar, Autocomplete,
   FormControl, InputLabel, Select, MenuItem, Tabs, Tab,
   InputAdornment, OutlinedInput, IconButton, Divider, Menu,
+  RadioGroup, Radio, FormControlLabel, Checkbox,
 } from '@mui/material';
 import AddIcon            from '@mui/icons-material/Add';
 import SearchIcon         from '@mui/icons-material/Search';
@@ -22,10 +23,10 @@ import ChevronLeftIcon    from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon   from '@mui/icons-material/ChevronRight';
 import DeleteOutlineIcon  from '@mui/icons-material/DeleteOutline';
 import EditOutlinedIcon   from '@mui/icons-material/EditOutlined';
+import FileDownloadIcon   from '@mui/icons-material/FileDownload';
 import { performanceApi }  from '../api/performanceApi';
 import { employeeApi }     from '../api/employeeApi';
 import { toast }           from 'react-toastify';
-import PerformancePipTab   from './PerformancePipTab';
 
 /* ─── constants ─── */
 const BLANK_FORM = {
@@ -259,11 +260,13 @@ const ReviewCard = ({ r, isAdmin, isManager, myEmployeeId, onViewDetails, onEdit
 const PerformancePage = () => {
   const { user } = useSelector((s) => s.auth);
   const isAdmin   = user?.role === 'ADMIN' || user?.role === 'DIRECTOR';
+  const isHR      = user?.role === 'HR';
   const isManager = user?.role === 'MANAGER';
   const isAsst    = user?.role === 'ASSISTANT_MANAGER';
   const isMgr     = isManager || isAsst;
-  const isEmp     = !isAdmin && !isMgr;
+  const isEmp     = !isAdmin && !isHR && !isMgr;
   const canReview = isAdmin || isMgr;
+  const canExport = isAdmin || isHR; // ADMIN, DIRECTOR, HR
 
   const [myEmployee,  setMyEmployee]  = useState(null);
   const [reviews,     setReviews]     = useState([]);
@@ -283,8 +286,15 @@ const PerformancePage = () => {
   const [empLoading,  setEmpLoading]  = useState(false);
   const [submitting,  setSubmitting]  = useState(false);
 
-  /* top-level tab: 0 = Reviews, 1 = PIP */
-  const [mainTab, setMainTab] = useState(0);
+  /* export state */
+  const [exportOpen,       setExportOpen]       = useState(false);
+  const [exportFormat,     setExportFormat]     = useState('EXCEL');
+  const [exportScope,      setExportScope]      = useState('ALL');
+  const [exportReportType, setExportReportType] = useState('REVIEWS');
+  const [exportBelowOnly,  setExportBelowOnly]  = useState(false);
+  const [exportPipOnly,    setExportPipOnly]    = useState(false);
+  const [exporting,        setExporting]        = useState(false);
+  const [auditLogs,        setAuditLogs]        = useState([]);
 
   /* filter state */
   const [searchText, setSearchText] = useState('');
@@ -301,7 +311,7 @@ const PerformancePage = () => {
     employeeApi.getByUserId(user.userId)
       .then(async (emp) => {
         setMyEmployee(emp);
-        if (isAdmin) {
+        if (isAdmin || isHR) {
           const [revs, empsData] = await Promise.all([
             performanceApi.getAll().catch(() => []),
             employeeApi.getAll().catch(() => []),
@@ -526,6 +536,57 @@ const PerformancePage = () => {
 
   const resetFilters = () => { setSearchText(''); setQuarterFlt(''); setRatingFlt(''); setDeptFlt(''); setPage(0); };
 
+  /* ── export ── */
+  const openExportDialog = () => {
+    setExportFormat('EXCEL');
+    setExportScope('ALL');
+    setExportReportType('REVIEWS');
+    setExportBelowOnly(false);
+    setExportPipOnly(false);
+    setExportOpen(true);
+    if (isAdmin) { // ADMIN or DIRECTOR — matches backend's /export/audit-log permission
+      performanceApi.getExportAuditLog().then(logs => setAuditLogs(Array.isArray(logs) ? logs : [])).catch(() => setAuditLogs([]));
+    }
+  };
+
+  const exportPreviewCount = exportReportType === 'EMPLOYEES'
+    ? (exportScope === 'FILTERED'
+        ? allEmps.filter(e =>
+            (!searchText || (e.fullName || '').toLowerCase().includes(searchText.toLowerCase())) &&
+            (!deptFlt || e.department === deptFlt)
+          ).length
+        : allEmps.length)
+    : (exportScope === 'FILTERED' ? filteredReviews.length : reviews.length);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params = { format: exportFormat, scope: exportScope, reportType: exportReportType, belowThresholdOnly: exportBelowOnly, pipOnly: exportPipOnly };
+      if (exportScope === 'FILTERED') {
+        if (searchText) params.search = searchText;
+        if (exportReportType === 'REVIEWS' && quarterFlt) params.reviewPeriod = quarterFlt;
+        if (ratingFlt)  params.ratingMin = ratingFlt;
+        if (deptFlt)    params.department = deptFlt;
+        params.sortBy = sortBy;
+      }
+      const blob = await performanceApi.exportReviews(params);
+      const ext = exportFormat === 'EXCEL' ? 'xlsx' : exportFormat.toLowerCase();
+      const reportSegment = exportReportType === 'EMPLOYEES' ? 'all-employees' : 'reviews';
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `performance-${reportSegment}-${exportScope.toLowerCase()}-${new Date().toISOString().split('T')[0]}.${ext}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Export downloaded!');
+      setExportOpen(false);
+    } catch {
+      toast.error('Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   /* ── loading ── */
   if (loading) return (
     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 360 }}>
@@ -540,39 +601,15 @@ const PerformancePage = () => {
       {/* Page header */}
       <Box sx={{ mb: 2 }}>
         <Typography sx={{ fontSize: 26, fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
-          Performance
+          Performance Review
         </Typography>
         <Typography sx={{ fontSize: 13.5, color: '#64748b', mt: .4 }}>
-          {isAdmin ? 'Track and manage all employee performance reviews and improvement plans.'
+          {isAdmin ? 'Track and manage all employee performance reviews.'
            : isManager ? 'Track and review performance of your direct reports.'
            : isAsst    ? 'Track and review performance of your assigned team members.'
-           :             'View your performance ratings, feedback, and improvement plans.'}
+           :             'View your performance ratings and feedback.'}
         </Typography>
       </Box>
-
-      {/* Top-level module tabs */}
-      <Box sx={{ bgcolor: '#fff', border: '1px solid #f1f5f9', borderRadius: '14px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', mb: 3, overflow: 'hidden' }}>
-        <Tabs
-          value={mainTab}
-          onChange={(_, v) => setMainTab(v)}
-          TabIndicatorProps={{ style: { backgroundColor: '#1e3a5f', height: 3 } }}
-          sx={{
-            px: 2,
-            '& .MuiTab-root': { fontSize: 14, fontWeight: 600, textTransform: 'none', color: '#64748b', minHeight: 50, '&.Mui-selected': { color: '#1e3a5f' } },
-          }}
-        >
-          <Tab label="Performance Reviews" />
-          <Tab label="Improvement Plans (PIP)" />
-        </Tabs>
-      </Box>
-
-      {/* ── PIP tab ── */}
-      {mainTab === 1 && (
-        <PerformancePipTab myEmployee={myEmployee} />
-      )}
-
-      {/* ── Performance Reviews tab ── */}
-      {mainTab === 0 && (<>
 
       {/* ── Filter bar (Admin / Manager only — employee has its own) ── */}
       {!isEmp && <Box sx={{
@@ -636,6 +673,21 @@ const PerformancePage = () => {
           Reset
         </Button>
 
+        {canExport && (
+          <Button
+            variant="outlined" onClick={openExportDialog}
+            startIcon={<FileDownloadIcon sx={{ fontSize: 17 }} />}
+            sx={{
+              height: 40, borderRadius: '10px', borderColor: '#14b8a6', color: '#0f766e',
+              fontSize: 13.5, fontWeight: 600, px: 2,
+              ml: 'auto',
+              '&:hover': { borderColor: '#0d9488', bgcolor: '#f0fdfa' },
+            }}
+          >
+            Export
+          </Button>
+        )}
+
         {canReview && (
           <Button
             variant="contained" onClick={openDialog}
@@ -643,7 +695,7 @@ const PerformancePage = () => {
             sx={{
               height: 40, borderRadius: '10px', bgcolor: '#1e3a5f',
               '&:hover': { bgcolor: '#152d4a' }, fontSize: 13.5, fontWeight: 700, px: 2.5,
-              boxShadow: '0 4px 12px rgba(30,58,95,0.3)', ml: 'auto',
+              boxShadow: '0 4px 12px rgba(30,58,95,0.3)', ml: canExport ? 0 : 'auto',
             }}
           >
             New Review
@@ -1215,8 +1267,96 @@ const PerformancePage = () => {
         </DialogActions>
       </Dialog>
 
-      {/* close mainTab === 0 fragment */}
-      </>)}
+      {/* ── Export dialog ── */}
+      <Dialog open={exportOpen} onClose={() => !exporting && setExportOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '16px' } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 17 }}>Export Performance Reviews</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.5px', mt: 1, mb: 1 }}>
+            Report Type
+          </Typography>
+          <RadioGroup row value={exportReportType} onChange={e => setExportReportType(e.target.value)}>
+            <FormControlLabel value="REVIEWS"   control={<Radio size="small" />} label="Review Records" />
+            <FormControlLabel value="EMPLOYEES" control={<Radio size="small" />} label="All Employees Summary" />
+          </RadioGroup>
+          <Typography sx={{ fontSize: 12, color: '#94a3b8', mt: -0.5, mb: 1.5 }}>
+            {exportReportType === 'EMPLOYEES'
+              ? 'One row per employee — includes employees who have never been reviewed.'
+              : 'One row per performance review record.'}
+          </Typography>
+
+          <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.5px', mb: 1 }}>
+            Format
+          </Typography>
+          <RadioGroup row value={exportFormat} onChange={e => setExportFormat(e.target.value)}>
+            <FormControlLabel value="EXCEL" control={<Radio size="small" />} label="Excel (.xlsx)" />
+            <FormControlLabel value="PDF"   control={<Radio size="small" />} label="PDF" />
+            <FormControlLabel value="CSV"   control={<Radio size="small" />} label="CSV" />
+          </RadioGroup>
+
+          <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.5px', mt: 2, mb: 1 }}>
+            Scope
+          </Typography>
+          <RadioGroup row value={exportScope} onChange={e => setExportScope(e.target.value)}>
+            <FormControlLabel value="ALL"      control={<Radio size="small" />} label="All records" />
+            <FormControlLabel value="FILTERED" control={<Radio size="small" />} label="Current filtered view" />
+          </RadioGroup>
+
+          <Box>
+            <FormControlLabel
+              control={<Checkbox size="small" checked={exportBelowOnly} onChange={e => setExportBelowOnly(e.target.checked)} />}
+              label="Below-threshold ratings only"
+            />
+            <FormControlLabel
+              control={<Checkbox size="small" checked={exportPipOnly} onChange={e => setExportPipOnly(e.target.checked)} />}
+              label="Employees in active PIP only"
+            />
+          </Box>
+
+          <Box sx={{ bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', p: 1.5, mt: 1 }}>
+            <Typography sx={{ fontSize: 13, color: '#475569' }}>
+              {exportScope === 'FILTERED'
+                ? `${exportPreviewCount} ${exportReportType === 'EMPLOYEES' ? 'employee(s)' : 'record(s)'} match the current filters (approximate — final count applies threshold/PIP toggles server-side).`
+                : `${exportPreviewCount} ${exportReportType === 'EMPLOYEES' ? 'employee(s)' : 'record(s)'} will be exported.`}
+            </Typography>
+          </Box>
+
+          {isAdmin && (
+            <>
+              <Divider sx={{ my: 2 }} />
+              <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.5px', mb: 1 }}>
+                Recent Exports
+              </Typography>
+              {auditLogs.length === 0 ? (
+                <Typography sx={{ fontSize: 13, color: '#94a3b8' }}>No exports yet.</Typography>
+              ) : (
+                <Box sx={{ maxHeight: 160, overflowY: 'auto' }}>
+                  {auditLogs.slice(0, 5).map(log => (
+                    <Box key={log.id} sx={{ display: 'flex', justifyContent: 'space-between', py: .5, borderBottom: '1px solid #f1f5f9' }}>
+                      <Typography sx={{ fontSize: 12.5, color: '#334155' }}>
+                        {log.performedByName} — {log.format} ({log.scope}, {log.recordCount} records)
+                      </Typography>
+                      <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>
+                        {log.createdAt ? new Date(log.createdAt).toLocaleString() : ''}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setExportOpen(false)} disabled={exporting} sx={{ borderRadius: '10px', fontSize: 13.5, fontWeight: 600, textTransform: 'none' }}>Cancel</Button>
+          <Button
+            variant="contained" onClick={handleExport}
+            disabled={exporting}
+            startIcon={exporting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <FileDownloadIcon />}
+            sx={{ borderRadius: '10px', bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' }, fontSize: 13.5, fontWeight: 700, textTransform: 'none' }}
+          >
+            {exporting ? 'Exporting…' : 'Export'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
     </Box>
   );

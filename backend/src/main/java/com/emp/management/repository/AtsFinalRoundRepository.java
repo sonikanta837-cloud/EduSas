@@ -1,5 +1,6 @@
 package com.emp.management.repository;
 
+import com.emp.management.entity.AtsFinalInterviewStatus;
 import com.emp.management.entity.AtsFinalRound;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -12,4 +13,5 @@ public interface AtsFinalRoundRepository extends JpaRepository<AtsFinalRound, Lo
     Optional<AtsFinalRound> findByToken(String token);
     boolean existsByToken(String token);
     List<AtsFinalRound> findByConductedByIdOrderByCreatedAtDesc(Long conductedById);
+    boolean existsByConductedByIdAndInterviewStatusNot(Long conductedById, AtsFinalInterviewStatus excludedStatus);
 }

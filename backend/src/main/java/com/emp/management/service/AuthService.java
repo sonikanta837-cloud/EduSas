@@ -36,6 +36,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final TimesheetService timesheetService;
     private final EmailService emailService;
+    private final PortalPermissionService portalPermissionService;
 
     @Value("${app.base-url:http://localhost:3000}")
     private String baseUrl;
@@ -69,6 +70,7 @@ public class AuthService {
                 .role(user.getRole().name())
                 .fullName(fullName)
                 .allowedModules(user.getAllowedModules())
+                .allowedPortals(portalPermissionService.getEffectiveAllowedPortals(user))
                 .build();
     }
 
@@ -140,6 +142,8 @@ public class AuthService {
                 .email(user.getEmail())
                 .role(user.getRole().name())
                 .fullName(fullName)
+                .allowedModules(user.getAllowedModules())
+                .allowedPortals(portalPermissionService.getEffectiveAllowedPortals(user))
                 .build();
     }
 

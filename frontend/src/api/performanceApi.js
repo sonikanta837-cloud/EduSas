@@ -8,4 +8,6 @@ export const performanceApi = {
   getAverage: (empId) => api.get(`/performance/employee/${empId}/average`),
   update: (id, data) => api.put(`/performance/${id}`, data),
   delete: (id) => api.delete(`/performance/${id}`),
+  exportReviews: (params) => api.get('/performance/export', { params, responseType: 'blob' }),
+  getExportAuditLog: () => api.get('/performance/export/audit-log'),
 };

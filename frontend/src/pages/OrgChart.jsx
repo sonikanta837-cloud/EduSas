@@ -1916,9 +1916,11 @@ const OrganisationPage = () => {
           onChange={(_, v) => setTab(v)}
           variant="scrollable"
           scrollButtons="auto"
+          allowScrollButtonsMobile
           sx={{
-            px: 2, borderBottom: '1px solid #e2e8f0',
-            '& .MuiTab-root': { textTransform: 'none', fontSize: 13, fontWeight: 600, minHeight: 48, gap: 0.75 },
+            px: 1, borderBottom: '1px solid #e2e8f0', minHeight: 44,
+            '& .MuiTabs-flexContainer': { gap: 0.25 },
+            '& .MuiTab-root': { textTransform: 'none', fontSize: 12.5, fontWeight: 600, minHeight: 44, minWidth: 'auto', px: 1.25, gap: 0.5 },
           }}
         >
           {TABS.map((t, i) => (

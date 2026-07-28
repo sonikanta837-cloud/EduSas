@@ -20,6 +20,8 @@ public interface PipRepository extends JpaRepository<PerformanceImprovementPlan,
 
     List<PerformanceImprovementPlan> findByStatusOrderByCreatedAtDesc(PipStatus status);
 
+    List<PerformanceImprovementPlan> findByEmployeeIdInAndStatus(List<Long> employeeIds, PipStatus status);
+
     // All PIPs where the employee's direct manager is the given person
     @Query("SELECT p FROM PerformanceImprovementPlan p WHERE p.employee.manager.id = :managerId ORDER BY p.createdAt DESC")
     List<PerformanceImprovementPlan> findByEmployeeManagerId(@Param("managerId") Long managerId);

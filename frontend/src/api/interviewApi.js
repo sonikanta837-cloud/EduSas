@@ -136,4 +136,12 @@ export const interviewApi = {
 
   // ── Stats ──────────────────────────────────────────────────────────────────
   getStats: () => api.get('/interviews/stats'),
+
+  /** Excel export of the full candidate pipeline (CV Bank → HR → Technical → Final Round). */
+  exportCandidateReport: () => {
+    const token = localStorage.getItem('accessToken');
+    return fetch(`${BASE}/interviews/candidates/export`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  },
 };

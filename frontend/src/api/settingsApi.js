@@ -7,4 +7,6 @@ export const settingsApi = {
   saveWorkReportEmailSettings:    (data) => axiosInstance.put('/settings/work-report-email', data),
   getAttendanceAuditSettings:     ()     => axiosInstance.get('/settings/attendance-audit'),
   saveAttendanceAuditSettings:    (data) => axiosInstance.put('/settings/attendance-audit', data),
+  getPerformanceThreshold:        ()     => axiosInstance.get('/settings/performance-threshold'),
+  savePerformanceThreshold:       (data) => axiosInstance.put('/settings/performance-threshold', data),
 };

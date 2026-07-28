@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -962,5 +963,130 @@ public class EmailService {
         } catch (Exception e) {
             log.error("Failed to send video interview invitation to {}: {}", to, e.getMessage());
         }
+    }
+
+    // ── Job time tracking: break exceeded 60 minutes (To: manager, CC: HR/Admin) ─
+
+    public void sendJobBreakAlertEmail(String[] to, String[] cc,
+                                       String employeeName, String employeeCode, String department,
+                                       String client, String jobName, String jobTask,
+                                       LocalDateTime breakStartedAt, String currentBreakDuration, LocalDate date) {
+        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("EEEE, dd MMMM yyyy");
+        DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("hh:mm a");
+        String body =
+                "<p>Dear Team,</p>" +
+                        "<p>The following employee's break has exceeded <strong>60 minutes</strong>.</p>" +
+                        "<p style='font-size:13px;font-weight:bold;color:#4a5568;margin:18px 0 6px;'>Employee Details</p>" +
+                        tableOpen() +
+                        row("Employee Name", employeeName) +
+                        row("Employee ID",   employeeCode) +
+                        row("Department",    department) +
+                        tableClose() +
+                        "<p style='font-size:13px;font-weight:bold;color:#4a5568;margin:18px 0 6px;'>Break Details</p>" +
+                        tableOpen() +
+                        row("Client",       client) +
+                        row("Job Name",     jobName) +
+                        row("Job Task",     jobTask) +
+                        row("Break Started At",    breakStartedAt.format(timeFmt)) +
+                        row("Current Break Duration",
+                                "<span style='color:#dc2626;font-weight:bold;'>" + currentBreakDuration + "</span>") +
+                        row("Date",     date.format(dateFmt)) +
+                        tableClose() +
+                        note("Employee: please resume work and log back in promptly. Manager: please follow up if required.");
+
+        sendMulti(to, cc,
+                "Employee Break Alert – Break Exceeded 60 Minutes",
+                wrap("&#9202;", "Employee Break Alert", body));
+        log.info("Job break alert sent to {} (cc: {}) for {} — break since {}",
+                Arrays.toString(to), Arrays.toString(cc), employeeName, breakStartedAt);
+    }
+
+    // ── Job time tracking: consolidated under-hours audit (To: manager, CC: HR/Admin) ─
+
+    public static class UnderHoursRow {
+        public final String employeeId;
+        public final String employeeName;
+        public final String department;
+        public final String client;
+        public final String workingHours;
+        public final String breakTime;
+        public final String requiredHours;
+        public final String shortfall;
+        public final String attendanceDate;
+        public final String loginTime;
+        public final String logoutTime;
+        public final String attendanceStatus;
+
+        public UnderHoursRow(String employeeId, String employeeName, String department, String client,
+                              String workingHours, String breakTime, String requiredHours, String shortfall,
+                              String attendanceDate, String loginTime, String logoutTime, String attendanceStatus) {
+            this.employeeId = employeeId;
+            this.employeeName = employeeName;
+            this.department = department;
+            this.client = client;
+            this.workingHours = workingHours;
+            this.breakTime = breakTime;
+            this.requiredHours = requiredHours;
+            this.shortfall = shortfall;
+            this.attendanceDate = attendanceDate;
+            this.loginTime = loginTime;
+            this.logoutTime = logoutTime;
+            this.attendanceStatus = attendanceStatus;
+        }
+    }
+
+    public void sendUnderHoursAuditAlert(String to, String[] cc, LocalDate date, List<UnderHoursRow> rows) {
+        String dateStr = date.format(DateTimeFormatter.ofPattern("EEEE, dd MMMM yyyy"));
+
+        StringBuilder table = new StringBuilder();
+        table.append("<table width='100%' cellpadding='0' cellspacing='0' ")
+             .append("style='border-collapse:collapse;margin:18px 0;font-size:12px;'>")
+             .append("<tr style='background:#1a2847;color:#ffffff;'>")
+             .append("<th style='padding:8px 10px;text-align:left;'>Employee ID</th>")
+             .append("<th style='padding:8px 10px;text-align:left;'>Employee</th>")
+             .append("<th style='padding:8px 10px;text-align:left;'>Department</th>")
+             .append("<th style='padding:8px 10px;text-align:left;'>Client</th>")
+             .append("<th style='padding:8px 10px;text-align:right;'>Working Hours</th>")
+             .append("<th style='padding:8px 10px;text-align:right;'>Break Time</th>")
+             .append("<th style='padding:8px 10px;text-align:right;'>Required Hours</th>")
+             .append("<th style='padding:8px 10px;text-align:right;'>Shortfall</th>")
+             .append("<th style='padding:8px 10px;text-align:left;'>Date</th>")
+             .append("<th style='padding:8px 10px;text-align:left;'>Login</th>")
+             .append("<th style='padding:8px 10px;text-align:left;'>Logout</th>")
+             .append("<th style='padding:8px 10px;text-align:left;'>Status</th>")
+             .append("</tr>");
+        boolean stripe = false;
+        for (UnderHoursRow r : rows) {
+            String bg = stripe ? "#f4f6f9" : "#ffffff";
+            table.append("<tr style='background:").append(bg).append(";'>")
+                 .append("<td style='padding:7px 10px;border-bottom:1px solid #dde3ec;'>").append(r.employeeId != null ? r.employeeId : "&mdash;").append("</td>")
+                 .append("<td style='padding:7px 10px;border-bottom:1px solid #dde3ec;'>").append(r.employeeName).append("</td>")
+                 .append("<td style='padding:7px 10px;border-bottom:1px solid #dde3ec;'>").append(r.department != null ? r.department : "&mdash;").append("</td>")
+                 .append("<td style='padding:7px 10px;border-bottom:1px solid #dde3ec;'>").append(r.client != null ? r.client : "&mdash;").append("</td>")
+                 .append("<td style='padding:7px 10px;border-bottom:1px solid #dde3ec;text-align:right;'>").append(r.workingHours).append("</td>")
+                 .append("<td style='padding:7px 10px;border-bottom:1px solid #dde3ec;text-align:right;'>").append(r.breakTime).append("</td>")
+                 .append("<td style='padding:7px 10px;border-bottom:1px solid #dde3ec;text-align:right;'>").append(r.requiredHours).append("</td>")
+                 .append("<td style='padding:7px 10px;border-bottom:1px solid #dde3ec;text-align:right;color:#dc2626;font-weight:bold;'>").append(r.shortfall).append("</td>")
+                 .append("<td style='padding:7px 10px;border-bottom:1px solid #dde3ec;'>").append(r.attendanceDate).append("</td>")
+                 .append("<td style='padding:7px 10px;border-bottom:1px solid #dde3ec;'>").append(r.loginTime != null ? r.loginTime : "&mdash;").append("</td>")
+                 .append("<td style='padding:7px 10px;border-bottom:1px solid #dde3ec;'>").append(r.logoutTime != null ? r.logoutTime : "&mdash;").append("</td>")
+                 .append("<td style='padding:7px 10px;border-bottom:1px solid #dde3ec;'>").append(r.attendanceStatus).append("</td>")
+                 .append("</tr>");
+            stripe = !stripe;
+        }
+        table.append("</table>");
+
+        String body =
+                "<p>Dear Manager,</p>" +
+                        "<p>The following direct reportees worked below the required 8 hours on <strong>" + dateStr + "</strong> " +
+                        "(approved leave, holidays, weekends, and approved attendance corrections are already excluded).</p>" +
+                        table +
+                        note("Please review and follow up with these employees if required.");
+
+        sendMulti(new String[]{to}, cc,
+                "Attendance Audit Alert – Employees with Under 8 Working Hours",
+                wrap("&#9888;&#65039;", "Attendance Audit Alert", body));
+        log.info("Under-hours audit alert sent to {} (cc: {}) for {} — {} employee(s)",
+                to, Arrays.toString(cc), date, rows.size());
     }
 }

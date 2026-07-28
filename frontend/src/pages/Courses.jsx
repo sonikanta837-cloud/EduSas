@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useSelector } from 'react-redux';
+import * as XLSX from 'xlsx';
 import {
   Box, Card, CardContent, CardActions, Typography, Button,
   Chip, Dialog, DialogTitle, DialogContent, DialogActions, TextField,
   CircularProgress, IconButton, Tooltip, Divider, Radio, RadioGroup,
-  FormControlLabel, FormControl, FormLabel, LinearProgress,
+  FormControlLabel, FormControl, FormLabel, InputLabel, Select, MenuItem, LinearProgress,
   Autocomplete, Stack, InputAdornment, Tabs, Tab,
   Table, TableHead, TableBody, TableRow, TableCell, TableContainer,
   TablePagination
@@ -24,9 +25,47 @@ import SearchIcon from '@mui/icons-material/Search';
 import CancelIcon from '@mui/icons-material/Cancel';
 import DownloadIcon from '@mui/icons-material/Download';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 import { courseApi } from '../api/courseApi';
 import { employeeApi } from '../api/employeeApi';
 import { toast } from 'react-toastify';
+
+const fmtDate = (d) => (d ? String(d).slice(0, 10) : '—');
+
+function exportTrainingReportExcel(rows) {
+  if (!rows.length) return;
+  const sheetData = rows.map((r, i) => ({
+    '#':                    i + 1,
+    'Employee Name':        r.employeeName        || '—',
+    'Employee Code':        r.employeeCode        || '—',
+    'Department':           r.department          || '—',
+    'Designation':          r.designation         || '—',
+    'Location':             r.location            || '—',
+    'Course Title':         r.courseTitle         || '—',
+    'Course Description':   r.courseDescription   || '—',
+    'Duration (Hours)':     r.durationHours       ?? '—',
+    'YouTube URL':          r.youtubeUrl          || '—',
+    'Course Active':        r.courseActive ? 'Yes' : 'No',
+    'Created By':           r.createdByName       || '—',
+    'Course Created Date':  fmtDate(r.courseCreatedAt),
+    'Enrollment Status':    r.enrollmentStatus    || '—',
+    'Enrolled Date':        fmtDate(r.enrolledAt),
+    'Completion Date':      fmtDate(r.completionDate),
+    'Exam Score':           r.examScore           ?? '—',
+    'Passing Score':        r.passingScore        ?? '—',
+    'Total Marks':          r.totalMarks          ?? '—',
+    'Exam Result':          r.examResult          || '—',
+    'Certificate Number':   r.certificateNumber   || '—',
+    'Certificate Score':    r.certificateScore    ?? '—',
+    'Certificate Issued':   fmtDate(r.certificateIssuedAt),
+  }));
+  const ws = XLSX.utils.json_to_sheet(sheetData);
+  ws['!cols'] = [4,20,14,18,18,14,22,30,10,26,12,18,18,16,14,12,12,12,12,18,14,16].map(wch => ({ wch }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Training Report');
+  XLSX.writeFile(wb, 'Training_Report.xlsx');
+  toast.success('Excel downloaded!');
+}
 
 const statusColors = {
   NOT_ENROLLED: 'default',
@@ -126,6 +165,17 @@ const CoursesPage = () => {
   const [enrollPage, setEnrollPage] = useState(0);
   const [enrollRpp, setEnrollRpp] = useState(10);
 
+  // Training report tab (admin/HR only)
+  const [trainingReport, setTrainingReport] = useState([]);
+  const [trainingReportLoading, setTrainingReportLoading] = useState(false);
+  const [reportPage, setReportPage] = useState(0);
+  const [reportRpp, setReportRpp] = useState(10);
+  const [trnDept, setTrnDept] = useState('ALL');
+  const [trnLoc, setTrnLoc] = useState('ALL');
+  const [trnCourse, setTrnCourse] = useState('ALL');
+  const [trnStatus, setTrnStatus] = useState('ALL');
+  const [trnSearch, setTrnSearch] = useState('');
+
   // Detail / catalog view
   const [viewCourse, setViewCourse] = useState(null);
   const [detailTab, setDetailTab] = useState('lessons');
@@ -202,7 +252,7 @@ const CoursesPage = () => {
     req.then(r => setCerts(Array.isArray(r) ? r : [])).catch(() => setCerts([]));
   }, [isAdmin]);
 
-  useEffect(() => { setEnrollPage(0); }, [statusFilter]);
+  useEffect(() => { setEnrollPage(0); setReportPage(0); }, [statusFilter]);
   useEffect(() => {
     if (statusFilter !== 'CERTIFICATE') return;
     setCertsLoading(true);
@@ -211,6 +261,37 @@ const CoursesPage = () => {
       .catch(() => setCerts([]))
       .finally(() => setCertsLoading(false));
   }, [statusFilter, isAdmin]);
+
+  useEffect(() => {
+    if (statusFilter !== 'REPORT' || !isAdmin) return;
+    setTrainingReportLoading(true);
+    courseApi.getTrainingReport()
+      .then(r => setTrainingReport(Array.isArray(r) ? r : []))
+      .catch(() => setTrainingReport([]))
+      .finally(() => setTrainingReportLoading(false));
+  }, [statusFilter, isAdmin]);
+
+  const trnDeptOptions = useMemo(() =>
+    ['ALL', ...new Set(trainingReport.map(r => r.department).filter(Boolean))], [trainingReport]);
+  const trnLocOptions = useMemo(() =>
+    ['ALL', ...new Set(trainingReport.map(r => r.location).filter(Boolean))], [trainingReport]);
+  const trnCourseOptions = useMemo(() =>
+    ['ALL', ...new Set(trainingReport.map(r => r.courseTitle).filter(Boolean))], [trainingReport]);
+  const trnStatusOptions = useMemo(() =>
+    ['ALL', ...new Set(trainingReport.map(r => r.enrollmentStatus).filter(Boolean))], [trainingReport]);
+
+  const filteredTraining = useMemo(() => trainingReport.filter(r => {
+    if (trnDept   !== 'ALL' && r.department       !== trnDept)   return false;
+    if (trnLoc    !== 'ALL' && r.location         !== trnLoc)    return false;
+    if (trnCourse !== 'ALL' && r.courseTitle      !== trnCourse) return false;
+    if (trnStatus !== 'ALL' && r.enrollmentStatus !== trnStatus) return false;
+    if (trnSearch) {
+      const q = trnSearch.toLowerCase();
+      if (!(r.employeeName || '').toLowerCase().includes(q) &&
+          !(r.employeeCode || '').toLowerCase().includes(q)) return false;
+    }
+    return true;
+  }), [trainingReport, trnDept, trnLoc, trnCourse, trnStatus, trnSearch]);
 
   useEffect(() => {
     if (viewCourse) {
@@ -796,6 +877,15 @@ const CoursesPage = () => {
                 iconPosition="start"
                 sx={{ gap: 0.5 }}
               />
+              {isAdmin && (
+                <Tab
+                  label="Report"
+                  value="REPORT"
+                  icon={<AssessmentIcon sx={{ fontSize: 15 }} />}
+                  iconPosition="start"
+                  sx={{ gap: 0.5 }}
+                />
+              )}
             </Tabs>
           </Box>
 
@@ -870,8 +960,138 @@ const CoursesPage = () => {
             );
           })() : null}
 
+          {/* Training Portal Report (Admin/HR) */}
+          {isAdmin && statusFilter === 'REPORT' ? (
+            <Box>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mb: 2, alignItems: 'center' }}>
+                <FormControl size="small" sx={{ minWidth: 160, bgcolor: '#fff', borderRadius: 2 }}>
+                  <InputLabel>Department</InputLabel>
+                  <Select label="Department" value={trnDept}
+                    onChange={(e) => { setTrnDept(e.target.value); setReportPage(0); }}>
+                    {trnDeptOptions.map(d => (
+                      <MenuItem key={d} value={d}>{d === 'ALL' ? 'All Departments' : d}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl size="small" sx={{ minWidth: 160, bgcolor: '#fff', borderRadius: 2 }}>
+                  <InputLabel>Location</InputLabel>
+                  <Select label="Location" value={trnLoc}
+                    onChange={(e) => { setTrnLoc(e.target.value); setReportPage(0); }}>
+                    {trnLocOptions.map(l => (
+                      <MenuItem key={l} value={l}>{l === 'ALL' ? 'All Locations' : l}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl size="small" sx={{ minWidth: 180, bgcolor: '#fff', borderRadius: 2 }}>
+                  <InputLabel>Course</InputLabel>
+                  <Select label="Course" value={trnCourse}
+                    onChange={(e) => { setTrnCourse(e.target.value); setReportPage(0); }}>
+                    {trnCourseOptions.map(c => (
+                      <MenuItem key={c} value={c}>{c === 'ALL' ? 'All Courses' : c}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl size="small" sx={{ minWidth: 150, bgcolor: '#fff', borderRadius: 2 }}>
+                  <InputLabel>Status</InputLabel>
+                  <Select label="Status" value={trnStatus}
+                    onChange={(e) => { setTrnStatus(e.target.value); setReportPage(0); }}>
+                    {trnStatusOptions.map(s => (
+                      <MenuItem key={s} value={s}>{s === 'ALL' ? 'All Status' : s}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <TextField
+                  placeholder="Search employee..."
+                  size="small"
+                  value={trnSearch}
+                  onChange={(e) => { setTrnSearch(e.target.value); setReportPage(0); }}
+                  InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: '#94a3b8' }} /></InputAdornment> }}
+                  sx={{ minWidth: 220, bgcolor: '#fff', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                />
+                <Button variant="contained" startIcon={<DownloadIcon />}
+                  onClick={() => exportTrainingReportExcel(filteredTraining)}
+                  disabled={!filteredTraining.length}
+                  sx={{ ml: 'auto', bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, textTransform: 'none', borderRadius: 2 }}>
+                  Export Excel
+                </Button>
+              </Box>
+
+              <Card sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                <TableContainer sx={{ overflowX: 'auto' }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: '#f1f5f9' }}>
+                        {['Employee','Department','Location','Designation','Course','Duration',
+                          'Status','Enrolled','Completed','Exam Score','Result',
+                          'Certificate No','Certificate Issued'].map(h => (
+                          <TableCell key={h} sx={{ fontWeight: 700, fontSize: 12.5, color: '#475569', whiteSpace: 'nowrap' }}>{h}</TableCell>
+                        ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {trainingReportLoading ? (
+                        <TableRow>
+                          <TableCell colSpan={13} align="center" sx={{ py: 5 }}>
+                            <CircularProgress size={28} sx={{ color: '#1e3a5f' }} />
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredTraining.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={13} align="center" sx={{ py: 6 }}>
+                            <AssessmentIcon sx={{ fontSize: 48, color: '#cbd5e1', mb: 1, display: 'block', mx: 'auto' }} />
+                            <Typography color="text.secondary" fontSize={14}>No training records found.</Typography>
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredTraining.slice(reportPage * reportRpp, (reportPage + 1) * reportRpp).map((r, i) => (
+                        <TableRow key={r.enrollmentId} hover sx={{ bgcolor: i % 2 === 0 ? 'white' : '#f8fafc' }}>
+                          <TableCell sx={{ fontSize: 13 }}>
+                            <Typography variant="body2" fontWeight={600}>{r.employeeName}</Typography>
+                            <Typography variant="caption" sx={{ color: '#94a3b8' }}>{r.employeeCode}</Typography>
+                          </TableCell>
+                          <TableCell sx={{ fontSize: 13 }}>{r.department || '—'}</TableCell>
+                          <TableCell sx={{ fontSize: 13 }}>{r.location || '—'}</TableCell>
+                          <TableCell sx={{ fontSize: 13 }}>{r.designation || '—'}</TableCell>
+                          <TableCell sx={{ fontSize: 13, maxWidth: 220 }}>
+                            <Typography variant="body2" fontWeight={600} noWrap>{r.courseTitle}</Typography>
+                          </TableCell>
+                          <TableCell align="center" sx={{ fontSize: 13 }}>{r.durationHours ?? '—'}</TableCell>
+                          <TableCell>
+                            <Chip label={statusLabels[r.enrollmentStatus] || r.enrollmentStatus} size="small"
+                              color={statusColors[r.enrollmentStatus] || 'default'} />
+                          </TableCell>
+                          <TableCell sx={{ fontSize: 13, whiteSpace: 'nowrap' }}>{fmtDate(r.enrolledAt)}</TableCell>
+                          <TableCell sx={{ fontSize: 13, whiteSpace: 'nowrap' }}>{fmtDate(r.completionDate)}</TableCell>
+                          <TableCell align="center" sx={{ fontSize: 13 }}>{r.examScore ?? '—'}</TableCell>
+                          <TableCell align="center">
+                            {r.examResult
+                              ? <Chip label={r.examResult} size="small"
+                                  color={r.examResult === 'PASS' ? 'success' : 'error'} variant="outlined" />
+                              : <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>—</Typography>}
+                          </TableCell>
+                          <TableCell sx={{ fontSize: 13 }}>{r.certificateNumber || '—'}</TableCell>
+                          <TableCell sx={{ fontSize: 13, whiteSpace: 'nowrap' }}>{fmtDate(r.certificateIssuedAt)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+                {filteredTraining.length > reportRpp && (
+                  <TablePagination
+                    component="div"
+                    count={filteredTraining.length}
+                    page={reportPage}
+                    onPageChange={(_, p) => setReportPage(p)}
+                    rowsPerPage={reportRpp}
+                    onRowsPerPageChange={e => { setReportRpp(parseInt(e.target.value, 10)); setReportPage(0); }}
+                    rowsPerPageOptions={[10, 25, 50]}
+                  />
+                )}
+              </Card>
+            </Box>
+          ) : null}
+
           {/* Certificates table */}
-          {!isAdmin || !['ENROLLED', 'IN_PROGRESS', 'COMPLETED'].includes(statusFilter) ? statusFilter === 'CERTIFICATE' ? (
+          {((!isAdmin || !['ENROLLED', 'IN_PROGRESS', 'COMPLETED'].includes(statusFilter)) && statusFilter !== 'REPORT') ? statusFilter === 'CERTIFICATE' ? (
             <Card sx={{ borderRadius: 2, overflow: 'hidden' }}>
               <TableContainer>
                 <Table size="small">

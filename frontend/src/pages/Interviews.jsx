@@ -19,6 +19,7 @@ import EditIcon           from '@mui/icons-material/Edit';
 import DeleteIcon         from '@mui/icons-material/Delete';
 import OpenInNewIcon      from '@mui/icons-material/OpenInNew';
 import RefreshIcon        from '@mui/icons-material/Refresh';
+import DownloadIcon       from '@mui/icons-material/Download';
 import DescriptionIcon    from '@mui/icons-material/Description';
 import PersonAddIcon      from '@mui/icons-material/PersonAdd';
 import WorkIcon           from '@mui/icons-material/Work';
@@ -261,6 +262,18 @@ const ATSPage = () => {
       setCandidates(Array.isArray(c) ? c : []);
       setStats(s);
     } catch { toast.error('Refresh failed'); }
+  };
+
+  const handleExportReport = async () => {
+    try {
+      const res = await interviewApi.exportCandidateReport();
+      if (!res.ok) { toast.error('Export failed'); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'candidate-pipeline-report.xlsx'; a.click();
+      URL.revokeObjectURL(url);
+    } catch { toast.error('Export failed'); }
   };
 
   const refreshDetail = async (id) => {
@@ -2027,8 +2040,8 @@ const ATSPage = () => {
 
   return (
     <Box sx={{ bgcolor: '#f8fafc', minHeight: '100%' }}>
-      {/* ── Sticky header: title, stats, tabs, and (for CV Bank) the filter row ── */}
-      <Box sx={{ position: 'sticky', top: 64, zIndex: 2, bgcolor: '#f8fafc', pb: 1 }}>
+      {/* ── Header: title, stats, tabs, and (for CV Bank) the filter row ── */}
+      <Box sx={{ bgcolor: '#f8fafc', pb: 1 }}>
       {/* ── Page header ── */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Box>
@@ -2043,6 +2056,12 @@ const ATSPage = () => {
               onClick={() => { setUploadForm(EMPTY_UPLOAD); setUploadFile(null); setStoredResume(null); setUploadDialog(true); }}
               sx={{ bgcolor: '#1e3a5f', '&:hover': { bgcolor: '#0f172a' }, textTransform: 'none', borderRadius: 2 }}>
               Upload Resume
+            </Button>
+          )}
+          {canManage && (
+            <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportReport}
+              sx={{ textTransform: 'none', borderColor: '#e2e8f0' }}>
+              Export Report
             </Button>
           )}
           {canManage && (
@@ -2182,7 +2201,7 @@ const ATSPage = () => {
         </Box>
       )}
       </Box>
-      {/* ── /Sticky header ── */}
+      {/* ── /Header ── */}
 
       {/* ═══ CV BANK TAB ════════════════════════════════════════════════════ */}
       {tab === 'cvbank' && canManage && (

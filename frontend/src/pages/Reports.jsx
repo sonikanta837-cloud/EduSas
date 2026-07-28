@@ -10,10 +10,10 @@ import DownloadIcon   from '@mui/icons-material/Download';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import SearchIcon     from '@mui/icons-material/Search';
+import PlayArrowIcon  from '@mui/icons-material/PlayArrow';
 import { employeeApi }        from '../api/employeeApi';
 import { leaveApi }           from '../api/leaveApi';
-import { performanceApi }     from '../api/performanceApi';
-import { timesheetEntryApi }  from '../api/timesheetEntryApi';
+import { jobWorkSessionApi }  from '../api/jobWorkSessionApi';
 import { toast }              from 'react-toastify';
 
 // ── Month helpers ─────────────────────────────────────────────────────────────
@@ -197,6 +197,7 @@ const ReportsPage = () => {
   const [loading,    setLoading]    = useState(false);
   const [page,       setPage]       = useState(0);
   const [rpp,        setRpp]        = useState(25);
+  const [generated,  setGenerated]  = useState(false);
 
   const [selMonth,       setSelMonth]       = useState(0);
   const [filterDept,     setFilterDept]     = useState('ALL');
@@ -220,11 +221,11 @@ const ReportsPage = () => {
   // ── Load data ───────────────────────────────────────────────────────────────
   const loadReport = async (type) => {
     if (type === 'daily-work-report') {
-      // Auto-load today's data immediately
+      // Work report only ever covers today — no date range to pick
       const today = new Date().toISOString().slice(0, 10);
       setWrLoading(true);
       try {
-        const result = await timesheetEntryApi.getWorkReport(today, today);
+        const result = await jobWorkSessionApi.getWorkReport(today, today);
         setWrData(Array.isArray(result) ? result : []);
         setWrDeptFilter('ALL'); setWrLocFilter('ALL'); setPage(0);
       } catch { toast.error('Failed to load work report'); }
@@ -244,7 +245,6 @@ const ReportsPage = () => {
           case 'monthly-leaves': result = await leaveApi.getAll();       break;
           case 'employees':      result = await employeeApi.getAll();    break;
           case 'leaves':         result = await leaveApi.getAll();       break;
-          case 'performance':    result = await performanceApi.getAll(); break;
           default: result = [];
         }
         setData(Array.isArray(result) ? result : []);
@@ -259,7 +259,21 @@ const ReportsPage = () => {
   };
 
 
-  useEffect(() => { loadReport(reportType); setPage(0); }, [reportType]); // eslint-disable-line
+  // Switching report type clears any previously generated data — the user must
+  // press "Generate Report" to fetch, so the page never dumps a table on load.
+  useEffect(() => {
+    setGenerated(false);
+    setData([]);
+    setEmployees([]);
+    setAllLeaves([]);
+    setWrData([]);
+    setPage(0);
+  }, [reportType]);
+
+  const handleGenerate = () => {
+    loadReport(reportType);
+    setGenerated(true);
+  };
 
   // ── Employee Summary computation ─────────────────────────────────────────────
   const workingDays = useMemo(
@@ -574,32 +588,6 @@ const ReportsPage = () => {
     </Table>
   );
 
-  const renderPerformance = () => (
-    <Table size="small">
-      <TableHead>
-        <TableRow>
-          {['Employee','Reviewer','Rating','Period','Date'].map((h) => (
-            <TableCell key={h} sx={hdr}>{h}</TableCell>
-          ))}
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        {pageRows.map((r, i) => (
-          <TableRow key={r.id} hover sx={{ bgcolor: i % 2 === 0 ? 'white' : '#f8fafc' }}>
-            <TableCell sx={{ ...cell, fontWeight: 600 }}>{r.employeeName}</TableCell>
-            <TableCell sx={cell}>{r.reviewerName}</TableCell>
-            <TableCell sx={cell}>
-              <Chip label={`${r.rating}/5`} size="small"
-                color={r.rating >= 4 ? 'success' : r.rating >= 3 ? 'warning' : 'error'} />
-            </TableCell>
-            <TableCell sx={cell}>{r.reviewPeriod}</TableCell>
-            <TableCell sx={cell}>{r.reviewDate}</TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
-
   const renderWorkReport = () => (
     <Table size="small">
       <TableHead>
@@ -658,7 +646,6 @@ const ReportsPage = () => {
       case 'monthly-leaves':    return renderMonthlyLeaves();
       case 'employees':         return renderEmployees();
       case 'leaves':            return renderLeaves();
-      case 'performance':       return renderPerformance();
       case 'daily-work-report': return renderWorkReport();
       default:                  return null;
     }
@@ -669,7 +656,6 @@ const ReportsPage = () => {
     'monthly-leaves':    'Monthly Leave Report',
     'employees':         'Employee Report',
     'leaves':            'All Leave Report',
-    'performance':       'Performance Report',
     'daily-work-report': 'Daily Work Report',
   }[reportType];
 
@@ -682,7 +668,7 @@ const ReportsPage = () => {
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography variant="h4" fontWeight={700}>Reports</Typography>
-          <Typography variant="body2" color="text.secondary" mt={0.5}>Employee Performance, Attendance, and Productivity Reports</Typography>
+          <Typography variant="body2" color="text.secondary" mt={0.5}>Employee Attendance, Leave, and Productivity Reports</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5 }}>
           <Button variant="contained" startIcon={<TableChartIcon />}
@@ -720,7 +706,6 @@ const ReportsPage = () => {
                   <MenuItem value="monthly-leaves">Monthly Leave Report</MenuItem>
                   <MenuItem value="employees">All Employees</MenuItem>
                   <MenuItem value="leaves">All Leave Report</MenuItem>
-                  <MenuItem value="performance">Performance Report</MenuItem>
                   <MenuItem value="daily-work-report">Daily Work Report</MenuItem>
                 </Select>
               </FormControl>
@@ -860,14 +845,19 @@ const ReportsPage = () => {
               </>
             )}
 
-            {!isSummary && !isLeave && !isWorkReport && (
-              <Grid item sx={{ ml: 'auto' }}>
+            <Grid item sx={{ ml: 'auto', display: 'flex', gap: 1.5 }}>
+              {!isSummary && !isLeave && !isWorkReport && (
                 <Button variant="outlined" startIcon={<DownloadIcon />}
                   onClick={exportCSV} disabled={displayRows.length === 0}>
                   Export CSV
                 </Button>
-              </Grid>
-            )}
+              )}
+              <Button variant="contained" startIcon={<PlayArrowIcon />}
+                onClick={handleGenerate}
+                sx={{ borderRadius: '10px', fontWeight: 600, fontSize: 13 }}>
+                Generate Report
+              </Button>
+            </Grid>
           </Grid>
         </CardContent>
       </Card>
@@ -889,7 +879,7 @@ const ReportsPage = () => {
                   )}
                 </Typography>
               )}
-              {isWorkReport && (
+              {isWorkReport && generated && (
                 <Box sx={{ display: 'flex', gap: 2, mt: 0.5, alignItems: 'center' }}>
                   <Typography variant="body2" color="text.secondary">
                     {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
@@ -908,7 +898,7 @@ const ReportsPage = () => {
               )}
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              {!isSummary && (
+              {generated && (
                 <Chip
                   label={`${displayRows.length} record${displayRows.length !== 1 ? 's' : ''}`}
                   size="small" color="primary"
@@ -919,7 +909,7 @@ const ReportsPage = () => {
                   onClick={() => exportSummaryExcel(summaryRows, selLabel)}
                   disabled={!summaryRows.length}
                   sx={{ bgcolor: '#0f172a', '&:hover': { bgcolor: '#1e293b' }, borderRadius: '8px', fontSize: 13, fontWeight: 600, px: 2 }}>
-                  Generate Report
+                  Export Summary
                 </Button>
               )}
             </Box>
@@ -930,10 +920,17 @@ const ReportsPage = () => {
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                 <CircularProgress />
               </Box>
+            ) : !generated ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 6, gap: 1 }}>
+                <TableChartIcon sx={{ fontSize: 36, color: '#cbd5e1' }} />
+                <Typography variant="body2" color="text.secondary">
+                  Choose your filters, then click <strong>Generate Report</strong> to view data.
+                </Typography>
+              </Box>
             ) : renderTable()}
           </TableContainer>
 
-          {displayRows.length > 0 && (
+          {generated && displayRows.length > 0 && (
             <TablePagination
               component="div"
               count={displayRows.length}

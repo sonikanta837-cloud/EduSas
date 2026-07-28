@@ -10,6 +10,7 @@ import CheckCircleIcon          from '@mui/icons-material/CheckCircle';
 import MarkEmailReadIcon        from '@mui/icons-material/MarkEmailRead';
 import ScheduleIcon             from '@mui/icons-material/Schedule';
 import AssignmentLateIcon       from '@mui/icons-material/AssignmentLate';
+import TrendingDownIcon         from '@mui/icons-material/TrendingDown';
 import { settingsApi }          from '../api/settingsApi';
 
 const FREQUENCY_OPTIONS = [
@@ -377,6 +378,10 @@ function AttendanceAuditPanel() {
       />
       <Box sx={{ px: 3, py: 3, display: 'flex', flexDirection: 'column', gap: 3.5 }}>
 
+        <Alert severity="warning">
+          Superseded by the new 11:00 AM Under-Hours Audit (Job Time Tracking module) — this legacy toggle no longer sends emails.
+        </Alert>
+
         {/* Enable toggle */}
         <Box sx={{ display:'flex', alignItems:'center', justifyContent:'space-between', p:2, borderRadius:2, bgcolor: settings.enabled ? 'rgba(245,158,11,0.06)' : '#f8fafc', border:'1px solid', borderColor: settings.enabled ? 'rgba(245,158,11,0.3)' : '#e2e8f0' }}>
           <Box>
@@ -471,12 +476,74 @@ function AttendanceAuditPanel() {
   );
 }
 
+// ── Performance Rating Threshold panel ──────────────────────────────────────
+
+function PerformanceThresholdPanel() {
+  const [settings, setSettings] = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [saving, setSaving]     = useState(false);
+  const [saved, setSaved]       = useState(false);
+  const [error, setError]       = useState('');
+
+  useEffect(() => {
+    settingsApi.getPerformanceThreshold()
+      .then(setSettings)
+      .catch(() => setError('Failed to load performance threshold settings.'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const update = (v) => { setSaved(false); setSettings({ lowRatingThreshold: v }); };
+
+  const handleSave = async () => {
+    setSaving(true); setError('');
+    try {
+      setSettings(await settingsApi.savePerformanceThreshold(settings));
+      setSaved(true); setTimeout(() => setSaved(false), 3000);
+    } catch { setError('Failed to save. Please try again.'); }
+    finally { setSaving(false); }
+  };
+
+  if (loading) return <Box sx={{ display:'flex', justifyContent:'center', py:6 }}><CircularProgress /></Box>;
+  if (!settings) return <Alert severity="error">{error}</Alert>;
+
+  return (
+    <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
+      <Box sx={{ px: 3, py: 2.5, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <TrendingDownIcon sx={{ color: '#dc2626' }} />
+        <Box>
+          <Typography fontWeight={700} color="#1e293b">Performance Rating Threshold</Typography>
+          <Typography variant="caption" color="text.secondary">Ratings at or above this value are considered acceptable; below it, they're flagged on export reports</Typography>
+        </Box>
+      </Box>
+      <Box sx={{ px: 3, py: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <Box sx={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <Box>
+            <Typography fontWeight={600} color="#1e293b">Low Rating Threshold</Typography>
+            <Typography variant="body2" color="text.secondary">Reviews with a rating below this number are highlighted as "below threshold" in exports</Typography>
+          </Box>
+          <TextField
+            type="number" size="small"
+            value={settings.lowRatingThreshold}
+            onChange={e => update(Math.max(1, Math.min(5, parseFloat(e.target.value) || 1)))}
+            inputProps={{ min: 1, max: 5, step: 0.5 }}
+            InputProps={{ endAdornment: <InputAdornment position="end"><Typography variant="caption" color="text.secondary">/ 5</Typography></InputAdornment> }}
+            sx={{ width:110, '& .MuiOutlinedInput-root': { fontWeight:700, color:'#b91c1c', bgcolor:'#fef2f2', '& fieldset':{ borderColor:'#fca5a5' }, '&:hover fieldset':{ borderColor:'#dc2626' }, '&.Mui-focused fieldset':{ borderColor:'#dc2626' } } }}
+          />
+        </Box>
+        <Divider />
+        <SaveBar onSave={handleSave} saving={saving} saved={saved} error={error} />
+      </Box>
+    </Paper>
+  );
+}
+
 // ── Main Settings page ───────────────────────────────────────────────────────
 
 const NAV = [
-  { id: 'break',      label: 'Break Alerts',         icon: <AccessTimeIcon fontSize="small" />,      color: '#0f766e', bg: 'rgba(20,184,166,0.1)',  hover: 'rgba(20,184,166,0.07)'  },
-  { id: 'audit',      label: 'Attendance Audit',      icon: <AssignmentLateIcon fontSize="small" />,  color: '#b45309', bg: 'rgba(245,158,11,0.1)',  hover: 'rgba(245,158,11,0.07)'  },
-  { id: 'workReport', label: 'Email Automation',      icon: <MarkEmailReadIcon fontSize="small" />,   color: '#4f46e5', bg: 'rgba(99,102,241,0.1)',  hover: 'rgba(99,102,241,0.07)'  },
+  { id: 'break',       label: 'Break Alerts',         icon: <AccessTimeIcon fontSize="small" />,      color: '#0f766e', bg: 'rgba(20,184,166,0.1)',  hover: 'rgba(20,184,166,0.07)'  },
+  { id: 'audit',       label: 'Attendance Audit',      icon: <AssignmentLateIcon fontSize="small" />,  color: '#b45309', bg: 'rgba(245,158,11,0.1)',  hover: 'rgba(245,158,11,0.07)'  },
+  { id: 'workReport',  label: 'Email Automation',      icon: <MarkEmailReadIcon fontSize="small" />,   color: '#4f46e5', bg: 'rgba(99,102,241,0.1)',  hover: 'rgba(99,102,241,0.07)'  },
+  { id: 'performance', label: 'Performance Threshold', icon: <TrendingDownIcon fontSize="small" />,    color: '#dc2626', bg: 'rgba(220,38,38,0.1)',   hover: 'rgba(220,38,38,0.07)'   },
 ];
 
 export default function Settings() {
@@ -521,9 +588,10 @@ export default function Settings() {
 
         {/* Panel */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          {active === 'break'      && <BreakAlertPanel />}
-          {active === 'audit'      && <AttendanceAuditPanel />}
-          {active === 'workReport' && <WorkReportEmailPanel />}
+          {active === 'break'       && <BreakAlertPanel />}
+          {active === 'audit'       && <AttendanceAuditPanel />}
+          {active === 'workReport'  && <WorkReportEmailPanel />}
+          {active === 'performance' && <PerformanceThresholdPanel />}
         </Box>
       </Box>
     </Box>

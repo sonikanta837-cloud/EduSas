@@ -2,6 +2,7 @@ package com.emp.management.service;
 
 import com.emp.management.dto.AttendanceAuditSettingsDTO;
 import com.emp.management.dto.BreakAlertSettingsDTO;
+import com.emp.management.dto.PerformanceThresholdSettingsDTO;
 import com.emp.management.dto.WorkReportEmailSettingsDTO;
 import com.emp.management.entity.SystemSetting;
 import com.emp.management.repository.SystemSettingRepository;
@@ -39,6 +40,11 @@ public class SystemSettingService {
     private static final String KEY_AUDIT_MANAGER       = "attendance_audit_notify_manager";
     private static final String KEY_AUDIT_HR            = "attendance_audit_notify_hr";
     private static final String KEY_AUDIT_ADMIN         = "attendance_audit_notify_admin";
+
+    private static final String KEY_PERF_LOW_RATING_THRESHOLD = "performance_low_rating_threshold";
+
+    @Value("${app.performance.low-rating-threshold:3.0}")
+    private double defaultLowRatingThreshold;
 
     @Value("${app.attendance.break-alert.enabled:true}")
     private boolean defaultEnabled;
@@ -137,6 +143,24 @@ public class SystemSettingService {
         save(KEY_AUDIT_MANAGER,   String.valueOf(dto.isNotifyManager()));
         save(KEY_AUDIT_HR,        String.valueOf(dto.isNotifyHr()));
         save(KEY_AUDIT_ADMIN,     String.valueOf(dto.isNotifyAdmin()));
+        return dto;
+    }
+
+    public double getLowRatingThreshold() {
+        try { return Double.parseDouble(get(KEY_PERF_LOW_RATING_THRESHOLD, String.valueOf(defaultLowRatingThreshold))); }
+        catch (NumberFormatException e) { return defaultLowRatingThreshold; }
+    }
+
+    @Transactional(readOnly = true)
+    public PerformanceThresholdSettingsDTO getPerformanceThresholdSettings() {
+        return PerformanceThresholdSettingsDTO.builder()
+                .lowRatingThreshold(getLowRatingThreshold())
+                .build();
+    }
+
+    @Transactional
+    public PerformanceThresholdSettingsDTO savePerformanceThresholdSettings(PerformanceThresholdSettingsDTO dto) {
+        save(KEY_PERF_LOW_RATING_THRESHOLD, String.valueOf(dto.getLowRatingThreshold()));
         return dto;
     }
 

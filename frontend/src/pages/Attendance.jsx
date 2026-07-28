@@ -4,7 +4,7 @@ import {
   Box, Typography, IconButton, Button, CircularProgress, Chip, Paper,
   Divider, Collapse, Tabs, Tab, Table, TableBody, TableCell,
   TableHead, TableRow, Dialog, DialogTitle, DialogContent,
-  DialogActions, TextField,
+  DialogActions, TextField, Select, MenuItem, FormControl, InputLabel,
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon     from '@mui/icons-material/CancelOutlined';
@@ -42,6 +42,30 @@ const parseTime = (t) => {
   const [h, m, s] = t.split(':').map(Number);
   return h * 3600 + m * 60 + (s || 0);
 };
+
+// 12-hour hour/minute/period <-> "HH:mm" 24-hour string, for custom time selects
+const to24Hour = (hour12, period) => {
+  const h = Number(hour12) % 12;
+  return period === 'PM' ? h + 12 : h;
+};
+
+const buildTimeString = (hour, minute, period) => {
+  if (!hour || minute === '' || minute == null || !period) return '';
+  const h24 = to24Hour(hour, period);
+  return `${String(h24).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+};
+
+const parseTimeString = (t) => {
+  if (!t) return { hour: '', minute: '', period: '' };
+  const [hh, mm] = t.split(':').map(Number);
+  const period = hh >= 12 ? 'PM' : 'AM';
+  let hour = hh % 12;
+  if (hour === 0) hour = 12;
+  return { hour, minute: mm, period };
+};
+
+const HOURS_12   = Array.from({ length: 12 }, (_, i) => i + 1);
+const MINUTES_60 = Array.from({ length: 60 }, (_, i) => i);
 
 // seconds from loginTime (string "HH:MM:SS") to now
 const liveSecondsFrom = (loginTimeStr) => {
@@ -300,7 +324,7 @@ const AttendancePage = () => {
   const [reviewOpen,       setReviewOpen]       = useState(false);
   const [reviewTarget,     setReviewTarget]     = useState(null);
   const [reviewAction,     setReviewAction]     = useState('approve');
-  const [reviewForm,       setReviewForm]       = useState({ logoutTime: '', comment: '' });
+  const [reviewForm,       setReviewForm]       = useState({ hour: '', minute: '', period: '', comment: '' });
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [showAudit,        setShowAudit]        = useState(false);
   const [auditLogs,        setAuditLogs]        = useState([]);
@@ -403,16 +427,19 @@ const AttendancePage = () => {
   const openReview = (req, action) => {
     setReviewTarget(req);
     setReviewAction(action);
-    setReviewForm({ logoutTime: action === 'approve' ? (req.requestedLogoutTime?.slice(0,5) || '') : '', comment: '' });
+    const parts = action === 'approve' ? parseTimeString(req.requestedLogoutTime?.slice(0, 5)) : { hour: '', minute: '', period: '' };
+    setReviewForm({ ...parts, comment: '' });
     setReviewOpen(true);
   };
+
+  const reviewLogoutTime = buildTimeString(reviewForm.hour, reviewForm.minute, reviewForm.period);
 
   const handleReview = async () => {
     setReviewSubmitting(true);
     try {
       if (reviewAction === 'approve') {
-        if (!reviewForm.logoutTime) { toast.error('Logout time is required'); setReviewSubmitting(false); return; }
-        await correctionApi.approve(reviewTarget.id, reviewForm.logoutTime, reviewForm.comment);
+        if (!reviewLogoutTime) { toast.error('Logout time is required'); setReviewSubmitting(false); return; }
+        await correctionApi.approve(reviewTarget.id, reviewLogoutTime, reviewForm.comment);
         toast.success('Correction approved');
       } else {
         if (!reviewForm.comment?.trim()) { toast.error('Reason for rejection is required'); setReviewSubmitting(false); return; }
@@ -848,7 +875,11 @@ const AttendancePage = () => {
 
           {/* Review dialog (manager/HR/admin) */}
           {isManagerOrAbove && (
-            <Dialog open={reviewOpen} onClose={() => !reviewSubmitting && setReviewOpen(false)}
+            <Dialog open={reviewOpen}
+              onClose={(_e, reason) => {
+                if (reason === 'backdropClick') return;
+                if (!reviewSubmitting) setReviewOpen(false);
+              }}
               maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '16px' } }}>
               <DialogTitle sx={{ fontWeight: 700, fontSize: 16, pb: 0 }}>
                 {reviewAction === 'approve' ? 'Approve Correction' : 'Reject Correction'}
@@ -868,11 +899,56 @@ const AttendancePage = () => {
                 )}
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {reviewAction === 'approve' && (
-                    <TextField label="Approved Logout Time *" type="time" size="small" fullWidth
-                      InputLabelProps={{ shrink: true }}
-                      value={reviewForm.logoutTime}
-                      onChange={e => setReviewForm(f => ({ ...f, logoutTime: e.target.value }))}
-                      helperText="Working hours will be recalculated automatically" />
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                        Approved Logout Time *
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <FormControl size="small" sx={{ minWidth: 80 }}>
+                          <InputLabel id="approve-hour-label">Hour</InputLabel>
+                          <Select
+                            labelId="approve-hour-label"
+                            label="Hour"
+                            value={reviewForm.hour}
+                            onChange={e => setReviewForm(f => ({ ...f, hour: e.target.value }))}
+                            MenuProps={{ PaperProps: { sx: { maxHeight: 260 } } }}
+                          >
+                            {HOURS_12.map(h => (
+                              <MenuItem key={h} value={h}>{String(h).padStart(2, '0')}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                        <FormControl size="small" sx={{ minWidth: 80 }}>
+                          <InputLabel id="approve-minute-label">Minute</InputLabel>
+                          <Select
+                            labelId="approve-minute-label"
+                            label="Minute"
+                            value={reviewForm.minute}
+                            onChange={e => setReviewForm(f => ({ ...f, minute: e.target.value }))}
+                            MenuProps={{ PaperProps: { sx: { maxHeight: 260 } } }}
+                          >
+                            {MINUTES_60.map(m => (
+                              <MenuItem key={m} value={m}>{String(m).padStart(2, '0')}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                        <FormControl size="small" sx={{ minWidth: 80 }}>
+                          <InputLabel id="approve-period-label">AM/PM</InputLabel>
+                          <Select
+                            labelId="approve-period-label"
+                            label="AM/PM"
+                            value={reviewForm.period}
+                            onChange={e => setReviewForm(f => ({ ...f, period: e.target.value }))}
+                          >
+                            <MenuItem value="AM">AM</MenuItem>
+                            <MenuItem value="PM">PM</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                        Working hours will be recalculated automatically
+                      </Typography>
+                    </Box>
                   )}
                   <TextField
                     label={reviewAction === 'approve' ? 'Comment (optional)' : 'Reason for Rejection *'}
@@ -886,7 +962,7 @@ const AttendancePage = () => {
                   sx={{ textTransform: 'none', borderRadius: '8px' }}>Cancel</Button>
                 <Button variant="contained" onClick={handleReview}
                   disabled={reviewSubmitting
-                    || (reviewAction === 'approve' ? !reviewForm.logoutTime : !reviewForm.comment?.trim())}
+                    || (reviewAction === 'approve' ? !reviewLogoutTime : !reviewForm.comment?.trim())}
                   sx={{
                     textTransform: 'none', borderRadius: '8px', minWidth: 120,
                     bgcolor: reviewAction === 'approve' ? '#16a34a' : '#dc2626',

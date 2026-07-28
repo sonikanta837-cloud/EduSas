@@ -2,6 +2,7 @@ package com.emp.management.service;
 
 import com.emp.management.dto.CourseLearnerDTO;
 import com.emp.management.dto.CourseDTO;
+import com.emp.management.dto.TrainingReportDTO;
 import com.emp.management.entity.*;
 import com.emp.management.exception.BadRequestException;
 import com.emp.management.exception.ResourceNotFoundException;
@@ -95,6 +96,54 @@ public class CourseService {
                                 ? e.getCompletionDate().format(DateTimeFormatter.ofPattern("MMM dd, yyyy")) : null)
                         .certificateNumber(certNo)
                         .examScore(e.getExamScore())
+                        .build();
+            }).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<TrainingReportDTO> getTrainingReport() {
+        return enrollmentRepository.findAll().stream()
+            .filter(e -> e.getEmployee() != null && e.getCourse() != null)
+            .map(e -> {
+                var employee = e.getEmployee();
+                var course = e.getCourse();
+                var exam = course.getExam();
+
+                Certificate cert = certificateRepository
+                        .findByEmployeeIdAndCourseId(employee.getId(), course.getId())
+                        .orElse(null);
+
+                String examResult = null;
+                if (exam != null && e.getExamScore() != null) {
+                    examResult = e.getExamScore() >= exam.getPassingScore() ? "PASS" : "FAIL";
+                }
+
+                return TrainingReportDTO.builder()
+                        .enrollmentId(e.getId())
+                        .employeeId(employee.getId())
+                        .employeeName(employee.getFirstName() + " " + employee.getLastName())
+                        .employeeCode(employee.getEmployeeCode())
+                        .department(employee.getDepartment())
+                        .designation(employee.getPosition())
+                        .location(employee.getSeatingLocation())
+                        .courseId(course.getId())
+                        .courseTitle(course.getTitle())
+                        .courseDescription(course.getDescription())
+                        .durationHours(course.getDurationHours())
+                        .youtubeUrl(course.getYoutubeUrl())
+                        .courseActive(course.isActive())
+                        .createdByName(course.getCreatedBy() != null ? course.getCreatedBy().getEmail() : null)
+                        .courseCreatedAt(course.getCreatedAt())
+                        .enrollmentStatus(e.getStatus().name())
+                        .enrolledAt(e.getEnrolledAt())
+                        .completionDate(e.getCompletionDate())
+                        .examScore(e.getExamScore())
+                        .passingScore(exam != null ? exam.getPassingScore() : null)
+                        .totalMarks(exam != null ? exam.getTotalMarks() : null)
+                        .examResult(examResult)
+                        .certificateNumber(cert != null ? cert.getCertificateNumber() : null)
+                        .certificateScore(cert != null ? cert.getScore() : null)
+                        .certificateIssuedAt(cert != null ? cert.getIssuedAt() : null)
                         .build();
             }).collect(Collectors.toList());
     }

@@ -7,26 +7,19 @@ import AccessTimeIcon         from '@mui/icons-material/AccessTime';
 import AssessmentIcon         from '@mui/icons-material/Assessment';
 import BeachAccessIcon        from '@mui/icons-material/BeachAccess';
 import CelebrationIcon        from '@mui/icons-material/Celebration';
-import SchoolIcon             from '@mui/icons-material/School';
-import StarIcon               from '@mui/icons-material/Star';
 import BarChartIcon           from '@mui/icons-material/BarChart';
 import InventoryIcon          from '@mui/icons-material/Inventory';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
-import PersonIcon             from '@mui/icons-material/Person';
-import WorkHistoryIcon        from '@mui/icons-material/WorkHistory';
-import QuizIcon                from '@mui/icons-material/Quiz';
 import GroupsIcon             from '@mui/icons-material/Groups';
 import EventAvailableIcon     from '@mui/icons-material/EventAvailable';
-import EmojiEventsIcon        from '@mui/icons-material/EmojiEvents';
-import BadgeIcon              from '@mui/icons-material/Badge';
 import SummarizeIcon          from '@mui/icons-material/Summarize';
 
 const ALL_ROLES = ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'];
 
-// Reusable nav configuration — add/remove modules or submenu items here only.
-// `type: 'item'` renders a standalone top-level link.
-// `type: 'group'` renders an accordion parent with `children` submenu items.
-export const navConfig = [
+// Sidebar modules for the HR portal — the core employee-management workspace.
+// Same shape consumed by Sidebar.jsx for every portal: `type: 'item'` renders a
+// standalone link, `type: 'group'` renders an accordion parent with `children`.
+export const hrMenu = [
   {
     type: 'item',
     label: 'Dashboard',
@@ -55,26 +48,7 @@ export const navConfig = [
       { label: 'Work Reports', path: '/work-reports', icon: <AssessmentIcon />, roles: ALL_ROLES },
       { label: 'Leaves',       path: '/leaves',       icon: <BeachAccessIcon />, roles: ALL_ROLES },
       { label: 'Holidays',     path: '/holidays',     icon: <CelebrationIcon />, roles: ALL_ROLES },
-    ],
-  },
-  {
-    type: 'group',
-    id: 'learning-performance',
-    label: 'Learning & Performance',
-    icon: <EmojiEventsIcon />,
-    children: [
-      { label: 'Courses',     path: '/courses',     icon: <SchoolIcon />, roles: ALL_ROLES },
-      { label: 'Performance', path: '/performance', icon: <StarIcon />,   roles: ALL_ROLES },
-    ],
-  },
-  {
-    type: 'group',
-    id: 'recruitment',
-    label: 'Recruitment',
-    icon: <BadgeIcon />,
-    children: [
-      { label: 'Interviews',     path: '/interviews',     icon: <WorkHistoryIcon />, roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'] },
-      { label: 'Question Bank',  path: '/question-bank',  icon: <QuizIcon />,        roles: ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER'] },
+      { label: 'Timesheet Master Data', path: '/timesheet-master-data', icon: <InventoryIcon />, roles: ['ADMIN', 'DIRECTOR', 'HR'] },
     ],
   },
   {
@@ -94,7 +68,8 @@ export const navConfig = [
     icon: <AdminPanelSettingsIcon />,
     children: [
       { label: 'Roles & Permissions', path: '/roles-permissions', icon: <AdminPanelSettingsIcon />, roles: ['ADMIN', 'DIRECTOR'], superUserOnly: true },
-      { label: 'My Profile',          path: '/profile',           icon: <PersonIcon />,             roles: ALL_ROLES },
     ],
   },
 ];
+
+export default hrMenu;

@@ -55,9 +55,19 @@ public class TimesheetService {
             if (employee == null) return;
 
             LocalDate today = LocalDate.now();
-            // If there's already an open session, don't create a duplicate
-            if (sessionRepository.findTopByEmployeeIdAndWorkDateAndLogoutTimeIsNullOrderByLoginTimeDesc(
-                    employee.getId(), today).isPresent()) return;
+
+            // A session can be left open from an earlier login today — e.g. the tab was
+            // closed instead of clicking Logout, or the refresh token expired without a
+            // clean logout call. Close it out first so this login always gets its own
+            // session instead of being silently dropped; flag it for review rather than
+            // guessing a duration, since we don't actually know when the user stopped.
+            sessionRepository.findTopByEmployeeIdAndWorkDateAndLogoutTimeIsNullOrderByLoginTimeDesc(
+                    employee.getId(), today).ifPresent(stale -> {
+                stale.setLogoutTime(stale.getLoginTime());
+                stale.setSessionHours(0.0);
+                stale.setStatus(AttendanceSessionStatus.PENDING_LOGOUT_CONFIRMATION);
+                sessionRepository.save(stale);
+            });
 
             AttendanceSession session = sessionRepository.save(AttendanceSession.builder()
                     .employee(employee)
@@ -182,8 +192,10 @@ public class TimesheetService {
 
 
     // ── Daily attendance audit job (10:00 AM) ────────────────────────────────
+    // Superseded by JobDailySummaryService.runUnderHoursAuditEmail() (11:00 AM) —
+    // disabled (not @Scheduled) to avoid sending managers duplicate/conflicting
+    // under-hours emails. Method kept for backward-compat / manual invocation.
 
-    @Scheduled(cron = "0 ${app.scheduler.daily-audit.minute:0} ${app.scheduler.daily-audit.hour:10} * * *", zone = "Asia/Kolkata")
     @Transactional
     public void runDailyAttendanceAudit() {
         LocalDate auditDate = LocalDate.now().minusDays(1);

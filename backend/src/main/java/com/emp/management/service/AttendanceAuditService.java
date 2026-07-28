@@ -32,7 +32,10 @@ public class AttendanceAuditService {
 
     private volatile LocalDate lastAuditSentDate = null;
 
-    @Scheduled(cron = "0 * * * * *", zone = "Asia/Kolkata")
+    // Superseded by JobDailySummaryService.runUnderHoursAuditEmail() (11:00 AM) —
+    // disabled (not @Scheduled) to avoid sending managers duplicate/conflicting
+    // under-hours emails. Method kept for backward-compat / manual invocation;
+    // the /api/settings/attendance-audit config panel is now inert.
     @Transactional
     public void runAttendanceAudit() {
         boolean enabled = systemSettingService.getBoolean("attendance_audit_enabled", false);

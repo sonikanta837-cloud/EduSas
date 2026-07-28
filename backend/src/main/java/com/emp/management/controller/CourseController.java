@@ -2,6 +2,7 @@ package com.emp.management.controller;
 
 import com.emp.management.dto.CourseLearnerDTO;
 import com.emp.management.dto.CourseDTO;
+import com.emp.management.dto.TrainingReportDTO;
 import com.emp.management.repository.EmployeeDetailsRepository;
 import com.emp.management.service.AIQuizService;
 import com.emp.management.service.CourseService;
@@ -33,6 +34,12 @@ public class CourseController {
     @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR', 'HR')")
     public ResponseEntity<List<CourseLearnerDTO>> getAllEnrollments() {
         return ResponseEntity.ok(courseService.getAllEnrollments());
+    }
+
+    @GetMapping("/training-report")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR', 'HR')")
+    public ResponseEntity<List<TrainingReportDTO>> getTrainingReport() {
+        return ResponseEntity.ok(courseService.getTrainingReport());
     }
 
     @GetMapping("/manager/{managerId}")

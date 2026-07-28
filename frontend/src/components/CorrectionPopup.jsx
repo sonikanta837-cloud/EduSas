@@ -2,19 +2,36 @@ import React, { useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Box, Typography, Button, TextField, CircularProgress,
-  Chip, Divider, LinearProgress,
+  Chip, Divider, LinearProgress, Select, MenuItem, FormControl, InputLabel,
 } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import AttachFileIcon    from '@mui/icons-material/AttachFile';
+import AccessTimeIcon    from '@mui/icons-material/AccessTime';
 import dayjs from 'dayjs';
 import { correctionApi } from '../api/correctionApi';
 import { toast } from 'react-toastify';
 
 const fmtTime = (t) => (t ? String(t).substring(0, 5) : '--:--');
 
+const HOURS   = Array.from({ length: 12 }, (_, i) => i + 1);
+const MINUTES = Array.from({ length: 60 }, (_, i) => i);
+
+const to24Hour = (hour12, period) => {
+  const h = Number(hour12) % 12;
+  return period === 'PM' ? h + 12 : h;
+};
+
+const buildTimeString = (hour, minute, period) => {
+  if (!hour || minute === '' || minute == null || !period) return '';
+  const h24 = to24Hour(hour, period);
+  return `${String(h24).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+};
+
+const emptyForm = () => ({ hour: '', minute: '', period: '', reason: '' });
+
 const CorrectionPopup = ({ sessions, onAllDone }) => {
   const [index,      setIndex]      = useState(0);
-  const [form,       setForm]       = useState({ logoutTime: '', reason: '' });
+  const [form,       setForm]       = useState(emptyForm);
   const [attachment, setAttachment] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -23,16 +40,17 @@ const CorrectionPopup = ({ sessions, onAllDone }) => {
   if (!current) return null;
 
   const progress = Math.round((index / total) * 100);
+  const logoutTime = buildTimeString(form.hour, form.minute, form.period);
 
   const handleSubmit = async () => {
-    if (!form.logoutTime) { toast.error('Please enter your actual logout time'); return; }
+    if (!logoutTime) { toast.error('Please select your actual logout time'); return; }
     if (!form.reason.trim()) { toast.error('Please provide a reason'); return; }
 
     setSubmitting(true);
     try {
       await correctionApi.submit({
         sessionId:          current.id,
-        requestedLogoutTime: form.logoutTime,
+        requestedLogoutTime: logoutTime,
         reason:             form.reason,
         attachment,
       });
@@ -42,7 +60,7 @@ const CorrectionPopup = ({ sessions, onAllDone }) => {
         onAllDone();
       } else {
         setIndex(i => i + 1);
-        setForm({ logoutTime: '', reason: '' });
+        setForm(emptyForm());
         setAttachment(null);
       }
     } catch (err) {
@@ -117,16 +135,56 @@ const CorrectionPopup = ({ sessions, onAllDone }) => {
 
         {/* Form */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <TextField
-            label="Actual Logout Time *"
-            type="time"
-            size="small"
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-            value={form.logoutTime}
-            onChange={e => setForm(f => ({ ...f, logoutTime: e.target.value }))}
-            helperText="Enter the time you actually stopped working"
-          />
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+              <AccessTimeIcon sx={{ fontSize: 14 }} /> Actual Logout Time *
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <FormControl size="small" sx={{ minWidth: 90 }}>
+                <InputLabel id="logout-hour-label">Hour</InputLabel>
+                <Select
+                  labelId="logout-hour-label"
+                  label="Hour"
+                  value={form.hour}
+                  onChange={e => setForm(f => ({ ...f, hour: e.target.value }))}
+                  MenuProps={{ PaperProps: { sx: { maxHeight: 260 } } }}
+                >
+                  {HOURS.map(h => (
+                    <MenuItem key={h} value={h}>{String(h).padStart(2, '0')}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 90 }}>
+                <InputLabel id="logout-minute-label">Minute</InputLabel>
+                <Select
+                  labelId="logout-minute-label"
+                  label="Minute"
+                  value={form.minute}
+                  onChange={e => setForm(f => ({ ...f, minute: e.target.value }))}
+                  MenuProps={{ PaperProps: { sx: { maxHeight: 260 } } }}
+                >
+                  {MINUTES.map(m => (
+                    <MenuItem key={m} value={m}>{String(m).padStart(2, '0')}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 90 }}>
+                <InputLabel id="logout-period-label">AM/PM</InputLabel>
+                <Select
+                  labelId="logout-period-label"
+                  label="AM/PM"
+                  value={form.period}
+                  onChange={e => setForm(f => ({ ...f, period: e.target.value }))}
+                >
+                  <MenuItem value="AM">AM</MenuItem>
+                  <MenuItem value="PM">PM</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+              Select the time you actually stopped working
+            </Typography>
+          </Box>
           <TextField
             label="Reason *"
             size="small"
@@ -170,7 +228,7 @@ const CorrectionPopup = ({ sessions, onAllDone }) => {
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={submitting || !form.logoutTime || !form.reason.trim()}
+          disabled={submitting || !logoutTime || !form.reason.trim()}
           sx={{
             textTransform: 'none', borderRadius: '8px', minWidth: 130,
             bgcolor: '#c2410c', '&:hover': { bgcolor: '#9a3412' },

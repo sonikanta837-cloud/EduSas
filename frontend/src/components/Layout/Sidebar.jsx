@@ -6,10 +6,15 @@ import ChevronLeftIcon  from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ExpandMoreIcon   from '@mui/icons-material/ExpandMore';
 import { toggleSidebar, setSidebarOpen, setMobileSidebarOpen } from '../../store/uiSlice';
-import { navConfig } from './navConfig';
+import { getPortalById } from './portals';
+import { HEADER_HEIGHT } from './Header';
+import { PORTAL_BAR_HEIGHT } from './PortalSwitcherBar';
 
-export const SIDEBAR_W_OPEN   = 288;
+export const SIDEBAR_W_OPEN   = 272;
 export const SIDEBAR_W_CLOSED = 72;
+
+const SIDEBAR_TOP = HEADER_HEIGHT + PORTAL_BAR_HEIGHT;
+const SIDEBAR_TRANSITION_MS = 280;
 
 const EXPANDED_GROUP_STORAGE_KEY = 'sidebar_expanded_group';
 
@@ -34,8 +39,12 @@ const Sidebar = () => {
 
   const { user } = useSelector((s) => s.auth);
   const { sidebarOpen, mobileSidebarOpen } = useSelector((s) => s.ui);
+  const { activePortal } = useSelector((s) => s.portal);
   const role = user?.role || 'EMPLOYEE';
   const isSuperUser = role === 'ADMIN' || role === 'DIRECTOR';
+
+  const activePortalConfig = getPortalById(activePortal);
+  const navConfig = useMemo(() => activePortalConfig?.menu || [], [activePortalConfig]);
 
   const allowedPaths = useMemo(() => {
     if (isSuperUser || !user?.allowedModules) return null;
@@ -55,11 +64,17 @@ const Sidebar = () => {
       const children = entry.children.filter(isVisible);
       return children.length > 0 ? { ...entry, children } : null;
     })
-    .filter(Boolean), [isVisible]);
+    .filter(Boolean), [navConfig, isVisible]);
 
   const [expandedGroup, setExpandedGroup] = useState(() => {
     try { return localStorage.getItem(EXPANDED_GROUP_STORAGE_KEY) || null; } catch { return null; }
   });
+
+  // Switching portals swaps the whole menu tree — any expanded group id from
+  // the previous portal is meaningless (and may collide) in the new one.
+  useEffect(() => {
+    setExpandedGroup(null);
+  }, [activePortal]);
 
   // Auto-expand the parent whose child page is active (covers direct nav + refresh)
   useEffect(() => {
@@ -141,7 +156,7 @@ const Sidebar = () => {
           alignItems: 'center',
           justifyContent: showLabels ? 'flex-start' : 'center',
           py: showLabels ? 0.55 : 0.5,
-          px: showLabels ? 1.5 : 0.5,
+          px: showLabels ? 1.25 : 0.5,
           borderRadius: '10px',
           cursor: 'pointer',
           position: 'relative',
@@ -168,18 +183,24 @@ const Sidebar = () => {
           } : {},
         }}
       >
-        <Box sx={{ '& svg': { fontSize: isChild ? 20 : 22, display: 'block' }, flexShrink: 0, mr: showLabels ? 1.5 : 0 }}>
+        <Box sx={{ '& svg': { fontSize: isChild ? 19 : 21, display: 'block' }, flexShrink: 0, mr: showLabels ? 1.25 : 0 }}>
           {icon}
         </Box>
 
         {showLabels && (
           <Typography
             sx={{
-              fontSize: isChild ? '0.82rem' : '0.875rem',
+              fontSize: isChild ? '0.8rem' : '0.86rem',
               fontWeight: active ? 600 : 400,
-              whiteSpace: 'nowrap',
+              lineHeight: 1.25,
+              // Single line whenever it fits; wraps to a 2nd line only for
+              // labels too long for the rail, instead of ellipsis-truncating.
+              whiteSpace: 'normal',
+              wordBreak: 'break-word',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
               overflow: 'hidden',
-              textOverflow: 'ellipsis',
               color: 'inherit',
               flex: 1,
               minWidth: 0,
@@ -192,7 +213,7 @@ const Sidebar = () => {
         {showLabels && isGroupHeader && (
           <ExpandMoreIcon
             sx={{
-              fontSize: 20,
+              fontSize: 19,
               ml: 0.5,
               flexShrink: 0,
               color: 'inherit',
@@ -215,38 +236,6 @@ const Sidebar = () => {
 
   const navContent = (
     <>
-      {/* Logo row */}
-      <Box
-        sx={{
-          width: '100%',
-          height: 64,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: showLabels ? 'flex-start' : 'center',
-          flexShrink: 0,
-          borderBottom: '1px solid rgba(255,255,255,0.07)',
-          mb: 1,
-          px: showLabels ? 2 : 0,
-        }}
-      >
-        <Box sx={{ display: 'flex', flexDirection: showLabels ? 'row' : 'column', alignItems: 'center', gap: showLabels ? 1.5 : 0.4 }}>
-          <img
-            src="/logo.png"
-            alt="EduSAS"
-            style={{ height: showLabels ? 34 : 28, width: showLabels ? 34 : 28, objectFit: 'contain', flexShrink: 0 }}
-          />
-          <Typography sx={{
-            fontWeight: 700,
-            color: '#fff',
-            whiteSpace: 'nowrap',
-            fontSize: showLabels ? '1rem' : '0.58rem',
-            letterSpacing: showLabels ? '0.02em' : '0.05em',
-          }}>
-            EduSAS
-          </Typography>
-        </Box>
-      </Box>
-
       {/* Nav items */}
       <Box
         component="nav"
@@ -257,7 +246,8 @@ const Sidebar = () => {
           flexDirection: 'column',
           alignItems: showLabels ? 'flex-start' : 'center',
           width: '100%',
-          px: showLabels ? 1.5 : 0.5,
+          px: showLabels ? 1.25 : 0.5,
+          pt: 1.5,
           gap: 0.25,
           flex: 1,
         }}
@@ -295,7 +285,7 @@ const Sidebar = () => {
                     id={controlsId}
                     role="group"
                     aria-label={entry.label}
-                    sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, pl: 2.25, pt: 0.25, pb: 0.5 }}
+                    sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, pl: 1.75, pt: 0.25, pb: 0.5 }}
                   >
                     {entry.children.map((child) => {
                       const active = isPathActive(location.pathname, child.path);
@@ -331,13 +321,16 @@ const Sidebar = () => {
       <Drawer
         variant="temporary"
         anchor="left"
-        open={mobileSidebarOpen}
+        open={mobileSidebarOpen && Boolean(activePortal)}
         onClose={() => dispatch(setMobileSidebarOpen(false))}
+        transitionDuration={SIDEBAR_TRANSITION_MS}
         ModalProps={{ keepMounted: true }}
         sx={{ zIndex: (t) => t.zIndex.drawer + 2 }}
         PaperProps={{
           sx: {
             width: SIDEBAR_W_OPEN,
+            top: SIDEBAR_TOP,
+            height: `calc(100% - ${SIDEBAR_TOP}px)`,
             bgcolor: '#0f172a',
             display: 'flex',
             flexDirection: 'column',
@@ -353,49 +346,53 @@ const Sidebar = () => {
   }
 
   // ── Desktop: fixed, collapsible rail ────────────────────────────────────────
-  const width = sidebarOpen ? SIDEBAR_W_OPEN : SIDEBAR_W_CLOSED;
+  // No portal selected → rail slides fully shut (width 0); nothing to toggle.
+  const width = !activePortal ? 0 : (sidebarOpen ? SIDEBAR_W_OPEN : SIDEBAR_W_CLOSED);
 
   return (
     <>
       {/* Toggle button — separate fixed element so overflow:hidden doesn't clip it */}
-      <IconButton
-        onClick={() => dispatch(toggleSidebar())}
-        size="small"
-        aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-        sx={{
-          position: 'fixed',
-          top: 18,
-          left: width - 13,
-          zIndex: 1300,
-          width: 26,
-          height: 26,
-          bgcolor: '#1e293b',
-          border: '2px solid rgba(255,255,255,0.2)',
-          color: '#14b8a6',
-          transition: 'left 0.25s ease',
-          '&:hover': { bgcolor: 'rgba(20,184,166,0.25)', borderColor: '#14b8a6' },
-          boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-        }}
-      >
-        {sidebarOpen ? <ChevronLeftIcon sx={{ fontSize: 16 }} /> : <ChevronRightIcon sx={{ fontSize: 16 }} />}
-      </IconButton>
+      {activePortal && (
+        <IconButton
+          onClick={() => dispatch(toggleSidebar())}
+          size="small"
+          aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          sx={{
+            position: 'fixed',
+            top: SIDEBAR_TOP + 14,
+            left: width - 13,
+            zIndex: 1250,
+            width: 26,
+            height: 26,
+            borderRadius: 0,
+            bgcolor: '#1e293b',
+            border: '2px solid rgba(255,255,255,0.2)',
+            color: '#14b8a6',
+            transition: `left ${SIDEBAR_TRANSITION_MS}ms ease`,
+            '&:hover': { bgcolor: 'rgba(20,184,166,0.25)', borderColor: '#14b8a6' },
+            boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+          }}
+        >
+          {sidebarOpen ? <ChevronLeftIcon sx={{ fontSize: 16 }} /> : <ChevronRightIcon sx={{ fontSize: 16 }} />}
+        </IconButton>
+      )}
 
       <Box
         sx={{
           position: 'fixed',
-          top: 0,
+          top: SIDEBAR_TOP,
           left: 0,
           width,
-          height: '100vh',
+          height: `calc(100vh - ${SIDEBAR_TOP}px)`,
           bgcolor: '#0f172a',
           display: 'flex',
           flexDirection: 'column',
           alignItems: showLabels ? 'flex-start' : 'center',
           zIndex: 1200,
-          boxShadow: '2px 0 8px rgba(0,0,0,0.18)',
+          boxShadow: activePortal ? '2px 0 8px rgba(0,0,0,0.18)' : 'none',
           overflowY: 'auto',
           overflowX: 'hidden',
-          transition: 'width 0.25s ease',
+          transition: `width ${SIDEBAR_TRANSITION_MS}ms ease`,
           ...scrollbarSx,
         }}
       >

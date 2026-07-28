@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   AppBar, Toolbar, Typography, Box, Avatar, Menu,
   MenuItem, Divider, Tooltip, Badge, IconButton,
@@ -8,7 +8,6 @@ import {
 } from '@mui/material';
 import NotificationsIcon  from '@mui/icons-material/Notifications';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
-import ArrowBackIcon      from '@mui/icons-material/ArrowBack';
 import MenuIcon           from '@mui/icons-material/Menu';
 import LogoutIcon         from '@mui/icons-material/Logout';
 import PersonIcon         from '@mui/icons-material/Person';
@@ -29,39 +28,8 @@ import { timesheetApi }            from '../../api/timesheetApi';
 import { announcementApi }         from '../../api/announcementApi';
 import { courseNotificationApi }   from '../../api/courseNotificationApi';
 import { pipNotificationApi }      from '../../api/pipNotificationApi';
-import { SIDEBAR_W_OPEN, SIDEBAR_W_CLOSED } from './Sidebar';
 
-const pageTitles = {
-  '/dashboard':   'Dashboard',
-  '/employees':   'Employee Dashboard',
-  '/org-chart':   'Organisation',
-  '/courses':     'Courses',
-  '/timesheets':  'Timesheets',
-  '/attendance':  'Attendance',
-  '/leaves':      'Leave Management',
-  '/leave-upload':'Leave Management',
-  '/performance': 'Performance',
-  '/reports':     'Reports',
-  '/resources':   'Resources',
-  '/profile':            'My Profile',
-  '/roles-permissions':  'Roles & Permissions',
-  '/settings':           'Settings',
-};
-
-const fallbackRoutes = {
-  '/employees':   '/employees',
-  '/org-chart':   '/dashboard',
-  '/courses':     '/courses',
-  '/timesheets':  '/timesheets',
-  '/attendance':  '/attendance',
-  '/leaves':      '/leaves',
-  '/leave-upload':'/leave-upload',
-  '/performance': '/performance',
-  '/reports':     '/reports',
-  '/resources':   '/resources',
-  '/profile':           '/dashboard',
-  '/roles-permissions': '/dashboard',
-};
+export const HEADER_HEIGHT = 56;
 
 // Category colours (kept local — no shared module needed)
 const CAT_MAP = {
@@ -88,9 +56,8 @@ const fmtNotif = (dt) => {
 const Header = () => {
   const dispatch  = useDispatch();
   const navigate  = useNavigate();
-  const location  = useLocation();
   const { user }       = useSelector((s) => s.auth);
-  const { sidebarOpen } = useSelector((s) => s.ui);
+  const { activePortal } = useSelector((s) => s.portal);
 
   const [anchorEl,       setAnchorEl]       = useState(null);
   const [unreadCount,    setUnreadCount]    = useState(0);   // announcements
@@ -104,11 +71,6 @@ const Header = () => {
 
   const totalUnread = unreadCount + courseUnread + pipUnread;
 
-  const sidebarW  = sidebarOpen ? SIDEBAR_W_OPEN : SIDEBAR_W_CLOSED;
-  const pageTitle =
-    pageTitles[location.pathname] ||
-    Object.entries(pageTitles).find(([k]) => location.pathname.startsWith(k + '/'))?.[1] ||
-    'EduSAS';
   const userInitials = user?.fullName
     ?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || 'U';
   const roleLabel = user?.role
@@ -172,6 +134,7 @@ const Header = () => {
     } catch { /* silent */ }
     setUnreadItems(prev => prev.filter(i => i.id !== item.id));
     setUnreadCount(prev => Math.max(0, prev - 1));
+    document.activeElement?.blur();
     setNotifAnchor(null);
     navigate('/org-chart?tab=1');
   }, [navigate]);
@@ -181,6 +144,7 @@ const Header = () => {
     try { await courseNotificationApi.markAsRead(item.id); } catch { /* silent */ }
     setCourseItems(prev => prev.filter(i => i.id !== item.id));
     setCourseUnread(prev => Math.max(0, prev - 1));
+    document.activeElement?.blur();
     setNotifAnchor(null);
     navigate('/courses');
   }, [navigate]);
@@ -190,6 +154,7 @@ const Header = () => {
     try { await pipNotificationApi.markAsRead(item.id); } catch { /* silent */ }
     setPipItems(prev => prev.filter(i => i.id !== item.id));
     setPipUnread(prev => Math.max(0, prev - 1));
+    document.activeElement?.blur();
     setNotifAnchor(null);
     navigate('/performance');
   }, [navigate]);
@@ -227,57 +192,50 @@ const Header = () => {
       position="fixed"
       elevation={0}
       sx={{
-        width: { xs: '100%', md: `calc(100% - ${sidebarW}px)` },
-        ml: { xs: 0, md: `${sidebarW}px` },
-        transition: 'width 0.25s ease, margin-left 0.25s ease',
-        bgcolor: 'white',
-        borderBottom: '1px solid #e2e8f0',
-        color: 'text.primary',
-        zIndex: (theme) => theme.zIndex.appBar,
+        width: '100%',
+        left: 0,
+        borderRadius: 0,
+        background: 'linear-gradient(135deg, #0b1220 0%, #16213a 55%, #0a0e1a 100%)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.45)',
+        color: '#fff',
+        zIndex: (theme) => theme.zIndex.drawer + 100,
       }}
     >
-      <Toolbar sx={{ gap: 1, minHeight: '64px !important', px: { xs: 2, sm: 3 } }}>
+      <Toolbar sx={{ gap: 1, minHeight: `${HEADER_HEIGHT}px !important`, py: 0, px: { xs: 2, sm: 3 } }}>
 
-        {/* Mobile nav trigger */}
-        <IconButton
-          size="small"
-          onClick={() => dispatch(toggleMobileSidebar())}
-          aria-label="Open navigation menu"
-          sx={{ display: { xs: 'inline-flex', md: 'none' }, color: '#64748b', mr: 0.5, flexShrink: 0, '&:hover': { bgcolor: '#f1f5f9' } }}
-        >
-          <MenuIcon sx={{ fontSize: '1.3rem' }} />
-        </IconButton>
-
-        {/* Back button */}
-        {location.pathname !== '/dashboard' && (
-          <Tooltip title="Go back">
-            <IconButton
-              size="small"
-              onClick={() => {
-                if (window.history.state?.idx > 0) {
-                  navigate(-1);
-                } else {
-                  const fallback = Object.entries(fallbackRoutes)
-                    .find(([k]) => location.pathname.startsWith(k))?.[1] || '/dashboard';
-                  navigate(fallback);
-                }
-              }}
-              sx={{ color: '#64748b', mr: 0.5, flexShrink: 0, '&:hover': { bgcolor: '#f1f5f9' } }}
-            >
-              <ArrowBackIcon sx={{ fontSize: '1.2rem' }} />
-            </IconButton>
-          </Tooltip>
-        )}
-
-        {/* Page title */}
-        {pageTitle && (
-          <Typography
-            variant="h6"
-            sx={{ fontWeight: 700, color: '#0f172a', fontSize: '1.35rem', whiteSpace: 'nowrap', flexShrink: 0 }}
+        {/* Mobile nav trigger — nothing to open until a portal is selected */}
+        {activePortal && (
+          <IconButton
+            size="small"
+            onClick={() => dispatch(toggleMobileSidebar())}
+            aria-label="Open navigation menu"
+            sx={{
+              display: { xs: 'inline-flex', md: 'none' },
+              color: 'rgba(255,255,255,0.8)', mr: 0.5, flexShrink: 0,
+              '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
+            }}
           >
-            {pageTitle}
-          </Typography>
+            <MenuIcon sx={{ fontSize: '1.3rem' }} />
+          </IconButton>
         )}
+
+        {/* Brand — logo + application name */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+          <img
+            src="/logo.png"
+            alt="EduSAS"
+            style={{ height: 30, width: 30, objectFit: 'contain', flexShrink: 0 }}
+          />
+          <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+            <Typography sx={{ fontWeight: 800, color: '#fff', fontSize: '0.98rem', lineHeight: 1.15, letterSpacing: '0.01em' }}>
+              EduSAS
+            </Typography>
+            <Typography sx={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.45)', letterSpacing: '0.03em', fontWeight: 500, lineHeight: 1.1 }}>
+              Employee Management System
+            </Typography>
+          </Box>
+        </Box>
 
         <Box sx={{ flexGrow: 1 }} />
 
@@ -287,9 +245,9 @@ const Header = () => {
             size="small"
             onClick={openNotifications}
             sx={{
-              color: notifOpen ? '#14b8a6' : '#64748b',
-              bgcolor: notifOpen ? '#f0fdfa' : 'transparent',
-              '&:hover': { bgcolor: '#f1f5f9' },
+              color: notifOpen ? '#2dd4bf' : 'rgba(255,255,255,0.8)',
+              bgcolor: notifOpen ? 'rgba(45,212,191,0.12)' : 'transparent',
+              '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
               mr: 0.5, flexShrink: 0,
             }}
           >
@@ -312,6 +270,7 @@ const Header = () => {
           anchorEl={notifAnchor}
           open={notifOpen}
           onClose={() => setNotifAnchor(null)}
+          disableRestoreFocus
           anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           transformOrigin={{ vertical: 'top', horizontal: 'right' }}
           PaperProps={{
@@ -571,28 +530,37 @@ const Header = () => {
           sx={{
             display: 'flex', alignItems: 'center', gap: 1.2,
             cursor: 'pointer', px: 1, py: 0.5, borderRadius: 2, flexShrink: 0,
-            '&:hover': { bgcolor: '#f1f5f9' }, transition: 'background 0.15s',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' }, transition: 'background 0.15s',
           }}
         >
           <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
-            <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.25 }}>
+            <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>
               {user?.fullName}
             </Typography>
-            <Typography sx={{ fontSize: '0.7rem', color: '#64748b', lineHeight: 1.25 }}>
+            <Typography sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.2 }}>
               {roleLabel}
             </Typography>
           </Box>
-          <Avatar sx={{ width: 36, height: 36, bgcolor: '#14b8a6', fontSize: '0.82rem', fontWeight: 700, flexShrink: 0 }}>
+          <Avatar sx={{
+            width: 32, height: 32, bgcolor: '#14b8a6', fontSize: '0.75rem', fontWeight: 700, flexShrink: 0,
+            border: '2px solid rgba(255,255,255,0.18)',
+          }}>
             {userInitials}
           </Avatar>
         </Box>
+
+        {/* Divider */}
+        <Box sx={{ width: '1px', height: 22, bgcolor: 'rgba(255,255,255,0.14)', mx: 0.75, flexShrink: 0 }} />
 
         {/* Logout */}
         <Tooltip title="Logout">
           <IconButton
             size="small"
             onClick={handleLogout}
-            sx={{ color: '#ef4444', ml: 0.5, flexShrink: 0, '&:hover': { bgcolor: '#fef2f2' } }}
+            sx={{
+              color: '#f87171', flexShrink: 0,
+              '&:hover': { bgcolor: 'rgba(248,113,113,0.14)' },
+            }}
           >
             <LogoutIcon sx={{ fontSize: '1.2rem' }} />
           </IconButton>
@@ -603,6 +571,7 @@ const Header = () => {
           anchorEl={anchorEl}
           open={Boolean(anchorEl)}
           onClose={() => setAnchorEl(null)}
+          disableRestoreFocus
           PaperProps={{
             sx: {
               minWidth: 210, mt: 1, borderRadius: 2,
@@ -617,14 +586,14 @@ const Header = () => {
           </Box>
           <Divider />
           <MenuItem
-            onClick={() => { navigate('/profile'); setAnchorEl(null); }}
+            onClick={() => { document.activeElement?.blur(); setAnchorEl(null); navigate('/profile'); }}
             sx={{ gap: 1.5, py: 1, fontSize: '0.875rem' }}
           >
             <PersonIcon fontSize="small" sx={{ color: '#64748b' }} /> My Profile
           </MenuItem>
           {(user?.role === 'ADMIN' || user?.role === 'DIRECTOR') && (
             <MenuItem
-              onClick={() => { navigate('/settings'); setAnchorEl(null); }}
+              onClick={() => { document.activeElement?.blur(); setAnchorEl(null); navigate('/settings'); }}
               sx={{ gap: 1.5, py: 1, fontSize: '0.875rem' }}
             >
               <SettingsIcon fontSize="small" sx={{ color: '#64748b' }} /> Settings

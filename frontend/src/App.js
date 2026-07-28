@@ -12,9 +12,11 @@ import EmployeeDetailPage from './pages/EmployeeDetail';
 import CoursesPage from './pages/Courses';
 import ProfilePage from './pages/Profile';
 import TimesheetPage from './pages/Timesheets';
+import TimesheetMasterDataPage from './pages/TimesheetMasterData';
 import AttendancePage from './pages/Attendance';
 import LeavesPage from './pages/Leaves';
 import PerformancePage from './pages/Performance';
+import PerformancePipPage from './pages/PerformancePip';
 import ReportsPage from './pages/Reports';
 import OrgChartPage from './pages/OrgChart';
 import ResourcesPage from './pages/Resources';
@@ -30,6 +32,7 @@ import TechnicalInterviewRoomPage from './pages/TechnicalInterviewRoom';
 import ManagerInterviewRoomPage   from './pages/ManagerInterviewRoom';
 import CandidateFinalRoomPage     from './pages/CandidateFinalRoom';
 import DirectorInterviewRoomPage  from './pages/DirectorInterviewRoom';
+import AccessDeniedPage           from './pages/AccessDenied';
 
 const theme = createTheme({
   palette: {
@@ -99,9 +102,11 @@ function App() {
             <Route path="/employees/:id" element={<EmployeeDetailPage />} />
             <Route path="/courses" element={<CoursesPage />} />
             <Route path="/timesheets" element={<TimesheetPage />} />
+            <Route path="/timesheet-master-data" element={<TimesheetMasterDataPage />} />
             <Route path="/attendance" element={<AttendancePage />} />
             <Route path="/leaves" element={<LeavesPage />} />
             <Route path="/performance" element={<PerformancePage />} />
+            <Route path="/performance-pip" element={<PerformancePipPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/org-chart" element={<OrgChartPage />} />
             <Route path="/resources" element={<ResourcesPage />} />
@@ -116,6 +121,7 @@ function App() {
             <Route path="/question-bank" element={<QuestionBankPage />} />
             <Route path="/interview/room/:id"       element={<ManagerInterviewRoomPage />} />
             <Route path="/interview/final-room/:id" element={<DirectorInterviewRoomPage />} />
+            <Route path="/access-denied" element={<AccessDeniedPage />} />
           </Route>
         </Route>
         {/* Public candidate interview — no auth required */}

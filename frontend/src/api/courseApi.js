@@ -21,6 +21,7 @@ export const courseApi = {
   getEnrolledEmployeeIds: (courseId) => api.get(`/courses/${courseId}/enrolled-employee-ids`),
   getLearners: (courseId) => api.get(`/courses/${courseId}/learners`),
   getAllEnrollments: () => api.get('/courses/all-enrollments'),
+  getTrainingReport: () => api.get('/courses/training-report'),
   getMyCertificates: () => api.get('/certificates/my'),
   getAllCertificates: () => api.get('/certificates'),
   downloadCertificatePdf: (certNo) =>
