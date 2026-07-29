@@ -279,4 +279,152 @@ class EmployeeControllerTest {
         mockMvc.perform(get("/api/employees/org-chart"))
                 .andExpect(status().isOk());
     }
+
+    // ── PUT /api/employees/{id} — validation ─────────────────────────────────
+
+    @Test
+    @WithMockUser(username = "admin@company.com", roles = "ADMIN")
+    void updateEmployee_negativeSalary_returns400() throws Exception {
+        EmployeeDTO dto = EmployeeDTO.builder()
+                .firstName("Alice").lastName("Smith").salary(new java.math.BigDecimal("-500")).build();
+
+        mockMvc.perform(put("/api/employees/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest());
+
+        verify(employeeService, never()).updateEmployee(any(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(username = "admin@company.com", roles = "ADMIN")
+    void updateEmployee_salaryExactlyZero_isAccepted() throws Exception {
+        EmployeeDTO dto = EmployeeDTO.builder()
+                .firstName("Alice").lastName("Smith").salary(java.math.BigDecimal.ZERO).build();
+        when(employeeService.updateEmployee(eq(1L), any(), eq("admin@company.com"))).thenReturn(sampleDTO);
+
+        mockMvc.perform(put("/api/employees/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = "admin@company.com", roles = "ADMIN")
+    void updateEmployee_invalidPhonePattern_returns400() throws Exception {
+        EmployeeDTO dto = EmployeeDTO.builder()
+                .firstName("Alice").lastName("Smith").phone("123").build(); // below 7-digit minimum
+
+        mockMvc.perform(put("/api/employees/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "admin@company.com", roles = "ADMIN")
+    void updateEmployee_blankFirstName_returns400() throws Exception {
+        EmployeeDTO dto = EmployeeDTO.builder().firstName("").lastName("Smith").build();
+
+        mockMvc.perform(put("/api/employees/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "admin@company.com", roles = "ADMIN")
+    void updateEmployee_invalidEmailFormat_returns400() throws Exception {
+        EmployeeDTO dto = EmployeeDTO.builder()
+                .firstName("Alice").lastName("Smith").email("not-an-email").build();
+
+        mockMvc.perform(put("/api/employees/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest());
+    }
+
+    // ── PATCH /api/employees/{id}/clear-manager ──────────────────────────────
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void clearManager_asAdmin_returns200() throws Exception {
+        doNothing().when(employeeService).clearManager(1L);
+
+        mockMvc.perform(patch("/api/employees/1/clear-manager"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("Manager cleared"));
+    }
+
+    @Test
+    @WithMockUser(roles = "MANAGER")
+    void clearManager_asManager_returns403() throws Exception {
+        mockMvc.perform(patch("/api/employees/1/clear-manager"))
+                .andExpect(status().isForbidden());
+
+        verify(employeeService, never()).clearManager(any());
+    }
+
+    // ── PATCH /api/employees/{id}/assign-hr ──────────────────────────────────
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void assignHr_asAdmin_returns200() throws Exception {
+        when(employeeService.assignHr(1L, 5L)).thenReturn(sampleDTO);
+
+        mockMvc.perform(patch("/api/employees/1/assign-hr").param("hrId", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("alice@company.com"));
+    }
+
+    @Test
+    @WithMockUser(roles = "HR")
+    void assignHr_asHR_returns403() throws Exception {
+        // Assigning HR is narrower than most HR-utility writes — HR itself cannot reassign
+        mockMvc.perform(patch("/api/employees/1/assign-hr").param("hrId", "5"))
+                .andExpect(status().isForbidden());
+    }
+
+    // ── GET /api/employees/hr-users ───────────────────────────────────────────
+
+    @Test
+    @WithMockUser(roles = "HR")
+    void getHrUsers_asHR_returns200() throws Exception {
+        when(employeeService.getHrEmployees()).thenReturn(List.of(sampleDTO));
+
+        mockMvc.perform(get("/api/employees/hr-users"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    @WithMockUser(roles = "MANAGER")
+    void getHrUsers_asManager_returns403() throws Exception {
+        mockMvc.perform(get("/api/employees/hr-users"))
+                .andExpect(status().isForbidden());
+    }
+
+    // ── GET /api/employees/manager/{managerId}/team ──────────────────────────
+
+    @Test
+    @WithMockUser(roles = "MANAGER")
+    void getTeam_returns200WithDirectReports() throws Exception {
+        when(employeeService.getEmployeesByManager(1L)).thenReturn(List.of(sampleDTO));
+
+        mockMvc.perform(get("/api/employees/manager/1/team"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    // ── GET /api/employees/locations ──────────────────────────────────────────
+
+    @Test
+    @WithMockUser(roles = "EMPLOYEE")
+    void getLocations_anyAuthenticatedRole_returns200() throws Exception {
+        when(employeeService.getDistinctLocations()).thenReturn(List.of("Pune", "Mumbai"));
+
+        mockMvc.perform(get("/api/employees/locations"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+    }
 }

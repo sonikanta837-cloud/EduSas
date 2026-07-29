@@ -40,6 +40,7 @@ class AuthServiceTest {
     @Mock private JwtTokenProvider tokenProvider;
     @Mock private AuthenticationManager authenticationManager;
     @Mock private EmailService emailService;
+    @Mock private PortalPermissionService portalPermissionService;
 
     @InjectMocks private AuthService authService;
 
@@ -136,6 +137,73 @@ class AuthServiceTest {
 
         verify(userRepository).save(any(User.class));
         verify(employeeDetailsRepository).save(any(EmployeeDetails.class));
+    }
+
+    @Test
+    void register_passwordTooShort_throwsBadRequestException() {
+        RegisterRequest req = new RegisterRequest();
+        req.setEmail("new@company.com");
+        req.setPassword("Ab1");
+        req.setFirstName("Bob");
+        req.setLastName("Jones");
+        req.setRole(Role.EMPLOYEE);
+
+        when(userRepository.existsByEmail("new@company.com")).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.register(req))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("at least 8 characters");
+    }
+
+    @Test
+    void register_passwordMissingUppercase_throwsBadRequestException() {
+        RegisterRequest req = new RegisterRequest();
+        req.setEmail("new@company.com");
+        req.setPassword("lowercase1");
+        req.setFirstName("Bob");
+        req.setLastName("Jones");
+        req.setRole(Role.EMPLOYEE);
+
+        when(userRepository.existsByEmail("new@company.com")).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.register(req))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("uppercase letter");
+    }
+
+    @Test
+    void register_passwordMissingDigit_throwsBadRequestException() {
+        RegisterRequest req = new RegisterRequest();
+        req.setEmail("new@company.com");
+        req.setPassword("NoDigitsHere");
+        req.setFirstName("Bob");
+        req.setLastName("Jones");
+        req.setRole(Role.EMPLOYEE);
+
+        when(userRepository.existsByEmail("new@company.com")).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.register(req))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("at least one number");
+    }
+
+    @Test
+    void register_passwordBoundary_exactly8CharsWithUpperAndDigit_succeeds() {
+        RegisterRequest req = new RegisterRequest();
+        req.setEmail("new@company.com");
+        req.setPassword("Abcdefg1");
+        req.setFirstName("Bob");
+        req.setLastName("Jones");
+        req.setRole(Role.EMPLOYEE);
+
+        when(userRepository.existsByEmail("new@company.com")).thenReturn(false);
+        when(passwordEncoder.encode("Abcdefg1")).thenReturn("encoded");
+        when(userRepository.save(any())).thenReturn(testUser);
+        when(employeeDetailsRepository.save(any())).thenReturn(testEmployee);
+
+        authService.register(req);
+
+        verify(userRepository).save(any(User.class));
     }
 
     @Test
@@ -285,6 +353,53 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> authService.resetPassword("bad-token", "newPassword"))
                 .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void resetPassword_tooShort_throwsBadRequestException() {
+        testUser.setResetToken("valid-token");
+        testUser.setResetTokenExpiry(LocalDateTime.now().plusMinutes(30));
+        when(userRepository.findByResetToken("valid-token")).thenReturn(Optional.of(testUser));
+
+        assertThatThrownBy(() -> authService.resetPassword("valid-token", "Ab1"))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("at least 8 characters");
+    }
+
+    @Test
+    void resetPassword_missingUppercase_throwsBadRequestException() {
+        testUser.setResetToken("valid-token");
+        testUser.setResetTokenExpiry(LocalDateTime.now().plusMinutes(30));
+        when(userRepository.findByResetToken("valid-token")).thenReturn(Optional.of(testUser));
+
+        assertThatThrownBy(() -> authService.resetPassword("valid-token", "lowercase1"))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("uppercase letter");
+    }
+
+    @Test
+    void resetPassword_missingDigit_throwsBadRequestException() {
+        testUser.setResetToken("valid-token");
+        testUser.setResetTokenExpiry(LocalDateTime.now().plusMinutes(30));
+        when(userRepository.findByResetToken("valid-token")).thenReturn(Optional.of(testUser));
+
+        assertThatThrownBy(() -> authService.resetPassword("valid-token", "NoDigitsHere"))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("at least one number");
+    }
+
+    @Test
+    void resetPassword_clearsRefreshToken_invalidatingOldSessions() {
+        testUser.setResetToken("valid-token");
+        testUser.setResetTokenExpiry(LocalDateTime.now().plusMinutes(30));
+        testUser.setRefreshToken("old-session-hash");
+        when(userRepository.findByResetToken("valid-token")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.encode("NewPassword1")).thenReturn("encodedNew");
+        when(userRepository.save(any())).thenReturn(testUser);
+
+        authService.resetPassword("valid-token", "NewPassword1");
+
+        assertThat(testUser.getRefreshToken()).isNull();
     }
 
     // ── Logout ───────────────────────────────────────────────────────────────

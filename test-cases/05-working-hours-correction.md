@@ -1,0 +1,29 @@
+# 05 — Working Hours Correction Workflow
+
+Covers: `WorkingHoursCorrectionController`, `WorkingHoursCorrectionService`, `CorrectionReason`, `CorrectionRequestStatus`, `DayCorrectionStatus`, `WorkingHoursCorrectionAuditLog`. Introduced as a soft UX gate over `JobDailySummary`; **HR is view-only** — cannot approve/reject, only Manager/Admin/Director can decide.
+
+| ID | Scenario | Preconditions | Test Steps | Test Data | Expected Result | Priority | Automation |
+|---|---|---|---|---|---|---|---|
+| TC-WHC-001 | Submit correction — `FORGOT_START_BREAK`, single-session day | One session recorded for the date | 1) POST `/api/working-hours-corrections/apply/{employeeId}` | `reason:"FORGOT_START_BREAK"`, valid break start/end times | 201; auto-resolves to the single session; `JobDailySummary.correctionStatus=PENDING`, `latestCorrectionRequestId` set; email+notification sent to manager | P1 | High |
+| TC-WHC-002 | Submit correction — break window doesn't fall within any session (multi-session day) | 2+ sessions that day, requested break window spans a gap between them | 1) POST apply | break times outside any single session | 400 "Break time does not fall within any recorded session" | P1 | High |
+| TC-WHC-003 | Submit correction — `requestedBreakStartTime` >= `requestedBreakEndTime` | — | 1) POST apply | start=14:00, end=13:00 | 400 validation failure (start must be < end) | P2 | High |
+| TC-WHC-004 | Submit correction — `APPROVED_OVERTIME` without remarks | — | 1) POST apply | `reason:"APPROVED_OVERTIME"`, `overtimeRemarks:""` | 400 (remarks required for this reason) | P2 | High |
+| TC-WHC-005 | Submit correction — `OTHER` without comments | — | 1) POST apply | `reason:"OTHER"`, `reasonComments:""` | 400 (comments required for this reason) | P2 | High |
+| TC-WHC-006 | Submit correction for a future date | — | 1) POST apply | `workDate: tomorrow` | 400 (future dates rejected) | P2 | High |
+| TC-WHC-007 | Submit correction when a PENDING request already exists for that date | Existing `PENDING` request for employee+date | 1) POST apply again for same date | — | 400 (duplicate pending request blocked) | P1 | High |
+| TC-WHC-008 | Submit correction with invalid reason enum string | — | 1) POST apply | `reason:"MADE_UP_REASON"` | 400 (Jackson enum deserialization failure — generic message, not the friendly per-field validation) | P3 | High |
+| TC-WHC-009 | Submit correction — missing `workDate` | — | 1) POST apply | `workDate:null` | 400 (`@NotNull`) | P2 | High |
+| TC-WHC-010 | Preview computation matches nightly-rollup logic | Break-reason correction submitted | 1) Submit request 2) Inspect returned preview fields | — | Preview working/break/overtime minutes computed via the same `computeSummary(...)` code path as production rollup — no drift between preview and eventual approved result | P1 | Medium |
+| TC-WHC-011 | Manager approves a break-reason correction | `PENDING` request exists, Manager logged in | 1) PATCH `/api/working-hours-corrections/{requestId}/action` | `{"status":"APPROVED","comment":"OK"}` | 200; `JobSessionBreak` row created/mutated with requested times; summary regenerated via real pipeline populating `final*` fields; `correctionStatus=APPROVED`; audit log row written; decision email+notification sent | P1 | High |
+| TC-WHC-012 | Manager rejects a correction | `PENDING` request exists | 1) PATCH action | `{"status":"REJECTED","comment":"Not supported by logs"}` | 200; original `JobDailySummary` data untouched; `correctionStatus=REJECTED`; audit+email sent | P1 | High |
+| TC-WHC-013 | HR attempts to approve/reject a correction | Logged in HR | 1) PATCH `/api/working-hours-corrections/{requestId}/action` | any decision | 403 — HR excluded from decision roles (`ADMIN,DIRECTOR,MANAGER,ASSISTANT_MANAGER` only) | P1 | High |
+| TC-WHC-014 | Action on an already-decided request | Request already `APPROVED` | 1) PATCH action again | any status | 400 "Correction request already processed" | P1 | High |
+| TC-WHC-015 | HR views correction audit trail (read-only) | Request exists | 1) GET `/api/working-hours-corrections/{requestId}/audit-trail` as HR | — | 200 — HR permitted to *read* despite not being able to decide | P2 | High |
+| TC-WHC-016 | Employee views own audit trail | Requester is self | 1) GET audit-trail | — | 200 | P2 | High |
+| TC-WHC-017 | Unrelated employee attempts to view another's audit trail | Not self, not their manager, not privileged role | 1) GET audit-trail | — | 403 (`requireSelfManagerOrPrivileged` denies) | P1 | High |
+| TC-WHC-018 | Manager views pending corrections for team | Team has pending requests | 1) GET `/api/working-hours-corrections/manager/{managerId}/pending` | — | 200; only `PENDING` for direct reports | P1 | High |
+| TC-WHC-019 | Manager views all team corrections regardless of status | — | 1) GET `/api/working-hours-corrections/manager/{managerId}` | — | 200; all statuses | P2 | High |
+| TC-WHC-020 | ADMIN/HR/DIRECTOR view all corrections org-wide | — | 1) GET `/api/working-hours-corrections/` | — | 200; every request in the system | P2 | High |
+| TC-WHC-021 | Employee views own correction history | — | 1) GET `/api/working-hours-corrections/employee/{employeeId}` | — | 200; self or privileged access only | P2 | High |
+| TC-WHC-022 | Correction request for a single-session day auto-resolves without ambiguity | One session that day | 1) Submit `FORGOT_END_BREAK` | valid times inside the one session | Auto-resolved to that session without requiring explicit session selection | P2 | High |
+| TC-WHC-023 | Correction decision regenerates summary via real pipeline (not duplicated logic) | Approved break correction | 1) Approve 2) Compare resulting `JobDailySummary` to a manually-triggered `generateForEmployee` call for same date | — | Identical output — confirms single source of truth, no drift/bug from duplicated calculation logic | P2 | Medium |

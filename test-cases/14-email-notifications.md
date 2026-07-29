@@ -1,0 +1,26 @@
+# 14 — Email Notification Suite (Cross-Module)
+
+Covers every `EmailService` method. SMTP config via `application.properties` (`spring.mail.*`). Most send-failures are swallowed silently server-side (logged only); `sendPasswordResetEmail` and `sendLeaveRequestEmail`/interview-assignment emails are exceptions that can surface errors to the caller.
+
+| ID | Scenario | Preconditions | Test Steps | Test Data | Expected Result | Priority | Automation |
+|---|---|---|---|---|---|---|---|
+| TC-EMAIL-001 | Password reset email delivery | Forgot-password requested | 1) Trigger forgot-password 2) Inspect mailbox/mail-catcher | valid email | Email received with working reset link/token; failure here surfaces as 400 to the API caller (not swallowed) | P1 | Low |
+| TC-EMAIL-002 | Leave request email to manager | Employee applies for leave | 1) Apply leave 2) Check manager's inbox | — | Manager receives email; CC to HR+Admin present; failure would propagate as `RuntimeException` (verify caller handles or it degrades gracefully) | P1 | Low |
+| TC-EMAIL-003 | Leave decision email to employee | Manager approves/rejects | 1) Decide leave 2) Check employee inbox | — | Correct decision + comment shown; CC HR+Admin | P1 | Low |
+| TC-EMAIL-004 | Course assignment email | Employee enrolled/assigned a course | 1) Enroll 2) Check inbox | — | Email references correct course name | P2 | Low |
+| TC-EMAIL-005 | Missing-timesheet manager alert (scheduled 10:30 IST) | Employee missed timesheet entry for a day | 1) Wait for/trigger scheduled audit | — | Manager notified, CC HR+Admin | P2 | Low |
+| TC-EMAIL-006 | Missing-timesheet employee reminder | Same trigger, employee-facing copy | 1) Same as above | — | Employee receives own reminder, CC manager | P2 | Low |
+| TC-EMAIL-007 | PIP created email | PIP created for employee | 1) Create PIP 2) Check inbox | — | Employee notified, CC manager+admin | P1 | Low |
+| TC-EMAIL-008 | PIP outcome email — each outcome type | PIP outcome set to COMPLETED/EXTENDED/TERMINATED | 1) Set each outcome 2) Check inbox each time | — | Correct wording per outcome type, CC manager+admin | P1 | Low |
+| TC-EMAIL-009 | ATS video-interview invitation to candidate | Interview link generated (technical or final) | 1) Generate link 2) Check candidate's external inbox | — | Email contains working token-based link, correct scheduling info | P1 | Low |
+| TC-EMAIL-010 | Job-break alert to manager (post-logout gap >60min) | `monitorBreaks()` detects violation | 1) Trigger scenario, wait for scheduled run | — | Manager email sent, CC HR/Admin; not resent on subsequent runs (`breakAlertSent` guard) | P2 | Low |
+| TC-EMAIL-011 | Job-break alert to employee (same trigger) | — | 1) Same trigger | — | Employee also receives their own copy | P2 | Low |
+| TC-EMAIL-012 | Active in-session break alert (>60 min, different scheduler) | `monitorActiveBreaks()` fires | 1) Leave break open, wait 60s-cycle task | — | Same email content family as TC-EMAIL-010/011 but from the "active break" pathway; verify no double-send when both schedulers could theoretically fire on the same underlying break | P2 | Low |
+| TC-EMAIL-013 | Under-hours consolidated audit email (11:00 IST weekdays) | Yesterday had under-hours employees | 1) Wait for scheduled run | — | Manager + CC HR/Admin, consolidated list, excludes approved-leave days | P2 | Low |
+| TC-EMAIL-014 | Correction-request email on submission | Working-hours correction submitted | 1) Submit correction | — | Manager notified, CC HR+Admin+Director | P1 | Low |
+| TC-EMAIL-015 | Correction-decision email on approve/reject | Manager decides | 1) Approve then (separately) reject a request | — | Employee notified each time, CC HR+Admin+Director, correct decision text | P1 | Low |
+| TC-EMAIL-016 | Email failure does not crash the triggering request (silent-fail paths) | SMTP misconfigured/unreachable | 1) Trigger e.g. course-assignment or break-alert email under SMTP outage | — | API call still returns success to the caller; failure is logged server-side only | P2 | Low |
+| TC-EMAIL-017 | Email failure DOES surface for password-reset | SMTP outage | 1) Trigger forgot-password under outage | — | 400 returned to caller (documented exception to the silent-fail pattern) | P2 | Low |
+| TC-EMAIL-018 | No duplicate emails on scheduled-task overlap | Two scheduler runs overlap due to a slow prior run | 1) Simulate slow-running task + next tick fires | — | Guard flags (`alertSent`/`breakAlertSent`/`underHoursAlertSent`) prevent duplicate sends even under overlap | P2 | Medium |
+| TC-EMAIL-019 | Calendar (.ics) attachment on legacy interview-assignment email | Legacy `InterviewRound` assignment path (if ever exercised) | 1) Trigger `sendInterviewAssignedEmail` | — | .ics attachment present and opens correctly in a calendar client | P4 | Manual |
+| TC-EMAIL-020 | Email content has no unescaped HTML/script injection from user-supplied fields | Leave `reason`, PIP comments, correction `reasonComments` contain `<script>` payload | 1) Submit request with HTML/script in a free-text field 2) Inspect resulting email HTML | payload `"<script>alert(1)</script>"` | Payload rendered as literal text or stripped — not executed if email client renders HTML | P1 | Manual |
