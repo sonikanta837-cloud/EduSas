@@ -190,10 +190,11 @@ function exportAttendanceExcel(rows, startDate, endDate) {
     'Office Time':      fmtMinutes(r.totalOfficeMinutes),
     'Overtime':         fmtMinutes(r.overtimeMinutes),
     'Attendance Status': AR_STATUS_STYLES[arEffectiveStatus(r)]?.label || r.status,
+    'Correction Status': r.correctionStatus || 'NONE',
     'Session Count':    r.sessionCount,
   }));
   const ws = XLSX.utils.json_to_sheet(sheetData);
-  ws['!cols'] = [4,22,14,18,12,12,12,14,12,12,12,16,10].map(wch => ({ wch }));
+  ws['!cols'] = [4,22,14,18,12,12,12,14,12,12,12,16,14,10].map(wch => ({ wch }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Attendance Report');
   XLSX.writeFile(wb, `Attendance_Report_${startDate}_to_${endDate}.xlsx`);
@@ -827,10 +828,16 @@ const ReportsPage = () => {
                 ) : '—'}
               </TableCell>
               <TableCell sx={cell}>
-                {style && (
-                  <Chip label={style.label} size="small"
-                    sx={{ bgcolor: style.bg, color: style.color, fontWeight: 700, fontSize: 11 }} />
-                )}
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-start' }}>
+                  {style && (
+                    <Chip label={style.label} size="small"
+                      sx={{ bgcolor: style.bg, color: style.color, fontWeight: 700, fontSize: 11 }} />
+                  )}
+                  {st === 'OVERTIME' && r.correctionStatus !== 'APPROVED' && (
+                    <Chip label="Correction Pending" size="small"
+                      sx={{ bgcolor: '#fff7ed', color: '#c2410c', fontWeight: 600, fontSize: 10 }} />
+                  )}
+                </Box>
               </TableCell>
               <TableCell sx={{ ...cell, textAlign: 'center' }}>{r.sessionCount}</TableCell>
             </TableRow>

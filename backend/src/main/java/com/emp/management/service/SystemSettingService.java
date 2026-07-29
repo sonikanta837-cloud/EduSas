@@ -2,6 +2,7 @@ package com.emp.management.service;
 
 import com.emp.management.dto.AttendanceAuditSettingsDTO;
 import com.emp.management.dto.BreakAlertSettingsDTO;
+import com.emp.management.dto.CorrectionPolicySettingsDTO;
 import com.emp.management.dto.PerformanceThresholdSettingsDTO;
 import com.emp.management.dto.WorkReportEmailSettingsDTO;
 import com.emp.management.entity.SystemSetting;
@@ -42,6 +43,13 @@ public class SystemSettingService {
     private static final String KEY_AUDIT_ADMIN         = "attendance_audit_notify_admin";
 
     private static final String KEY_PERF_LOW_RATING_THRESHOLD = "performance_low_rating_threshold";
+
+    // Shared with JobDailySummaryService's OVERTIME/UNDER_HOURS classification threshold —
+    // the single configurable source of truth for the "8 hour" policy across the module.
+    public static final String KEY_CORR_OVERTIME_THRESHOLD_MINUTES = "correction_overtime_threshold_minutes";
+    private static final String KEY_CORR_REMINDER_ENABLED = "correction_reminder_enabled";
+    private static final String KEY_CORR_REMINDER_HOUR    = "correction_reminder_hour";
+    private static final String KEY_CORR_REMINDER_MINUTE  = "correction_reminder_minute";
 
     @Value("${app.performance.low-rating-threshold:3.0}")
     private double defaultLowRatingThreshold;
@@ -161,6 +169,25 @@ public class SystemSettingService {
     @Transactional
     public PerformanceThresholdSettingsDTO savePerformanceThresholdSettings(PerformanceThresholdSettingsDTO dto) {
         save(KEY_PERF_LOW_RATING_THRESHOLD, String.valueOf(dto.getLowRatingThreshold()));
+        return dto;
+    }
+
+    @Transactional(readOnly = true)
+    public CorrectionPolicySettingsDTO getCorrectionPolicySettings() {
+        return CorrectionPolicySettingsDTO.builder()
+                .overtimeThresholdMinutes(getInt(KEY_CORR_OVERTIME_THRESHOLD_MINUTES, 480))
+                .reminderEnabled(getBoolean(KEY_CORR_REMINDER_ENABLED, false))
+                .reminderHour(getInt(KEY_CORR_REMINDER_HOUR, 9))
+                .reminderMinute(getInt(KEY_CORR_REMINDER_MINUTE, 0))
+                .build();
+    }
+
+    @Transactional
+    public CorrectionPolicySettingsDTO saveCorrectionPolicySettings(CorrectionPolicySettingsDTO dto) {
+        save(KEY_CORR_OVERTIME_THRESHOLD_MINUTES, String.valueOf(dto.getOvertimeThresholdMinutes()));
+        save(KEY_CORR_REMINDER_ENABLED, String.valueOf(dto.isReminderEnabled()));
+        save(KEY_CORR_REMINDER_HOUR,    String.valueOf(dto.getReminderHour()));
+        save(KEY_CORR_REMINDER_MINUTE,  String.valueOf(dto.getReminderMinute()));
         return dto;
     }
 

@@ -23,4 +23,5 @@ public class DashboardDTO {
     private long overtimeToday;
     private long absentToday;
     private long onLeaveToday;
+    private long overtimePendingCorrectionToday;
 }

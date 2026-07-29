@@ -17,6 +17,7 @@ import { jobSummaryApi }     from '../api/jobSummaryApi';
 import { employeeApi }       from '../api/employeeApi';
 import { leaveUploadApi }    from '../api/leaveUploadApi';
 import { toast }             from 'react-toastify';
+import CorrectionRequestDialog from '../components/CorrectionRequestDialog';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -100,7 +101,7 @@ const SessionRow = ({ session, index, isOpen }) => (
 
 // ── Day card ──────────────────────────────────────────────────────────────────
 
-const DayCard = ({ date, sessions, summary, isToday, liveSec, holidayName }) => {
+const DayCard = ({ date, sessions, summary, isToday, liveSec, holidayName, onRequestCorrection }) => {
   const [expanded, setExpanded] = useState(isToday);
 
   const dow = date.format('ddd').toUpperCase();
@@ -210,6 +211,17 @@ const DayCard = ({ date, sessions, summary, isToday, liveSec, holidayName }) => 
               <Chip label={`+${fmtMinutes(summary.overtimeMinutes)} OT`} size="small"
                 sx={{ bgcolor: '#ede9fe', color: '#7c3aed', height: 20, fontSize: '0.62rem', fontWeight: 600 }} />
             )}
+            {!isFuture && status === 'OVERTIME' && summary.correctionStatus !== 'APPROVED' && (
+              <Chip
+                label={summary.correctionStatus === 'PENDING' ? 'Correction Pending' : 'Request Correction'}
+                size="small" clickable={summary.correctionStatus !== 'PENDING'}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (summary.correctionStatus !== 'PENDING') onRequestCorrection && onRequestCorrection(date.format('YYYY-MM-DD'));
+                }}
+                sx={{ bgcolor: '#fff7ed', color: '#c2410c', height: 20, fontSize: '0.62rem', fontWeight: 600 }}
+              />
+            )}
           </Box>
         )}
 
@@ -255,6 +267,7 @@ const AttendancePage = () => {
   const [todaySummary, setTodaySummary] = useState(null);
   const [holidaysMap, setHolidaysMap] = useState({});   // "YYYY-MM-DD" → holiday name
   const [loading, setLoading] = useState(true);
+  const [correctionDialog, setCorrectionDialog] = useState({ open: false, date: null });
 
   // Live counter
   const [liveSec, setLiveSec] = useState(0);
@@ -369,6 +382,28 @@ const AttendancePage = () => {
         </Box>
       )}
 
+      {/* ── Overtime correction soft-gate banner ── */}
+      {todayStatus === 'OVERTIME' && todaySummary?.correctionStatus === 'NONE' && (
+        <Box sx={{
+          display: 'flex', alignItems: 'center', gap: 1.5, px: 2.5, py: 1.5, mb: 2,
+          bgcolor: '#fff7ed', border: '1px solid #fdba74', borderRadius: 2,
+        }}>
+          <Typography sx={{ fontSize: '1.25rem' }}>⏱️</Typography>
+          <Box sx={{ flex: 1 }}>
+            <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: '#c2410c' }}>
+              You worked overtime today ({fmtMinutes(todaySummary.overtimeMinutes)} over policy)
+            </Typography>
+            <Typography sx={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+              Please submit a Working Hours Correction Request before today's timesheet is finalized.
+            </Typography>
+          </Box>
+          <Button size="small" variant="contained" sx={{ bgcolor: '#c2410c', '&:hover': { bgcolor: '#9a3412' } }}
+            onClick={() => setCorrectionDialog({ open: true, date: todayStr })}>
+            Request Correction
+          </Button>
+        </Box>
+      )}
+
       {/* ── Today Summary Card ── */}
       <Paper sx={{ p: 2.5, mb: 3, border: '1px solid #e2e8f0', borderRadius: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
@@ -426,9 +461,18 @@ const AttendancePage = () => {
             {todaySummary?.overtimeMinutes > 0 && (
               <Box>
                 <Typography variant="caption" color="text.secondary">Overtime</Typography>
-                <Typography variant="h6" fontWeight={700} color="#7c3aed">
-                  +{fmtMinutes(todaySummary.overtimeMinutes)}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="h6" fontWeight={700} color="#7c3aed">
+                    +{fmtMinutes(todaySummary.overtimeMinutes)}
+                  </Typography>
+                  {todaySummary.correctionStatus !== 'APPROVED' && (
+                    <Button size="small" variant="outlined" sx={{ borderColor: '#7c3aed', color: '#7c3aed' }}
+                      disabled={todaySummary.correctionStatus === 'PENDING'}
+                      onClick={() => setCorrectionDialog({ open: true, date: todayStr })}>
+                      {todaySummary.correctionStatus === 'PENDING' ? 'Pending Approval' : 'Request Correction'}
+                    </Button>
+                  )}
+                </Box>
               </Box>
             )}
 
@@ -526,6 +570,7 @@ const AttendancePage = () => {
                   isToday={isToday}
                   liveSec={isToday ? (isCheckedIn ? liveSec : 0) : 0}
                   holidayName={holidaysMap[dateStr] || null}
+                  onRequestCorrection={(date) => setCorrectionDialog({ open: true, date })}
                 />
               );
             })
@@ -543,6 +588,14 @@ const AttendancePage = () => {
           ))}
         </Box>
       </Paper>
+
+      <CorrectionRequestDialog
+        open={correctionDialog.open}
+        workDate={correctionDialog.date}
+        employeeId={myEmployee?.id}
+        onClose={() => setCorrectionDialog({ open: false, date: null })}
+        onSubmitted={() => loadData(myEmployee)}
+      />
     </Box>
   );
 };

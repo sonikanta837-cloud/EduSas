@@ -30,6 +30,9 @@ public class DashboardService {
         long overtimeToday = todaySummaries.stream().filter(s -> "OVERTIME".equals(s.getStatus())).count();
         long absentToday = todaySummaries.stream().filter(s -> "ABSENT".equals(s.getStatus())).count();
         long onLeaveToday = todaySummaries.stream().filter(s -> "LEAVE".equals(s.getStatus())).count();
+        long overtimePendingCorrectionToday = todaySummaries.stream()
+                .filter(s -> "OVERTIME".equals(s.getStatus()) && !"APPROVED".equals(s.getCorrectionStatus()))
+                .count();
 
         return DashboardDTO.builder()
                 .totalEmployees(employeeDetailsRepository.count())
@@ -44,6 +47,7 @@ public class DashboardService {
                 .overtimeToday(overtimeToday)
                 .absentToday(absentToday)
                 .onLeaveToday(onLeaveToday)
+                .overtimePendingCorrectionToday(overtimePendingCorrectionToday)
                 .build();
     }
 }

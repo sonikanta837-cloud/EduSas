@@ -12,6 +12,7 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import GroupsIcon             from '@mui/icons-material/Groups';
 import EventAvailableIcon     from '@mui/icons-material/EventAvailable';
 import SummarizeIcon          from '@mui/icons-material/Summarize';
+import RuleIcon               from '@mui/icons-material/Rule';
 
 const ALL_ROLES = ['ADMIN', 'DIRECTOR', 'HR', 'MANAGER', 'ASSISTANT_MANAGER', 'EMPLOYEE'];
 
@@ -45,6 +46,7 @@ export const hrMenu = [
       { label: 'Attendance',   path: '/attendance',   icon: <HowToRegIcon />,    roles: ALL_ROLES },
       { label: 'Timesheets',   path: '/timesheets',   icon: <AccessTimeIcon />,  roles: ALL_ROLES },
       { label: 'Leaves',       path: '/leaves',       icon: <BeachAccessIcon />, roles: ALL_ROLES },
+      { label: 'Working Hours Corrections', path: '/working-hours-corrections', icon: <RuleIcon />, roles: ALL_ROLES },
       { label: 'Holidays',     path: '/holidays',     icon: <CelebrationIcon />, roles: ALL_ROLES },
       { label: 'Timesheet Master Data', path: '/timesheet-master-data', icon: <InventoryIcon />, roles: ['ADMIN', 'DIRECTOR', 'HR'] },
     ],

@@ -15,6 +15,7 @@ import TimesheetPage from './pages/Timesheets';
 import TimesheetMasterDataPage from './pages/TimesheetMasterData';
 import AttendancePage from './pages/Attendance';
 import LeavesPage from './pages/Leaves';
+import WorkingHoursCorrectionsPage from './pages/WorkingHoursCorrections';
 import PerformancePage from './pages/Performance';
 import PerformancePipPage from './pages/PerformancePip';
 import ReportsPage from './pages/Reports';
@@ -104,6 +105,7 @@ function App() {
             <Route path="/timesheet-master-data" element={<TimesheetMasterDataPage />} />
             <Route path="/attendance" element={<AttendancePage />} />
             <Route path="/leaves" element={<LeavesPage />} />
+            <Route path="/working-hours-corrections" element={<WorkingHoursCorrectionsPage />} />
             <Route path="/performance" element={<PerformancePage />} />
             <Route path="/performance-pip" element={<PerformancePipPage />} />
             <Route path="/reports" element={<ReportsPage />} />

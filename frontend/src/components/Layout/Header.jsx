@@ -22,11 +22,13 @@ import EmojiEventsIcon        from '@mui/icons-material/EmojiEvents';
 import GavelIcon              from '@mui/icons-material/Gavel';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import AssignmentLateIcon      from '@mui/icons-material/AssignmentLate';
+import RuleIcon                from '@mui/icons-material/Rule';
 import { logout }                  from '../../store/authSlice';
 import { toggleMobileSidebar }      from '../../store/uiSlice';
 import { announcementApi }         from '../../api/announcementApi';
 import { courseNotificationApi }   from '../../api/courseNotificationApi';
 import { pipNotificationApi }      from '../../api/pipNotificationApi';
+import { correctionNotificationApi } from '../../api/correctionNotificationApi';
 
 export const HEADER_HEIGHT = 56;
 
@@ -62,13 +64,15 @@ const Header = () => {
   const [unreadCount,    setUnreadCount]    = useState(0);   // announcements
   const [courseUnread,   setCourseUnread]   = useState(0);
   const [pipUnread,      setPipUnread]      = useState(0);
+  const [correctionUnread, setCorrectionUnread] = useState(0);
   const [notifAnchor,    setNotifAnchor]    = useState(null);
   const [unreadItems,    setUnreadItems]    = useState([]);
   const [courseItems,    setCourseItems]    = useState([]);
   const [pipItems,       setPipItems]       = useState([]);
+  const [correctionItems, setCorrectionItems] = useState([]);
   const [notifLoading,   setNotifLoading]   = useState(false);
 
-  const totalUnread = unreadCount + courseUnread + pipUnread;
+  const totalUnread = unreadCount + courseUnread + pipUnread + correctionUnread;
 
   const userInitials = user?.fullName
     ?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || 'U';
@@ -87,6 +91,9 @@ const Header = () => {
       .catch(() => {});
     pipNotificationApi.getUnreadCount()
       .then(data => setPipUnread(data?.count ?? 0))
+      .catch(() => {});
+    correctionNotificationApi.getUnreadCount()
+      .then(data => setCorrectionUnread(data?.count ?? 0))
       .catch(() => {});
   }, [user]);
 
@@ -111,6 +118,13 @@ const Header = () => {
     return () => window.removeEventListener('pip-notifications-read', handleRead);
   }, []);
 
+  // ── Reset correction badge ────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleRead = () => { setCorrectionUnread(0); setCorrectionItems([]); };
+    window.addEventListener('correction-notifications-read', handleRead);
+    return () => window.removeEventListener('correction-notifications-read', handleRead);
+  }, []);
+
   // ── Open notification popover and load all unread items ─────────────────────
   const openNotifications = useCallback((e) => {
     setNotifAnchor(e.currentTarget);
@@ -119,10 +133,12 @@ const Header = () => {
       announcementApi.getUnread().catch(() => []),
       courseNotificationApi.getUnread().catch(() => []),
       pipNotificationApi.getUnread().catch(() => []),
-    ]).then(([ann, course, pip]) => {
-      setUnreadItems(Array.isArray(ann)    ? ann    : []);
-      setCourseItems(Array.isArray(course) ? course : []);
-      setPipItems(Array.isArray(pip)       ? pip    : []);
+      correctionNotificationApi.getUnread().catch(() => []),
+    ]).then(([ann, course, pip, correction]) => {
+      setUnreadItems(Array.isArray(ann)        ? ann        : []);
+      setCourseItems(Array.isArray(course)     ? course     : []);
+      setPipItems(Array.isArray(pip)           ? pip        : []);
+      setCorrectionItems(Array.isArray(correction) ? correction : []);
     }).finally(() => setNotifLoading(false));
   }, []);
 
@@ -158,22 +174,36 @@ const Header = () => {
     navigate('/performance');
   }, [navigate]);
 
+  // ── Click a correction notification ───────────────────────────────────────────
+  const handleCorrectionNotifClick = useCallback(async (item) => {
+    try { await correctionNotificationApi.markAsRead(item.id); } catch { /* silent */ }
+    setCorrectionItems(prev => prev.filter(i => i.id !== item.id));
+    setCorrectionUnread(prev => Math.max(0, prev - 1));
+    document.activeElement?.blur();
+    setNotifAnchor(null);
+    navigate('/working-hours-corrections');
+  }, [navigate]);
+
   // ── Mark all read ────────────────────────────────────────────────────────────
   const markAllRead = useCallback(async () => {
     await Promise.all([
       ...unreadItems.map(i => announcementApi.markAsRead(i.id).catch(() => {})),
       courseNotificationApi.markAllRead().catch(() => {}),
       pipNotificationApi.markAllRead().catch(() => {}),
+      correctionNotificationApi.markAllRead().catch(() => {}),
     ]);
     setUnreadItems([]);
     setCourseItems([]);
     setPipItems([]);
+    setCorrectionItems([]);
     setUnreadCount(0);
     setCourseUnread(0);
     setPipUnread(0);
+    setCorrectionUnread(0);
     window.dispatchEvent(new Event('announcements-read'));
     window.dispatchEvent(new Event('course-notifications-read'));
     window.dispatchEvent(new Event('pip-notifications-read'));
+    window.dispatchEvent(new Event('correction-notifications-read'));
   }, [unreadItems]);
 
   const handleLogout = () => {
@@ -296,7 +326,7 @@ const Header = () => {
                 </Box>
               )}
             </Box>
-            {(unreadItems.length > 0 || courseItems.length > 0 || pipItems.length > 0) && (
+            {(unreadItems.length > 0 || courseItems.length > 0 || pipItems.length > 0 || correctionItems.length > 0) && (
               <Button
                 size="small" startIcon={<DoneAllIcon sx={{ fontSize: 14 }} />}
                 onClick={markAllRead}
@@ -317,7 +347,7 @@ const Header = () => {
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
                 <CircularProgress size={26} sx={{ color: '#14b8a6' }} />
               </Box>
-            ) : unreadItems.length === 0 && courseItems.length === 0 && pipItems.length === 0 ? (
+            ) : unreadItems.length === 0 && courseItems.length === 0 && pipItems.length === 0 && correctionItems.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 6, px: 3 }}>
                 <Box sx={{
                   width: 56, height: 56, borderRadius: '50%', bgcolor: '#f0fdfa',
@@ -499,6 +529,51 @@ const Header = () => {
                       <Box sx={{ flex: 1, minWidth: 0 }}>
                         <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#1e3a5f', letterSpacing: '.2px', mb: .3 }}>
                           PIP · {item.pipTitle}
+                        </Typography>
+                        <Typography sx={{
+                          fontSize: 13, fontWeight: 600, color: '#0f172a',
+                          lineHeight: 1.35, mb: .35,
+                          display: '-webkit-box', WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                        }}>
+                          {item.message}
+                        </Typography>
+                        <Typography sx={{ fontSize: 11.5, color: '#94a3b8' }}>{fmtNotif(item.createdAt)}</Typography>
+                      </Box>
+                      <ArrowForwardIcon sx={{ fontSize: 14, color: '#cbd5e1', mt: .75, flexShrink: 0 }} />
+                    </Box>
+                  </Box>
+                ))}
+              </>
+            )}
+
+            {/* ── Working Hours Correction notification cards ── */}
+            {correctionItems.length > 0 && (
+              <>
+                <Box sx={{ px: 2.5, py: .75, bgcolor: '#f8fafc', borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9' }}>
+                  <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '.6px' }}>
+                    Working Hours Corrections
+                  </Typography>
+                </Box>
+                {correctionItems.map((item, idx) => (
+                  <Box
+                    key={item.id}
+                    onClick={() => handleCorrectionNotifClick(item)}
+                    sx={{
+                      px: 2.5, py: 1.75, cursor: 'pointer', position: 'relative',
+                      borderBottom: idx < correctionItems.length - 1 ? '1px solid #f8fafc' : 'none',
+                      transition: 'background .15s',
+                      '&:hover': { bgcolor: '#f8fafc' },
+                    }}
+                  >
+                    <Box sx={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 6, height: 6, borderRadius: '50%', bgcolor: '#c2410c' }} />
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, pl: 1 }}>
+                      <Box sx={{ width: 38, height: 38, borderRadius: '10px', flexShrink: 0, bgcolor: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #fdba74' }}>
+                        <RuleIcon sx={{ fontSize: 19, color: '#c2410c' }} />
+                      </Box>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#c2410c', letterSpacing: '.2px', mb: .3 }}>
+                          Working Hours Correction
                         </Typography>
                         <Typography sx={{
                           fontSize: 13, fontWeight: 600, color: '#0f172a',

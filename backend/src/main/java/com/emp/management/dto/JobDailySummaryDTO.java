@@ -27,4 +27,5 @@ public class JobDailySummaryDTO {
     private LocalDateTime lastLogoutTime;
     private String primaryClient;
     private String status;
+    private String correctionStatus;
 }

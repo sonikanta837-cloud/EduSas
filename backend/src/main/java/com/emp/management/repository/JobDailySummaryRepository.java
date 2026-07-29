@@ -22,6 +22,10 @@ public interface JobDailySummaryRepository extends JpaRepository<JobDailySummary
     List<JobDailySummary> findByWorkDateAndStatusAndUnderHoursAlertSentFalse(
             LocalDate workDate, DailyAttendanceStatus status);
 
+    // Batched lookup so the live "today" DTO paths can attach correctionStatus for
+    // every employee in one query instead of one findByEmployeeIdAndWorkDate per employee.
+    List<JobDailySummary> findByWorkDate(LocalDate workDate);
+
     @Query("SELECT s FROM JobDailySummary s JOIN FETCH s.employee emp " +
            "WHERE s.workDate BETWEEN :start AND :end " +
            "ORDER BY s.workDate ASC, emp.lastName ASC, emp.firstName ASC")

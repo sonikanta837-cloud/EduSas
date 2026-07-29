@@ -2,6 +2,7 @@ package com.emp.management.controller;
 
 import com.emp.management.dto.AttendanceAuditSettingsDTO;
 import com.emp.management.dto.BreakAlertSettingsDTO;
+import com.emp.management.dto.CorrectionPolicySettingsDTO;
 import com.emp.management.dto.PerformanceThresholdSettingsDTO;
 import com.emp.management.dto.WorkReportEmailSettingsDTO;
 import com.emp.management.service.SystemSettingService;
@@ -54,6 +55,19 @@ public class SystemSettingController {
     public ResponseEntity<AttendanceAuditSettingsDTO> saveAttendanceAuditSettings(
             @RequestBody AttendanceAuditSettingsDTO dto) {
         return ResponseEntity.ok(systemSettingService.saveAttendanceAuditSettings(dto));
+    }
+
+    @GetMapping("/correction-policy")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
+    public ResponseEntity<CorrectionPolicySettingsDTO> getCorrectionPolicySettings() {
+        return ResponseEntity.ok(systemSettingService.getCorrectionPolicySettings());
+    }
+
+    @PutMapping("/correction-policy")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DIRECTOR')")
+    public ResponseEntity<CorrectionPolicySettingsDTO> saveCorrectionPolicySettings(
+            @RequestBody CorrectionPolicySettingsDTO dto) {
+        return ResponseEntity.ok(systemSettingService.saveCorrectionPolicySettings(dto));
     }
 
     @GetMapping("/performance-threshold")

@@ -52,5 +52,13 @@ public class JobDailySummary {
     @Builder.Default
     private boolean underHoursAlertSent = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private DayCorrectionStatus correctionStatus = DayCorrectionStatus.NONE;
+
+    // Convenience pointer to the current/latest correction request for this day
+    private Long latestCorrectionRequestId;
+
     private LocalDateTime computedAt;
 }

@@ -26,7 +26,7 @@ import java.util.stream.Stream;
 public class JobDailySummaryService {
 
     private static final ZoneId ZONE = ZoneId.of("Asia/Kolkata");
-    private static final int REQUIRED_MINUTES = 8 * 60;
+    private static final int DEFAULT_REQUIRED_MINUTES = 8 * 60;
 
     private final JobDailySummaryRepository summaryRepository;
     private final JobWorkSessionRepository sessionRepository;
@@ -37,6 +37,11 @@ public class JobDailySummaryService {
     private final HolidayService holidayService;
     private final EmailService emailService;
     private final UnderHoursAlertLogRepository underHoursAlertLogRepository;
+    private final SystemSettingService systemSettingService;
+
+    private int requiredMinutes() {
+        return systemSettingService.getInt(SystemSettingService.KEY_CORR_OVERTIME_THRESHOLD_MINUTES, DEFAULT_REQUIRED_MINUTES);
+    }
 
     // ── Daily rollup — runs at 23:55 IST (deliberately not midnight; the host
     //    can sleep at exact midnight, matching the existing DailyWorkReportService
@@ -104,13 +109,29 @@ public class JobDailySummaryService {
     //    live "today" read paths below, and the dashboard's live org-wide
     //    aggregate, so classification logic only exists in one place. ────────
 
-    private Computed computeSummary(EmployeeDetails emp, LocalDate date, List<JobWorkSession> sessions, LocalDateTime asOf) {
+    Computed computeSummary(EmployeeDetails emp, LocalDate date, List<JobWorkSession> sessions, LocalDateTime asOf) {
+        return computeSummary(emp, date, sessions, asOf, null);
+    }
+
+    // Overload used to preview a "requested values" correction (e.g. a corrected break
+    // time) without touching real JobSessionBreak data — the override map replaces the
+    // break-minutes-by-session entries otherwise sourced from breakRepository for just
+    // the affected session(s); everything else in the calculation stays identical so
+    // there is exactly one place that implements the working/break/office/overtime math.
+    Computed computeSummary(EmployeeDetails emp, LocalDate date, List<JobWorkSession> sessions, LocalDateTime asOf,
+                             Map<Long, Integer> breakMinutesOverrideBySession) {
+        int required = requiredMinutes();
         DayOfWeek dow = date.getDayOfWeek();
         Set<LocalDate> holidays = holidayService.getApplicableHolidayDates(
                 date, date, emp.getSeatingLocation() != null ? emp.getSeatingLocation() : "ALL", emp.getDepartment());
 
         int sessionCount = sessions.size();
-        Map<Long, Integer> breakMinutesBySession = breakMinutesBySession(sessions, asOf);
+        Map<Long, Integer> computedBreakMinutesBySession = breakMinutesBySession(sessions, asOf);
+        if (breakMinutesOverrideBySession != null && !breakMinutesOverrideBySession.isEmpty()) {
+            computedBreakMinutesBySession = new HashMap<>(computedBreakMinutesBySession);
+            computedBreakMinutesBySession.putAll(breakMinutesOverrideBySession);
+        }
+        final Map<Long, Integer> breakMinutesBySession = computedBreakMinutesBySession;
         int totalWorkingMinutes = sessions.stream()
                 .mapToInt(s -> minutesFor(s, asOf, breakMinutesBySession.getOrDefault(s.getId(), 0))).sum();
         int totalBreakMinutes = breakMinutesBySession.values().stream().mapToInt(Integer::intValue).sum();
@@ -139,9 +160,9 @@ public class JobDailySummaryService {
         } else if (sessionCount == 0) {
             status = leaveRepository.hasLeaveOnDate(emp.getId(), date, LeaveStatus.APPROVED)
                     ? DailyAttendanceStatus.LEAVE : DailyAttendanceStatus.ABSENT;
-        } else if (totalWorkingMinutes < REQUIRED_MINUTES) {
+        } else if (totalWorkingMinutes < required) {
             status = DailyAttendanceStatus.UNDER_HOURS;
-        } else if (totalWorkingMinutes > REQUIRED_MINUTES) {
+        } else if (totalWorkingMinutes > required) {
             status = DailyAttendanceStatus.OVERTIME;
         } else {
             status = DailyAttendanceStatus.PRESENT;
@@ -195,9 +216,9 @@ public class JobDailySummaryService {
         return result;
     }
 
-    private record Computed(int totalWorkingMinutes, int totalBreakMinutes, int sessionCount,
-                             LocalDateTime firstLoginTime, LocalDateTime lastLogoutTime,
-                             String primaryClient, DailyAttendanceStatus status) {}
+    record Computed(int totalWorkingMinutes, int totalBreakMinutes, int sessionCount,
+                     LocalDateTime firstLoginTime, LocalDateTime lastLogoutTime,
+                     String primaryClient, DailyAttendanceStatus status) {}
 
     // ── Consolidated under-hours audit email — 11:00 AM working days ──────────
 
@@ -212,6 +233,7 @@ public class JobDailySummaryService {
             return;
         }
 
+        int required = requiredMinutes();
         List<JobDailySummary> underHours = summaryRepository
                 .findByWorkDateAndStatusAndUnderHoursAlertSentFalse(auditDate, DailyAttendanceStatus.UNDER_HOURS);
 
@@ -265,7 +287,7 @@ public class JobDailySummaryService {
             List<EmailService.UnderHoursRow> emailRows = new java.util.ArrayList<>();
             for (JobDailySummary s : rows) {
                 EmployeeDetails emp = s.getEmployee();
-                int shortfallMinutes = Math.max(0, REQUIRED_MINUTES - s.getTotalWorkingMinutes());
+                int shortfallMinutes = Math.max(0, required - s.getTotalWorkingMinutes());
 
                 emailRows.add(new EmailService.UnderHoursRow(
                         emp.getEmployeeCode(),
@@ -274,7 +296,7 @@ public class JobDailySummaryService {
                         s.getPrimaryClient(),
                         formatMinutes(s.getTotalWorkingMinutes()),
                         formatMinutes(s.getTotalBreakMinutes()),
-                        "8h 0m",
+                        formatMinutes(required),
                         formatMinutes(shortfallMinutes),
                         auditDate.format(dateFmt),
                         s.getFirstLoginTime() != null ? s.getFirstLoginTime().format(timeFmt) : null,
@@ -292,7 +314,7 @@ public class JobDailySummaryService {
                         .client(s.getPrimaryClient())
                         .totalWorkingMinutes(s.getTotalWorkingMinutes())
                         .totalBreakMinutes(s.getTotalBreakMinutes())
-                        .expectedMinutes(REQUIRED_MINUTES)
+                        .expectedMinutes(required)
                         .shortfallMinutes(shortfallMinutes)
                         .firstLoginTime(s.getFirstLoginTime())
                         .lastLogoutTime(s.getLastLogoutTime())
@@ -406,11 +428,18 @@ public class JobDailySummaryService {
         List<JobWorkSession> sessions = sessionRepository.findAllByWorkDate(date);
         Map<Long, List<JobWorkSession>> byEmployee = sessions.stream()
                 .collect(Collectors.groupingBy(s -> s.getEmployee().getId()));
+        // correctionStatus is a workflow-state flag, not a computed number — unlike the
+        // working-hours figures, it's safe (and necessary) to read it from a persisted
+        // row even on a "live" day, since it only changes via explicit submit/approve/
+        // reject actions. Batched here so bulk "today" reads stay one query, not N+1.
+        Map<Long, DayCorrectionStatus> correctionStatusByEmployee = summaryRepository.findByWorkDate(date).stream()
+                .collect(Collectors.toMap(s -> s.getEmployee().getId(), JobDailySummary::getCorrectionStatus));
         LocalDateTime now = LocalDateTime.now(ZONE);
         List<JobDailySummaryDTO> result = new ArrayList<>();
         for (EmployeeDetails emp : employees) {
             List<JobWorkSession> empSessions = byEmployee.getOrDefault(emp.getId(), List.of());
-            result.add(toLiveDTO(emp, date, computeSummary(emp, date, empSessions, now)));
+            DayCorrectionStatus correctionStatus = correctionStatusByEmployee.getOrDefault(emp.getId(), DayCorrectionStatus.NONE);
+            result.add(toLiveDTO(emp, date, computeSummary(emp, date, empSessions, now), correctionStatus));
         }
         return result;
     }
@@ -418,7 +447,9 @@ public class JobDailySummaryService {
     private JobDailySummaryDTO liveForEmployeeDate(EmployeeDetails emp, LocalDate date) {
         List<JobWorkSession> sessions = sessionRepository
                 .findByEmployeeIdAndWorkDateOrderByLoginTimeAsc(emp.getId(), date);
-        return toLiveDTO(emp, date, computeSummary(emp, date, sessions, LocalDateTime.now(ZONE)));
+        DayCorrectionStatus correctionStatus = summaryRepository.findByEmployeeIdAndWorkDate(emp.getId(), date)
+                .map(JobDailySummary::getCorrectionStatus).orElse(DayCorrectionStatus.NONE);
+        return toLiveDTO(emp, date, computeSummary(emp, date, sessions, LocalDateTime.now(ZONE)), correctionStatus);
     }
 
     // ── CSV export ────────────────────────────────────────────────────────────
@@ -427,7 +458,7 @@ public class JobDailySummaryService {
         List<JobDailySummaryDTO> rows = getTeamRange(email, start, end);
         StringBuilder sb = new StringBuilder();
         sb.append("Employee,Employee Code,Department,Date,First Login,Last Logout," +
-                  "Working Hours,Break Time,Office Time,Overtime,Status,Sessions\n");
+                  "Working Hours,Break Time,Office Time,Overtime,Status,Correction Status,Sessions\n");
         DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm");
         for (JobDailySummaryDTO r : rows) {
             sb.append(String.join(",",
@@ -442,6 +473,7 @@ public class JobDailySummaryService {
                     csvEscape(formatMinutes(r.getTotalOfficeMinutes())),
                     csvEscape(formatMinutes(r.getOvertimeMinutes())),
                     csvEscape(r.getStatus()),
+                    csvEscape(r.getCorrectionStatus()),
                     String.valueOf(r.getSessionCount())
             )).append("\n");
         }
@@ -460,14 +492,14 @@ public class JobDailySummaryService {
     private JobDailySummaryDTO toDTO(JobDailySummary s) {
         Computed c = new Computed(s.getTotalWorkingMinutes(), s.getTotalBreakMinutes(), s.getSessionCount(),
                 s.getFirstLoginTime(), s.getLastLogoutTime(), s.getPrimaryClient(), s.getStatus());
-        return buildDTO(s.getEmployee(), s.getWorkDate(), c);
+        return buildDTO(s.getEmployee(), s.getWorkDate(), c, s.getCorrectionStatus());
     }
 
-    private JobDailySummaryDTO toLiveDTO(EmployeeDetails emp, LocalDate date, Computed c) {
-        return buildDTO(emp, date, c);
+    private JobDailySummaryDTO toLiveDTO(EmployeeDetails emp, LocalDate date, Computed c, DayCorrectionStatus correctionStatus) {
+        return buildDTO(emp, date, c, correctionStatus);
     }
 
-    private JobDailySummaryDTO buildDTO(EmployeeDetails emp, LocalDate date, Computed c) {
+    private JobDailySummaryDTO buildDTO(EmployeeDetails emp, LocalDate date, Computed c, DayCorrectionStatus correctionStatus) {
         return JobDailySummaryDTO.builder()
                 .employeeId(emp.getId())
                 .employeeName(emp.getFullName())
@@ -477,7 +509,8 @@ public class JobDailySummaryService {
                 .totalWorkingMinutes(c.totalWorkingMinutes())
                 .totalBreakMinutes(c.totalBreakMinutes())
                 .totalOfficeMinutes(c.totalWorkingMinutes() + c.totalBreakMinutes())
-                .overtimeMinutes(Math.max(0, c.totalWorkingMinutes() - REQUIRED_MINUTES))
+                .overtimeMinutes(Math.max(0, c.totalWorkingMinutes() - requiredMinutes()))
+                .correctionStatus((correctionStatus != null ? correctionStatus : DayCorrectionStatus.NONE).name())
                 .sessionCount(c.sessionCount())
                 .firstLoginTime(c.firstLoginTime())
                 .lastLogoutTime(c.lastLogoutTime())

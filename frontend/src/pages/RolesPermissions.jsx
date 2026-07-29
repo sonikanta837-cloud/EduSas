@@ -133,23 +133,23 @@ const PortalAccessPanel = () => {
   );
 };
 
-const ALL_MODULES = [
-  { path: '/dashboard',    label: 'Dashboard',          always: true },
-  { path: '/employees',    label: 'Employees' },
-  { path: '/org-chart',    label: 'Organisation' },
-  { path: '/attendance',   label: 'Attendance' },
-  { path: '/timesheets',   label: 'Timesheets' },
-  { path: '/leaves',       label: 'Leaves' },
-  { path: '/holidays',     label: 'Holidays' },
-  { path: '/timesheet-master-data', label: 'Timesheet Master Data' },
-  { path: '/courses',      label: 'Courses' },
-  { path: '/performance',  label: 'Performance' },
-  { path: '/performance-pip', label: 'Performance Improvement' },
-  { path: '/interviews',    label: 'Interviews' },
-  { path: '/question-bank', label: 'Question Bank' },
-  { path: '/reports',      label: 'Reports' },
-  { path: '/resources',    label: 'Resources' },
-];
+// Every module across every portal's sidebar (hrMenu/trainingMenu/tandemMenu/
+// interviewMenu, via the same portalRegistry the Portal Access panel above already
+// reads) — derived rather than hand-duplicated, so a new menu item added to any
+// portal automatically becomes toggleable here without a second edit. superUserOnly
+// entries (e.g. Roles & Permissions itself) are excluded: Sidebar.jsx grants those
+// purely by role and ignores the per-employee allowedModules list entirely, so a
+// toggle for them here would do nothing.
+const ALWAYS_ON_PATH = '/dashboard';
+
+const ALL_MODULES = Array.from(
+  new Map(
+    portalRegistry
+      .flatMap((portal) => portal.menu.flatMap((entry) => (entry.type === 'group' ? entry.children : [entry])))
+      .filter((entry) => !entry.superUserOnly)
+      .map((entry) => [entry.path, { path: entry.path, label: entry.label, always: entry.path === ALWAYS_ON_PATH }])
+  ).values()
+);
 
 // Granular action permissions inside the Employees module
 const EMPLOYEE_ACTIONS = [
@@ -165,10 +165,10 @@ const ALL_EMP_ACTION_KEYS = EMPLOYEE_ACTIONS.map((a) => a.key);
 const DEFAULT_MODULES_BY_ROLE = {
   ADMIN:             [...ALL_MODULES.map((m) => m.path), ...ALL_EMP_ACTION_KEYS],
   DIRECTOR:          [...ALL_MODULES.map((m) => m.path), ...ALL_EMP_ACTION_KEYS],
-  HR:                ['/dashboard', '/employees', 'emp:view_detail', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/timesheet-master-data', '/reports', '/performance', '/performance-pip', '/interviews', '/question-bank', '/resources'],
-  MANAGER:           ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/reports', '/performance', '/performance-pip', '/interviews', '/question-bank', '/resources'],
-  ASSISTANT_MANAGER: ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/reports', '/performance', '/performance-pip', '/interviews', '/question-bank', '/resources'],
-  EMPLOYEE:          ['/dashboard', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/holidays', '/reports', '/performance', '/performance-pip', '/resources'],
+  HR:                ['/dashboard', '/employees', 'emp:view_detail', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/working-hours-corrections', '/holidays', '/timesheet-master-data', '/reports', '/performance', '/performance-pip', '/interviews', '/question-bank', '/resources'],
+  MANAGER:           ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/working-hours-corrections', '/holidays', '/reports', '/performance', '/performance-pip', '/interviews', '/question-bank', '/resources'],
+  ASSISTANT_MANAGER: ['/dashboard', '/employees', 'emp:view_detail', 'emp:edit_profile', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/working-hours-corrections', '/holidays', '/reports', '/performance', '/performance-pip', '/interviews', '/question-bank', '/resources'],
+  EMPLOYEE:          ['/dashboard', '/org-chart', '/courses', '/timesheets', '/attendance', '/leaves', '/working-hours-corrections', '/holidays', '/reports', '/performance', '/performance-pip', '/resources'],
 };
 
 const RolesPermissions = () => {

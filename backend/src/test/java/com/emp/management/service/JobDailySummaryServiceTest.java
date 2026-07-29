@@ -1,6 +1,8 @@
 package com.emp.management.service;
 
 import com.emp.management.dto.JobDailySummaryDTO;
+import com.emp.management.entity.DailyAttendanceStatus;
+import com.emp.management.entity.DayCorrectionStatus;
 import com.emp.management.entity.EmployeeDetails;
 import com.emp.management.entity.JobDailySummary;
 import com.emp.management.entity.JobSessionBreak;
@@ -52,6 +54,7 @@ class JobDailySummaryServiceTest {
     @Mock private HolidayService holidayService;
     @Mock private EmailService emailService;
     @Mock private UnderHoursAlertLogRepository underHoursAlertLogRepository;
+    @Mock private SystemSettingService systemSettingService;
 
     @InjectMocks private JobDailySummaryService service;
 
@@ -99,6 +102,17 @@ class JobDailySummaryServiceTest {
         when(employeeDetailsRepository.findById(5L)).thenReturn(Optional.of(emp));
         when(holidayService.getApplicableHolidayDates(any(), any(), anyString(), any()))
                 .thenReturn(Set.of());
+        // A stale persisted row for today (e.g. ABSENT/session_count=0, written before the
+        // employee clocked in) exists in the DB — correctionStatus is a workflow-state flag
+        // (not a computed number) so it is legitimately read from this row, but the numeric
+        // fields below must still come from the live computation, not this stale row.
+        JobDailySummary staleRow = JobDailySummary.builder()
+                .id(50L).employee(emp).workDate(today)
+                .totalWorkingMinutes(0).totalBreakMinutes(0).sessionCount(0)
+                .status(DailyAttendanceStatus.ABSENT)
+                .correctionStatus(DayCorrectionStatus.PENDING)
+                .build();
+        when(summaryRepository.findByEmployeeIdAndWorkDate(5L, today)).thenReturn(Optional.of(staleRow));
 
         LocalDateTime login = LocalDateTime.now(ZONE).minusMinutes(30);
         JobWorkSession session = JobWorkSession.builder()
@@ -112,11 +126,13 @@ class JobDailySummaryServiceTest {
         JobDailySummaryDTO dto = service.getForDate(5L, today);
 
         assertThat(dto).isNotNull();
+        // Numeric fields recompute live — the stale persisted row's 0/ABSENT never masks them.
         assertThat(dto.getFirstLoginTime()).isEqualTo(login);
         assertThat(dto.getSessionCount()).isEqualTo(1);
-        // getForDate for "today" must never consult summaryRepository.findByEmployeeIdAndWorkDate —
-        // it always recomputes live so a stale persisted row can never mask real sessions.
-        org.mockito.Mockito.verifyNoInteractions(summaryRepository);
+        assertThat(dto.getStatus()).isNotEqualTo("ABSENT");
+        // correctionStatus, a workflow flag rather than a computed number, is read from the
+        // persisted row on purpose (it only ever changes via an explicit submit/approve/reject).
+        assertThat(dto.getCorrectionStatus()).isEqualTo("PENDING");
     }
 
     @Test

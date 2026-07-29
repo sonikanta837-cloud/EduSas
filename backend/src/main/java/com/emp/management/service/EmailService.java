@@ -795,4 +795,112 @@ public class EmailService {
         log.info("Under-hours audit alert sent to {} (cc: {}) for {} — {} employee(s)",
                 to, Arrays.toString(cc), date, rows.size());
     }
+
+    // ── Working hours correction: new request (To: manager, CC: HR/Admin/Director) ───
+
+    public void sendCorrectionRequestEmail(String to, String[] cc, String employeeName, String employeeCode,
+                                            LocalDate workDate, String reason, String reasonComments,
+                                            String originalWorkingHours, String originalBreakTime,
+                                            String originalOfficeTime, String originalOvertime, String originalStatus,
+                                            String requestedWorkingHours, String requestedBreakTime,
+                                            String requestedOfficeTime, String requestedOvertime, String requestedStatus,
+                                            LocalDateTime requestedBreakStart, LocalDateTime requestedBreakEnd,
+                                            String overtimeRemarks) {
+        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("dd MMM yyyy");
+        DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("hh:mm a");
+        String reasonLabel = reason.replace("_", " ");
+
+        StringBuilder body = new StringBuilder()
+                .append("<p>Dear Reporting Manager,</p>")
+                .append("<p><strong>").append(employeeName).append("</strong> has submitted a Working Hours Correction Request ")
+                .append("for <strong>").append(workDate.format(dateFmt)).append("</strong> and is awaiting your approval.</p>")
+                .append("<p style='font-size:13px;font-weight:bold;color:#4a5568;margin:18px 0 6px;'>Employee Details</p>")
+                .append(tableOpen())
+                .append(row("Name", employeeName))
+                .append(row("Employee ID", employeeCode))
+                .append(row("Date", workDate.format(dateFmt)))
+                .append(tableClose())
+                .append("<p style='font-size:13px;font-weight:bold;color:#4a5568;margin:18px 0 6px;'>Original Timesheet</p>")
+                .append(tableOpen())
+                .append(row("Working Hours", originalWorkingHours))
+                .append(row("Break Time", originalBreakTime))
+                .append(row("Office Time", originalOfficeTime))
+                .append(row("Overtime", originalOvertime))
+                .append(row("Status", originalStatus))
+                .append(tableClose())
+                .append("<p style='font-size:13px;font-weight:bold;color:#4a5568;margin:18px 0 6px;'>Requested Correction</p>")
+                .append(tableOpen())
+                .append(row("Reason", reasonLabel))
+                .append(row("Employee Justification", reasonComments));
+        if (requestedBreakStart != null) {
+            body.append(row("Break Start Time", requestedBreakStart.format(timeFmt)));
+        }
+        if (requestedBreakEnd != null) {
+            body.append(row("Break End Time", requestedBreakEnd.format(timeFmt)));
+        }
+        if (overtimeRemarks != null && !overtimeRemarks.isBlank()) {
+            body.append(row("Overtime Remarks", overtimeRemarks));
+        }
+        body.append(tableClose())
+                .append("<p style='font-size:13px;font-weight:bold;color:#4a5568;margin:18px 0 6px;'>Calculated Impact</p>")
+                .append(tableOpen())
+                .append(row("Working Hours", requestedWorkingHours))
+                .append(row("Break Time", requestedBreakTime))
+                .append(row("Office Time", requestedOfficeTime))
+                .append(row("Overtime", requestedOvertime))
+                .append(row("Status", requestedStatus))
+                .append(tableClose())
+                .append(note("Please log in to the EmpSAS portal to approve or reject this correction request."));
+
+        sendMulti(new String[]{to}, cc,
+                "Working Hours Correction Request – " + employeeName,
+                wrap("&#128221;", "Working Hours Correction Request", body.toString()));
+        log.info("Correction request email sent to {} (cc: {}) for {} on {}",
+                to, Arrays.toString(cc), employeeName, workDate);
+    }
+
+    // ── Working hours correction: decision (To: employee, CC: HR/Admin/Director) ─────
+
+    public void sendCorrectionDecisionEmail(String to, String[] cc, String employeeName, String status,
+                                             LocalDate workDate, String managerName, String comment,
+                                             String finalWorkingHours, String finalBreakTime,
+                                             String finalOfficeTime, String finalOvertime, String finalStatus) {
+        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("dd MMM yyyy");
+        boolean approved = "APPROVED".equalsIgnoreCase(status);
+        String statusBadge = approved
+                ? "<span style='background:#dcfce7;color:#16a34a;padding:3px 10px;" +
+                  "border-radius:12px;font-weight:bold;font-size:13px;'>APPROVED</span>"
+                : "<span style='background:#fee2e2;color:#dc2626;padding:3px 10px;" +
+                  "border-radius:12px;font-weight:bold;font-size:13px;'>REJECTED</span>";
+
+        StringBuilder body = new StringBuilder()
+                .append("<p>Dear <strong>").append(employeeName).append("</strong>,</p>")
+                .append("<p>Your Working Hours Correction Request for <strong>").append(workDate.format(dateFmt))
+                .append("</strong> has been reviewed. Current status: ").append(statusBadge).append("</p>")
+                .append(tableOpen())
+                .append(row("Date", workDate.format(dateFmt)))
+                .append(row("Reviewed By", managerName))
+                .append(row("Manager Comment", comment))
+                .append(tableClose());
+
+        if (approved) {
+            body.append("<p style='font-size:13px;font-weight:bold;color:#4a5568;margin:18px 0 6px;'>Updated Timesheet</p>")
+                    .append(tableOpen())
+                    .append(row("Working Hours", finalWorkingHours))
+                    .append(row("Break Time", finalBreakTime))
+                    .append(row("Office Time", finalOfficeTime))
+                    .append(row("Overtime", finalOvertime))
+                    .append(row("Status", finalStatus))
+                    .append(tableClose());
+        } else {
+            body.append("<p>Your original timesheet records for this date remain unchanged.</p>");
+        }
+        body.append(note("Please log in to EmpSAS to view the full details of this request."));
+
+        sendMulti(new String[]{to}, cc,
+                "Working Hours Correction " + (approved ? "Approved" : "Rejected") + " – EmpSAS",
+                wrap(approved ? "&#9989;" : "&#10060;",
+                        "Working Hours Correction " + (approved ? "Approved" : "Rejected"), body.toString()));
+        log.info("Correction decision email sent to {} (cc: {}) — {}", to, Arrays.toString(cc), status);
+    }
 }
