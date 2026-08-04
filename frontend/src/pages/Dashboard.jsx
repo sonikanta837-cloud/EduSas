@@ -229,7 +229,7 @@ const AdminDashboard = ({ stats, leaves, employees, navigate }) => {
 
   /* card style */
   const card = (extra = {}) => ({
-    background: '#fff', borderRadius: '20px', border: '1px solid #eaeff4',
+    background: '#fff', borderRadius: '14px', border: '1px solid #eaeff4',
     boxShadow: '0 2px 12px rgba(15,23,42,0.05)', overflow: 'hidden', ...extra,
   });
 
@@ -264,21 +264,15 @@ const AdminDashboard = ({ stats, leaves, employees, navigate }) => {
         ].map(({ label, value, foot, icon, grad, accent, nav }) => (
           <Grid item xs={6} md={3} key={label}>
             <Box onClick={() => navigate(nav)} sx={{
-              ...card({ overflow: 'visible' }),
-              p: 2.5, cursor: 'pointer', position: 'relative', overflow: 'hidden',
+              ...card(),
+              p: 2.5, cursor: 'pointer',
               transition: 'transform .22s, box-shadow .22s',
               '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 12px 32px ${accent}22` },
-              '&::after': { content: '""', position: 'absolute', top: -24, right: -24, width: 110, height: 110, borderRadius: '50%', background: grad, opacity: .07, pointerEvents: 'none' },
             }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                <Box sx={{ width: 46, height: 46, borderRadius: '14px', background: grad, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 6px 16px ${accent}38`, flexShrink: 0 }}>
-                  {React.cloneElement(icon, { sx: { fontSize: 22, color: '#fff' } })}
-                </Box>
-                <Box sx={{ px: 1, py: .35, borderRadius: '8px', bgcolor: `${accent}10`, border: `1px solid ${accent}22` }}>
-                  <Typography sx={{ fontSize: 9.5, fontWeight: 800, color: accent, letterSpacing: '.6px' }}>LIVE</Typography>
-                </Box>
+              <Box sx={{ width: 46, height: 46, borderRadius: '12px', background: grad, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2, flexShrink: 0 }}>
+                {React.cloneElement(icon, { sx: { fontSize: 22, color: '#fff' } })}
               </Box>
-              <Typography sx={{ fontSize: 42, fontWeight: 900, color: '#0f172a', lineHeight: 1, fontVariantNumeric: 'tabular-nums', letterSpacing: '-1px', mb: .5 }}>{value}</Typography>
+              <Typography sx={{ fontSize: 34, fontWeight: 700, color: '#0f172a', lineHeight: 1, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px', mb: .5 }}>{value}</Typography>
               <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: '#475569', mb: .2 }}>{label}</Typography>
               <Typography sx={{ fontSize: 11.5, color: '#94a3b8' }}>{foot}</Typography>
             </Box>
@@ -321,7 +315,7 @@ const AdminDashboard = ({ stats, leaves, employees, navigate }) => {
                 <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Director Insights</Typography>
               </Box>
               <Box sx={{ px: 1, py: .3, borderRadius: '6px', bgcolor: '#faf5ff', border: '1px solid #e9d5ff' }}>
-                <Typography sx={{ fontSize: 9, fontWeight: 800, color: '#7c3aed', letterSpacing: '.8px' }}>AI-POWERED</Typography>
+                <Typography sx={{ fontSize: 9, fontWeight: 800, color: '#7c3aed', letterSpacing: '.8px' }}>AUTO-GENERATED</Typography>
               </Box>
             </Box>
             <Box sx={{ px: 2.5, py: 2 }}>
@@ -365,7 +359,7 @@ const AdminDashboard = ({ stats, leaves, employees, navigate }) => {
               <Box sx={{ position: 'relative', height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
                 <Doughnut data={donutData} options={donutOpts} />
                 <Box sx={{ position: 'absolute', textAlign: 'center', pointerEvents: 'none' }}>
-                  <Typography sx={{ fontSize: 30, fontWeight: 900, color: '#0f172a', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{activeRate}%</Typography>
+                  <Typography sx={{ fontSize: 30, fontWeight: 700, color: '#0f172a', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{activeRate}%</Typography>
                   <Typography sx={{ fontSize: 11, color: '#94a3b8', mt: .2 }}>active today</Typography>
                 </Box>
               </Box>
@@ -937,7 +931,7 @@ const DashboardPage = () => {
     <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', px: { xs: 2, md: 3 }, py: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, flexWrap: 'wrap', gap: 1.5 }}>
         <Box>
-          <Typography sx={{ fontSize: 27, fontWeight: 900, color: '#0f172a', lineHeight: 1.15, letterSpacing: '-.4px' }}>
+          <Typography sx={{ fontSize: 26, fontWeight: 700, color: '#0f172a', lineHeight: 1.2, letterSpacing: '-.4px' }}>
             {greeting}, {firstName} 👋
           </Typography>
           <Typography sx={{ fontSize: 13.5, color: '#94a3b8', mt: .4 }}>Executive overview — {todayStr}</Typography>
@@ -961,7 +955,7 @@ const DashboardPage = () => {
   return (
     <Box sx={{ bgcolor: T.page, minHeight: '100vh', px: { xs: 2, md: 3 }, py: 3 }}>
       <Box sx={{ mb: 3.5 }}>
-        <Typography sx={{ fontSize: 26, fontWeight: 800, color: T.ink, lineHeight: 1.2 }}>{greeting}, {firstName} 👋</Typography>
+        <Typography sx={{ fontSize: 26, fontWeight: 700, color: T.ink, lineHeight: 1.2 }}>{greeting}, {firstName} 👋</Typography>
         <Typography sx={{ fontSize: 13.5, color: T.muted, mt: .4 }}>{subtitle}</Typography>
       </Box>
       {isEmployee

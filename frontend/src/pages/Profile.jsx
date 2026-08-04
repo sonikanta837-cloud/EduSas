@@ -350,7 +350,7 @@ const ProfilePage = () => {
           <Box sx={{ display: 'flex', gap: 3, px: 3, py: 2.5, alignItems: 'flex-start' }}>
             {/* avatar */}
             <Avatar sx={{
-              width: 88, height: 88, flexShrink: 0, fontSize: '1.9rem', fontWeight: 800,
+              width: 88, height: 88, flexShrink: 0, fontSize: '2rem', fontWeight: 800,
               background: 'linear-gradient(135deg, #0891b2, #0e7490)',
               border: '3px solid #e0f2fe', boxShadow: '0 4px 16px rgba(8,145,178,0.25)',
             }}>

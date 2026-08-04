@@ -42,9 +42,20 @@ const theme = createTheme({
   },
   typography: {
     fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-    h4: { fontWeight: 700 },
-    h5: { fontWeight: 600 },
-    h6: { fontWeight: 600 },
+    fontSize: 14,
+    h1: { fontSize: '2.75rem', fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.02em' },
+    h2: { fontSize: '2.25rem', fontWeight: 700, lineHeight: 1.25, letterSpacing: '-0.01em' },
+    h3: { fontSize: '1.875rem', fontWeight: 700, lineHeight: 1.3 },
+    h4: { fontSize: '1.625rem', fontWeight: 700, lineHeight: 1.35 },
+    h5: { fontSize: '1.25rem', fontWeight: 600, lineHeight: 1.4 },
+    h6: { fontSize: '1.0625rem', fontWeight: 600, lineHeight: 1.4 },
+    subtitle1: { fontSize: '0.9375rem', fontWeight: 500, lineHeight: 1.5 },
+    subtitle2: { fontSize: '0.8125rem', fontWeight: 500, lineHeight: 1.5 },
+    body1: { fontSize: '0.9375rem', lineHeight: 1.6 },
+    body2: { fontSize: '0.8125rem', lineHeight: 1.6 },
+    button: { fontSize: '0.8125rem', fontWeight: 600 },
+    caption: { fontSize: '0.75rem' },
+    overline: { fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.06em' },
   },
   components: {
     MuiCard: {

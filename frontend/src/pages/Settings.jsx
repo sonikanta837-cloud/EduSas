@@ -288,7 +288,7 @@ function WorkReportEmailPanel() {
             <Chip
               label={fmt12(settings.sendHour, settings.sendMinute)}
               size="small"
-              sx={{ ml:'auto', bgcolor:'#ede9fe', color:'#7c3aed', fontWeight:700, fontSize:'0.85rem' }}
+              sx={{ ml:'auto', bgcolor:'#ede9fe', color:'#7c3aed', fontWeight:700, fontSize: '0.8125rem' }}
             />
           </Box>
           <Box sx={{ display:'flex', gap:2 }}>
@@ -411,7 +411,7 @@ function AttendanceAuditPanel() {
             <Chip
               label={fmt12(settings.triggerHour, settings.triggerMinute)}
               size="small"
-              sx={{ ml:'auto', bgcolor:'#fef3c7', color:'#b45309', fontWeight:700, fontSize:'0.85rem' }}
+              sx={{ ml:'auto', bgcolor:'#fef3c7', color:'#b45309', fontWeight:700, fontSize: '0.8125rem' }}
             />
           </Box>
           <Box sx={{ display:'flex', gap:2 }}>
@@ -583,7 +583,7 @@ export default function Settings() {
                   bgcolor: active === n.id ? n.bg : 'transparent',
                   color:   active === n.id ? n.color : '#64748b',
                   fontWeight: active === n.id ? 600 : 400,
-                  fontSize: '0.875rem',
+                  fontSize: '0.8125rem',
                   display: 'flex', alignItems: 'center', gap: 1,
                   transition: 'all 0.15s',
                   '&:hover': { bgcolor: n.hover, color: n.color },

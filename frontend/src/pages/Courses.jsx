@@ -604,7 +604,7 @@ const CoursesPage = () => {
               </Button>
             </Box>
             <Box sx={{ height: 90, px: 2.5, pb: 2, background: CARD_GRADIENT, display: 'flex', alignItems: 'flex-end' }}>
-              <Typography fontWeight={700} color="#fff" sx={{ lineHeight: 1.3, fontSize: '0.95rem' }}>
+              <Typography fontWeight={700} color="#fff" sx={{ lineHeight: 1.3, fontSize: '0.9375rem' }}>
                 {viewCourse.title}
               </Typography>
             </Box>
@@ -1196,7 +1196,7 @@ const CoursesPage = () => {
                   }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <Chip label={CATEGORIES[course.id % CATEGORIES.length]} size="small"
-                        sx={{ bgcolor: 'rgba(255,255,255,0.25)', color: '#fff', fontWeight: 600, fontSize: '0.7rem', height: 22 }} />
+                        sx={{ bgcolor: 'rgba(255,255,255,0.25)', color: '#fff', fontWeight: 600, fontSize: '0.75rem', height: 22 }} />
                       {isAdmin && (
                         <Box sx={{ display: 'flex', gap: 0.25 }}>
                           {[
@@ -1230,7 +1230,7 @@ const CoursesPage = () => {
                       </Typography>
                       {course.hasExam && (
                         <Chip label="Exam" size="small"
-                          sx={{ ml: 0.5, bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', height: 18, fontSize: '0.65rem' }} />
+                          sx={{ ml: 0.5, bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', height: 18, fontSize: '0.6875rem' }} />
                       )}
                     </Box>
                   </Box>
@@ -1253,7 +1253,7 @@ const CoursesPage = () => {
                           <Chip label={statusLabels[course.enrollmentStatus] || course.enrollmentStatus}
                             size="small"
                             color={course.enrollmentStatus === 'ENROLLED' ? 'default' : (statusColors[course.enrollmentStatus] || 'default')}
-                            sx={{ height: 20, fontSize: '0.7rem', ...(course.enrollmentStatus === 'ENROLLED' && { bgcolor: '#1e3a5f', color: '#fff' }) }} />
+                            sx={{ height: 20, fontSize: '0.75rem', ...(course.enrollmentStatus === 'ENROLLED' && { bgcolor: '#1e3a5f', color: '#fff' }) }} />
                           <Typography variant="caption" color="text.secondary">{getProgress(course)}%</Typography>
                         </Box>
                         <LinearProgress variant="determinate" value={getProgress(course)}
@@ -1405,7 +1405,7 @@ const CoursesPage = () => {
                     sx={{
                       width: 28, height: 28, borderRadius: '50%', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '0.7rem', fontWeight: 600,
+                      fontSize: '0.75rem', fontWeight: 600,
                       bgcolor: qi === examEditIndex ? '#1e3a5f' : '#f1f5f9',
                       color: qi === examEditIndex ? '#fff' : '#64748b',
                       border: qi === examEditIndex ? '2px solid #0f172a' : '2px solid transparent',
@@ -1434,7 +1434,7 @@ const CoursesPage = () => {
                     <TextField label="Question text" value={q.question} fullWidth multiline rows={2}
                       onChange={(e) => updateQuestion(qi, 'question', e.target.value)} sx={{ mb: 2 }} />
                     <FormControl component="fieldset" fullWidth>
-                      <FormLabel component="legend" sx={{ mb: 1, fontSize: '0.82rem' }}>
+                      <FormLabel component="legend" sx={{ mb: 1, fontSize: '0.8125rem' }}>
                         Options — select the correct answer
                       </FormLabel>
                       <RadioGroup value={String(q.correctAnswer)}
@@ -1615,7 +1615,7 @@ const CoursesPage = () => {
                     sx={{
                       width: 28, height: 28, borderRadius: '50%', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '0.7rem', fontWeight: 600,
+                      fontSize: '0.75rem', fontWeight: 600,
                       bgcolor: qi === currentQuestion
                         ? '#1e3a5f'
                         : examAnswers[qi] !== null ? '#d1fae5' : '#f1f5f9',

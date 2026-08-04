@@ -732,7 +732,7 @@ const TimesheetTab = ({ employees, user }) => {
                       {r._first && (
                         <TableCell rowSpan={r._rowSpan || 1} sx={{ ...cell, verticalAlign: 'middle' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Avatar sx={{ width: 28, height: 28, bgcolor: '#14b8a6', fontSize: '0.72rem', flexShrink: 0 }}>
+                            <Avatar sx={{ width: 28, height: 28, bgcolor: '#14b8a6', fontSize: '0.75rem', flexShrink: 0 }}>
                               {r._emp.firstName?.charAt(0) || '?'}
                             </Avatar>
                             <Box>
@@ -982,7 +982,7 @@ const PerformanceTab = ({ employees }) => {
                     {/* Employee */}
                     <TableCell sx={cell}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Avatar sx={{ width: 30, height: 30, bgcolor: avatarColor(i), fontSize: '0.72rem', flexShrink: 0, fontWeight: 700 }}>
+                        <Avatar sx={{ width: 30, height: 30, bgcolor: avatarColor(i), fontSize: '0.75rem', flexShrink: 0, fontWeight: 700 }}>
                           {emp.firstName?.charAt(0)}
                         </Avatar>
                         <Typography variant="body2" fontWeight={600} sx={{ fontSize: 12.5 }}>
@@ -1493,7 +1493,7 @@ const DepartmentTreeTab = ({ employees, onNavigate }) => { // eslint-disable-lin
                   }}
                 >
                   <Avatar src={emp.photoUrl || emp.profileImageUrl}
-                    sx={{ width: 40, height: 40, bgcolor: '#94a3b8', fontSize: '0.9rem', flexShrink: 0 }}>
+                    sx={{ width: 40, height: 40, bgcolor: '#94a3b8', fontSize: '0.9375rem', flexShrink: 0 }}>
                     {emp.firstName?.charAt(0)}
                   </Avatar>
                   <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -1733,7 +1733,7 @@ const EmployeesPage = () => {
               gap: 0.5,
               textTransform: 'none',
               fontWeight: 600,
-              fontSize: '0.82rem',
+              fontSize: '0.8125rem',
             },
           }}
         >
@@ -1871,7 +1871,7 @@ const EmployeesPage = () => {
                         </TableCell>
                         <TableCell sx={{ ...stickyName, ...cell, bgcolor: 'white', borderRight: '1px solid #e2e8f0' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Avatar sx={{ width: 30, height: 30, bgcolor: '#1976d2', fontSize: '0.78rem', flexShrink: 0 }}>
+                            <Avatar sx={{ width: 30, height: 30, bgcolor: '#1976d2', fontSize: '0.75rem', flexShrink: 0 }}>
                               {emp.firstName?.charAt(0)}
                             </Avatar>
                             <Typography variant="body2" fontWeight={600} noWrap
@@ -1973,7 +1973,7 @@ const EmployeesPage = () => {
                     </TableCell>
                     <TableCell sx={cell}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Avatar sx={{ width: 28, height: 28, bgcolor: '#ef4444', fontSize: '0.72rem', flexShrink: 0 }}>
+                        <Avatar sx={{ width: 28, height: 28, bgcolor: '#ef4444', fontSize: '0.75rem', flexShrink: 0 }}>
                           {emp.firstName?.charAt(0)}
                         </Avatar>
                         <Typography variant="body2" fontWeight={600} sx={{ fontSize: 12.5 }}>

@@ -2043,14 +2043,11 @@ export default function ResourcesPage() {
   ];
 
   return (
-    <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', p: { xs: 2, md: 3 } }}>
+    <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh' }}>
 
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" fontWeight={800} color="#1e293b">Resources</Typography>
-        <Typography fontSize={14} color="text.secondary" mt={0.25}>
-          Company policies, forms, and frequently asked questions
-        </Typography>
+        <Typography variant="h4" fontWeight={700} color="#1e293b">Resources</Typography>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}

@@ -440,7 +440,7 @@ const EmployeeDetailPage = () => {
             sx={{
               width: 110, height: 110,
               bgcolor: bg,
-              fontSize: '2.6rem', fontWeight: 700,
+              fontSize: '2.5rem', fontWeight: 700,
               border: '4px solid white',
               boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
               flexShrink: 0,
@@ -1037,7 +1037,7 @@ const EmployeeDetailPage = () => {
                           '&:hover': { borderColor: '#1976d2', boxShadow: '0 2px 8px rgba(25,118,210,0.12)' },
                         }}
                       >
-                        <Avatar sx={{ width: 42, height: 42, bgcolor: avatarBg(rep.fullName), fontSize: '0.95rem', fontWeight: 700 }}>
+                        <Avatar sx={{ width: 42, height: 42, bgcolor: avatarBg(rep.fullName), fontSize: '0.9375rem', fontWeight: 700 }}>
                           {initials(rep.fullName)}
                         </Avatar>
                         <Box sx={{ minWidth: 0 }}>

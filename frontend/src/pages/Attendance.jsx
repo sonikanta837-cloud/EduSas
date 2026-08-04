@@ -61,7 +61,7 @@ const StatusChip = ({ status }) => {
   if (!style) return null;
   return (
     <Chip label={style.label} size="small"
-      sx={{ bgcolor: style.bg, color: style.color, height: 20, fontSize: '0.65rem', fontWeight: 600 }} />
+      sx={{ bgcolor: style.bg, color: style.color, height: 20, fontSize: '0.6875rem', fontWeight: 600 }} />
   );
 };
 
@@ -91,10 +91,10 @@ const SessionRow = ({ session, index, isOpen }) => (
     )}
     {session.sessionMinutes != null ? (
       <Chip label={fmtMinutes(session.sessionMinutes)} size="small"
-        sx={{ ml: 'auto', bgcolor: '#f0fdf4', color: '#16a34a', fontWeight: 600, fontSize: '0.72rem', height: 22 }} />
+        sx={{ ml: 'auto', bgcolor: '#f0fdf4', color: '#16a34a', fontWeight: 600, fontSize: '0.75rem', height: 22 }} />
     ) : isOpen ? (
       <Chip label="Active" size="small" color="success" variant="outlined"
-        sx={{ ml: 'auto', fontSize: '0.72rem', height: 22 }} />
+        sx={{ ml: 'auto', fontSize: '0.75rem', height: 22 }} />
     ) : null}
   </Box>
 );
@@ -147,7 +147,7 @@ const DayCard = ({ date, sessions, summary, isToday, liveSec, holidayName, onReq
               {date.format('DD')}
             </Typography>
           )}
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>{date.format('MMM')}</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6875rem' }}>{date.format('MMM')}</Typography>
         </Box>
 
         {/* Login time */}
@@ -186,7 +186,7 @@ const DayCard = ({ date, sessions, summary, isToday, liveSec, holidayName, onReq
             <>
               <Typography variant="caption" color="text.secondary" display="block">Today's Hours</Typography>
               <Typography variant="body2" fontWeight={700} color={status === 'OVERTIME' ? '#7c3aed' : '#1e293b'}
-                sx={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>
+                sx={{ fontFamily: 'monospace', fontSize: '0.9375rem' }}>
                 {secToHm(totalSec)}
               </Typography>
             </>
@@ -205,11 +205,11 @@ const DayCard = ({ date, sessions, summary, isToday, liveSec, holidayName, onReq
           <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
             {summary.totalBreakMinutes > 0 && (
               <Chip label={`Break ${fmtMinutes(summary.totalBreakMinutes)}`} size="small"
-                sx={{ bgcolor: '#fff7ed', color: '#c2410c', height: 20, fontSize: '0.62rem', fontWeight: 600 }} />
+                sx={{ bgcolor: '#fff7ed', color: '#c2410c', height: 20, fontSize: '0.6875rem', fontWeight: 600 }} />
             )}
             {summary.overtimeMinutes > 0 && (
               <Chip label={`+${fmtMinutes(summary.overtimeMinutes)} OT`} size="small"
-                sx={{ bgcolor: '#ede9fe', color: '#7c3aed', height: 20, fontSize: '0.62rem', fontWeight: 600 }} />
+                sx={{ bgcolor: '#ede9fe', color: '#7c3aed', height: 20, fontSize: '0.6875rem', fontWeight: 600 }} />
             )}
             {!isFuture && status === 'OVERTIME' && summary.correctionStatus !== 'APPROVED' && (
               <Chip
@@ -219,7 +219,7 @@ const DayCard = ({ date, sessions, summary, isToday, liveSec, holidayName, onReq
                   e.stopPropagation();
                   if (summary.correctionStatus !== 'PENDING') onRequestCorrection && onRequestCorrection(date.format('YYYY-MM-DD'));
                 }}
-                sx={{ bgcolor: '#fff7ed', color: '#c2410c', height: 20, fontSize: '0.62rem', fontWeight: 600 }}
+                sx={{ bgcolor: '#fff7ed', color: '#c2410c', height: 20, fontSize: '0.6875rem', fontWeight: 600 }}
               />
             )}
           </Box>
@@ -231,7 +231,7 @@ const DayCard = ({ date, sessions, summary, isToday, liveSec, holidayName, onReq
             <Chip
               label={holidayName.length > 20 ? holidayName.slice(0, 20) + '…' : holidayName}
               size="small" title={holidayName}
-              sx={{ bgcolor: '#f3e8ff', color: '#7e22ce', height: 20, fontSize: '0.65rem', fontWeight: 600 }}
+              sx={{ bgcolor: '#f3e8ff', color: '#7e22ce', height: 20, fontSize: '0.6875rem', fontWeight: 600 }}
             />
           ) : !isFuture && status ? <StatusChip status={status} /> : null}
           {hasData && (
@@ -370,12 +370,12 @@ const AttendancePage = () => {
             {todayStatus === 'HOLIDAY' ? '🎉' : todayStatus === 'LEAVE' ? '🌴' : '🏖️'}
           </Typography>
           <Box>
-            <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: todayStatus === 'HOLIDAY' ? '#7e22ce' : todayStatus === 'LEAVE' ? '#2563eb' : '#b45309' }}>
+            <Typography sx={{ fontWeight: 700, fontSize: '0.9375rem', color: todayStatus === 'HOLIDAY' ? '#7e22ce' : todayStatus === 'LEAVE' ? '#2563eb' : '#b45309' }}>
               {todayStatus === 'HOLIDAY' ? `Today is a public holiday${todayHoliday ? ` — ${todayHoliday}` : ''}`
                 : todayStatus === 'LEAVE' ? 'You are on approved leave today'
                 : 'Today is a weekly off'}
             </Typography>
-            <Typography sx={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+            <Typography sx={{ fontSize: '0.75rem', color: '#94a3b8' }}>
               No attendance required. This will not affect your leave balance.
             </Typography>
           </Box>
@@ -390,10 +390,10 @@ const AttendancePage = () => {
         }}>
           <Typography sx={{ fontSize: '1.25rem' }}>⏱️</Typography>
           <Box sx={{ flex: 1 }}>
-            <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: '#c2410c' }}>
+            <Typography sx={{ fontWeight: 700, fontSize: '0.9375rem', color: '#c2410c' }}>
               You worked overtime today ({fmtMinutes(todaySummary.overtimeMinutes)} over policy)
             </Typography>
-            <Typography sx={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+            <Typography sx={{ fontSize: '0.75rem', color: '#94a3b8' }}>
               Please submit a Working Hours Correction Request before today's timesheet is finalized.
             </Typography>
           </Box>
@@ -517,7 +517,7 @@ const AttendancePage = () => {
                     <Typography variant="caption" color="text.secondary">({fmtMinutes(s.sessionMinutes)})</Typography>
                   )}
                   {!s.logoutTime && (
-                    <Chip label="Active" size="small" color="success" sx={{ height: 18, fontSize: '0.6rem' }} />
+                    <Chip label="Active" size="small" color="success" sx={{ height: 18, fontSize: '0.6875rem' }} />
                   )}
                 </Box>
               ))}

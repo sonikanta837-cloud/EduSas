@@ -110,7 +110,7 @@ const LoginPage = () => {
           position: 'absolute', top: 20, left: 20,
           color: 'rgba(255,255,255,0.45)',
           '&:hover': { color: GOLD, bgcolor: 'transparent' },
-          fontWeight: 500, fontSize: '0.82rem',
+          fontWeight: 500, fontSize: '0.8125rem',
         }}
       >
         Back to home
@@ -125,10 +125,10 @@ const LoginPage = () => {
             style={{ height: 60, width: 60, objectFit: 'cover', borderRadius: 14 }}
           />
         </Box>
-        <Typography fontWeight={800} sx={{ color: 'white', fontSize: '1.3rem', letterSpacing: -0.3, lineHeight: 1.2 }}>
+        <Typography fontWeight={800} sx={{ color: 'white', fontSize: '1.25rem', letterSpacing: -0.3, lineHeight: 1.2 }}>
           Edu<span style={{ color: GOLD }}>SAS</span>
         </Typography>
-        <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.7rem', letterSpacing: 0.5, mt: 0.25 }}>
+        <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.75rem', letterSpacing: 0.5, mt: 0.25 }}>
           By SAS KPO Services
         </Typography>
       </Box>
@@ -154,7 +154,7 @@ const LoginPage = () => {
 
         <form onSubmit={handleSubmit}>
           {/* Email */}
-          <Typography variant="caption" sx={{ color: 'rgba(160,200,255,0.75)', fontWeight: 600, mb: 0.75, display: 'block', fontSize: '0.82rem' }}>
+          <Typography variant="caption" sx={{ color: 'rgba(160,200,255,0.75)', fontWeight: 600, mb: 0.75, display: 'block', fontSize: '0.8125rem' }}>
             Email address
           </Typography>
           <TextField
@@ -174,11 +174,11 @@ const LoginPage = () => {
 
           {/* Password row */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.75 }}>
-            <Typography variant="caption" sx={{ color: 'rgba(160,200,255,0.75)', fontWeight: 600, fontSize: '0.82rem' }}>
+            <Typography variant="caption" sx={{ color: 'rgba(160,200,255,0.75)', fontWeight: 600, fontSize: '0.8125rem' }}>
               Password
             </Typography>
             <Button size="small" onClick={() => setForgotOpen(true)}
-              sx={{ color: GOLD, fontWeight: 600, p: 0, minWidth: 0, textTransform: 'none', fontSize: '0.78rem', '&:hover': { color: GOLD_DARK, bgcolor: 'transparent' } }}>
+              sx={{ color: GOLD, fontWeight: 600, p: 0, minWidth: 0, textTransform: 'none', fontSize: '0.75rem', '&:hover': { color: GOLD_DARK, bgcolor: 'transparent' } }}>
               Forgot password?
             </Button>
           </Box>
@@ -208,7 +208,7 @@ const LoginPage = () => {
           <Button type="submit" fullWidth variant="contained" size="large"
             disabled={loading || !form.email.trim() || !form.password}
             sx={{
-              py: 1.5, fontSize: '1rem', fontWeight: 700,
+              py: 1.5, fontSize: '0.9375rem', fontWeight: 700,
               bgcolor: GOLD, color: '#1a1a1a',
               borderRadius: 2,
               boxShadow: `0 4px 20px rgba(202,167,99,0.35)`,

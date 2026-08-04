@@ -88,7 +88,7 @@ const PortalSwitcherBar = () => {
             <Box sx={{ '& svg': { fontSize: 19, display: 'block' } }}>{portal.icon}</Box>
             <Typography
               sx={{
-                fontSize: '0.82rem',
+                fontSize: '0.8125rem',
                 fontWeight: active ? 700 : 500,
                 whiteSpace: 'nowrap',
                 color: 'inherit',

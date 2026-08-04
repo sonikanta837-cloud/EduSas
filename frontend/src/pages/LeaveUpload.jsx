@@ -673,7 +673,7 @@ const LeaveUploadPage = () => {
               </Grid>
             )}
           </Grid>
-          <Alert severity="info" sx={{ mt: 2, borderRadius: 2, fontSize: '0.82rem' }}>
+          <Alert severity="info" sx={{ mt: 2, borderRadius: 2, fontSize: '0.8125rem' }}>
             {holLocation
               ? <>This holiday will be applied to <strong>employees in {holLocation}</strong> as an Approved leave.</>
               : <>This holiday will be applied to <strong>all active employees</strong> as an Approved leave.</>

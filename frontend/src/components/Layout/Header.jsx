@@ -242,7 +242,7 @@ const Header = () => {
               '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
             }}
           >
-            <MenuIcon sx={{ fontSize: '1.3rem' }} />
+            <MenuIcon sx={{ fontSize: '1.25rem' }} />
           </IconButton>
         )}
 
@@ -254,10 +254,10 @@ const Header = () => {
             style={{ height: 30, width: 30, objectFit: 'contain', flexShrink: 0 }}
           />
           <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-            <Typography sx={{ fontWeight: 800, color: '#fff', fontSize: '0.98rem', lineHeight: 1.15, letterSpacing: '0.01em' }}>
+            <Typography sx={{ fontWeight: 800, color: '#fff', fontSize: '0.9375rem', lineHeight: 1.15, letterSpacing: '0.01em' }}>
               EduSAS
             </Typography>
-            <Typography sx={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.45)', letterSpacing: '0.03em', fontWeight: 500, lineHeight: 1.1 }}>
+            <Typography sx={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.45)', letterSpacing: '0.03em', fontWeight: 500, lineHeight: 1.1 }}>
               Employee Management System
             </Typography>
           </Box>
@@ -284,8 +284,8 @@ const Header = () => {
               sx={{ '& .MuiBadge-badge': { fontSize: 10, minWidth: 17, height: 17, px: .5 } }}
             >
               {totalUnread > 0
-                ? <NotificationsIcon     sx={{ fontSize: '1.3rem' }} />
-                : <NotificationsNoneIcon sx={{ fontSize: '1.3rem' }} />
+                ? <NotificationsIcon     sx={{ fontSize: '1.25rem' }} />
+                : <NotificationsNoneIcon sx={{ fontSize: '1.25rem' }} />
               }
             </Badge>
           </IconButton>
@@ -605,10 +605,10 @@ const Header = () => {
           }}
         >
           <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
-            <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>
+            <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>
               {user?.fullName}
             </Typography>
-            <Typography sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.2 }}>
+            <Typography sx={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.2 }}>
               {roleLabel}
             </Typography>
           </Box>
@@ -633,7 +633,7 @@ const Header = () => {
               '&:hover': { bgcolor: 'rgba(248,113,113,0.14)' },
             }}
           >
-            <LogoutIcon sx={{ fontSize: '1.2rem' }} />
+            <LogoutIcon sx={{ fontSize: '1.25rem' }} />
           </IconButton>
         </Tooltip>
 
@@ -658,21 +658,21 @@ const Header = () => {
           <Divider />
           <MenuItem
             onClick={() => { document.activeElement?.blur(); setAnchorEl(null); navigate('/profile'); }}
-            sx={{ gap: 1.5, py: 1, fontSize: '0.875rem' }}
+            sx={{ gap: 1.5, py: 1, fontSize: '0.8125rem' }}
           >
             <PersonIcon fontSize="small" sx={{ color: '#64748b' }} /> My Profile
           </MenuItem>
           {(user?.role === 'ADMIN' || user?.role === 'DIRECTOR') && (
             <MenuItem
               onClick={() => { document.activeElement?.blur(); setAnchorEl(null); navigate('/settings'); }}
-              sx={{ gap: 1.5, py: 1, fontSize: '0.875rem' }}
+              sx={{ gap: 1.5, py: 1, fontSize: '0.8125rem' }}
             >
               <SettingsIcon fontSize="small" sx={{ color: '#64748b' }} /> Settings
             </MenuItem>
           )}
           <MenuItem
             onClick={handleLogout}
-            sx={{ color: 'error.main', gap: 1.5, py: 1, fontSize: '0.875rem' }}
+            sx={{ color: 'error.main', gap: 1.5, py: 1, fontSize: '0.8125rem' }}
           >
             <LogoutIcon fontSize="small" /> Logout
           </MenuItem>

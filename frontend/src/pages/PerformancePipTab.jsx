@@ -92,7 +92,7 @@ const StatusChip = ({ status }) => {
   return (
     <Chip label={m.label} size="small" sx={{
       bgcolor: m.bg, color: m.color, border: `1px solid ${m.border}`,
-      fontWeight: 700, fontSize: '0.72rem', height: 22,
+      fontWeight: 700, fontSize: '0.75rem', height: 22,
     }} />
   );
 };
@@ -101,7 +101,7 @@ const GoalStatusChip = ({ status }) => {
   const m = GOAL_STATUS_META[status] || GOAL_STATUS_META.NOT_STARTED;
   return (
     <Chip label={m.label} size="small" sx={{
-      bgcolor: m.bg, color: m.color, fontWeight: 600, fontSize: '0.7rem', height: 20,
+      bgcolor: m.bg, color: m.color, fontWeight: 600, fontSize: '0.75rem', height: 20,
     }} />
   );
 };
@@ -123,7 +123,7 @@ const PipCard = ({ pip, onClick, canManage }) => {
     }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1.5 }}>
-        <Avatar sx={{ width: 42, height: 42, bgcolor: av.bg, color: av.color, fontSize: '0.85rem', fontWeight: 700, flexShrink: 0 }}>
+        <Avatar sx={{ width: 42, height: 42, bgcolor: av.bg, color: av.color, fontSize: '0.8125rem', fontWeight: 700, flexShrink: 0 }}>
           {initials(pip.employeeName || '')}
         </Avatar>
         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -174,7 +174,7 @@ const PipCard = ({ pip, onClick, canManage }) => {
             label={days < 0 ? `${Math.abs(days)}d overdue` : `${days}d left`}
             size="small"
             sx={{
-              height: 18, fontSize: '0.68rem', fontWeight: 700,
+              height: 18, fontSize: '0.6875rem', fontWeight: 700,
               bgcolor: days < 0 ? '#fef2f2' : days <= 7 ? '#fffbeb' : '#f0fdf4',
               color: days < 0 ? '#dc2626' : days <= 7 ? '#d97706' : '#16a34a',
             }}
@@ -552,7 +552,7 @@ const PipDetailDialog = ({ open, pipId, onClose, onUpdated, myEmployee, canManag
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           {/* Header */}
           <Box sx={{ px: 3, py: 2, borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
-            <Avatar sx={{ width: 46, height: 46, bgcolor: av.bg, color: av.color, fontWeight: 700, fontSize: '0.9rem' }}>
+            <Avatar sx={{ width: 46, height: 46, bgcolor: av.bg, color: av.color, fontWeight: 700, fontSize: '0.9375rem' }}>
               {initials(pip.employeeName || '')}
             </Avatar>
             <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -560,7 +560,7 @@ const PipDetailDialog = ({ open, pipId, onClose, onUpdated, myEmployee, canManag
                 <Typography sx={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }} noWrap>{pip.title}</Typography>
                 <StatusChip status={pip.status} />
                 {pip.overdue && pip.status === 'ACTIVE' && (
-                  <Chip label="Overdue" size="small" sx={{ bgcolor: '#fef2f2', color: '#dc2626', fontWeight: 700, fontSize: '0.7rem', height: 20 }} />
+                  <Chip label="Overdue" size="small" sx={{ bgcolor: '#fef2f2', color: '#dc2626', fontWeight: 700, fontSize: '0.75rem', height: 20 }} />
                 )}
               </Box>
               <Box sx={{ display: 'flex', gap: 2, mt: 0.3, flexWrap: 'wrap' }}>
@@ -791,7 +791,7 @@ const PipDetailDialog = ({ open, pipId, onClose, onUpdated, myEmployee, canManag
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.4 }}>
                             <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>{c.authorName}</Typography>
                             {c.authorRole && (
-                              <Chip label={c.authorRole} size="small" sx={{ height: 17, fontSize: '0.65rem', fontWeight: 600, bgcolor: '#f1f5f9', color: '#64748b' }} />
+                              <Chip label={c.authorRole} size="small" sx={{ height: 17, fontSize: '0.6875rem', fontWeight: 600, bgcolor: '#f1f5f9', color: '#64748b' }} />
                             )}
                             <Typography sx={{ fontSize: 11.5, color: '#94a3b8', ml: 'auto' }}>{fmtDateTime(c.createdAt)}</Typography>
                           </Box>

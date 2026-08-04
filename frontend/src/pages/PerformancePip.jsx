@@ -26,7 +26,7 @@ const PerformancePipPage = () => {
   return (
     <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh' }}>
       <Box sx={{ mb: 2 }}>
-        <Typography sx={{ fontSize: 26, fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
+        <Typography sx={{ fontSize: 26, fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
           Performance Improvement
         </Typography>
         <Typography sx={{ fontSize: 13.5, color: '#64748b', mt: .4 }}>

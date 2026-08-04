@@ -13,8 +13,10 @@ import TrendingUpIcon         from '@mui/icons-material/TrendingUp';
 import BusinessIcon           from '@mui/icons-material/Business';
 import VerifiedUserIcon       from '@mui/icons-material/VerifiedUser';
 import SupportAgentIcon       from '@mui/icons-material/SupportAgent';
-import StarIcon               from '@mui/icons-material/Star';
+import LockIcon               from '@mui/icons-material/Lock';
 import ArrowForwardIcon       from '@mui/icons-material/ArrowForward';
+import RecordVoiceOverIcon    from '@mui/icons-material/RecordVoiceOver';
+import AssessmentIcon         from '@mui/icons-material/Assessment';
 
 // Brand tokens
 const GOLD       = '#CAA763';
@@ -43,6 +45,7 @@ const Navbar = ({ onLogin, onStart }) => (
     position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
     bgcolor: 'rgba(33,53,85,0.97)', backdropFilter: 'blur(10px)',
     borderBottom: '1px solid rgba(202,167,99,0.12)',
+    boxShadow: '0 2px 16px rgba(0,0,0,0.18)',
     px: { xs: 2, md: 6 }, py: 1.25,
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
   }}>
@@ -54,10 +57,10 @@ const Navbar = ({ onLogin, onStart }) => (
         style={{ height: 42, width: 42, objectFit: 'cover', borderRadius: 8 }}
       />
       <Box>
-        <Typography fontWeight={800} sx={{ color: 'white', fontSize: '1.1rem', lineHeight: 1.1, letterSpacing: -0.3 }}>
+        <Typography fontWeight={800} sx={{ color: 'white', fontSize: '1.0625rem', lineHeight: 1.1, letterSpacing: -0.3 }}>
           Edu<span style={{ color: GOLD }}>SAS</span>
         </Typography>
-        <Typography sx={{ color: 'rgba(230,212,168,0.55)', fontSize: '0.55rem', letterSpacing: 1.5, fontWeight: 600 }}>
+        <Typography sx={{ color: 'rgba(230,212,168,0.55)', fontSize: '0.6875rem', letterSpacing: 1.5, fontWeight: 600 }}>
           BY SAS KPO SERVICES
         </Typography>
       </Box>
@@ -67,14 +70,14 @@ const Navbar = ({ onLogin, onStart }) => (
     <Stack direction="row" spacing={1.5}>
       <Button onClick={onLogin} sx={{
         color: GOLD, border: `1px solid ${GOLD}`,
-        px: 2.5, fontWeight: 600, fontSize: '0.875rem',
+        px: 2.5, fontWeight: 600, fontSize: '0.8125rem',
         '&:hover': { bgcolor: 'rgba(202,167,99,0.1)' },
       }}>
         Log in
       </Button>
       <Button onClick={onStart} variant="contained" endIcon={<ArrowForwardIcon sx={{ fontSize: 16 }} />}
         sx={{
-          bgcolor: GOLD, color: '#1a1a1a', fontWeight: 700, fontSize: '0.875rem',
+          bgcolor: GOLD, color: '#1a1a1a', fontWeight: 700, fontSize: '0.8125rem',
           px: 2.5, '&:hover': { bgcolor: GOLD_DARK, color: 'white' },
           boxShadow: '0 2px 12px rgba(202,167,99,0.35)',
         }}>
@@ -117,12 +120,32 @@ const StepItem = ({ num, icon, title, desc }) => (
         width: 24, height: 24, borderRadius: '50%',
         bgcolor: GOLD, display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <Typography sx={{ color: 'white', fontSize: '0.6rem', fontWeight: 800 }}>0{num}</Typography>
+        <Typography sx={{ color: 'white', fontSize: '0.6875rem', fontWeight: 800 }}>0{num}</Typography>
       </Box>
     </Box>
     <Typography fontWeight={700} color="#111827" gutterBottom>{title}</Typography>
     <Typography variant="body2" color="#6B7280" lineHeight={1.7} sx={{ maxWidth: 220, mx: 'auto' }}>{desc}</Typography>
   </Box>
+);
+
+// ── Feature card ──────────────────────────────────────────────────────────────
+const FeatureCard = ({ icon, title, desc }) => (
+  <Card sx={{
+    height: '100%', border: '1px solid #E5E7EB', bgcolor: 'white',
+    transition: 'box-shadow 0.2s, transform 0.2s',
+    '&:hover': { boxShadow: '0 8px 28px rgba(33,53,85,0.12)', transform: 'translateY(-3px)' },
+  }}>
+    <CardContent sx={{ p: 3 }}>
+      <Box sx={{
+        width: 48, height: 48, borderRadius: 2, bgcolor: NAVY, mb: 2,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        {React.cloneElement(icon, { sx: { color: GOLD, fontSize: 24 } })}
+      </Box>
+      <Typography fontWeight={700} color="#111827" gutterBottom>{title}</Typography>
+      <Typography variant="body2" color="#6B7280" lineHeight={1.7}>{desc}</Typography>
+    </CardContent>
+  </Card>
 );
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
@@ -136,7 +159,7 @@ const StatCard = ({ icon, value, label }) => (
         {React.cloneElement(icon, { sx: { color: GOLD, fontSize: 22 } })}
       </Box>
       <Box>
-        <Typography fontWeight={800} color="#111827" fontSize="1.15rem">{value}</Typography>
+        <Typography fontWeight={800} color="#111827" fontSize="1.25rem">{value}</Typography>
         <Typography variant="caption" color="#6B7280" fontWeight={500}>{label}</Typography>
       </Box>
     </CardContent>
@@ -184,7 +207,7 @@ const HomePage = () => {
           border: `1px solid ${GOLD}`, borderRadius: 50,
           px: 2, py: 0.5, mb: 3, position: 'relative', zIndex: 1,
         }}>
-          <Typography sx={{ color: GOLD, fontSize: '0.7rem', fontWeight: 700, letterSpacing: 2 }}>
+          <Typography sx={{ color: GOLD, fontSize: '0.75rem', fontWeight: 700, letterSpacing: 2 }}>
             EMPLOYEE MANAGEMENT SYSTEM
           </Typography>
         </Box>
@@ -215,7 +238,7 @@ const HomePage = () => {
             endIcon={<ArrowForwardIcon />}
             sx={{
               bgcolor: GOLD, color: '#1a1a1a', fontWeight: 700, px: 4, py: 1.5,
-              fontSize: '1rem', '&:hover': { bgcolor: GOLD_DARK, color: 'white' },
+              fontSize: '0.9375rem', '&:hover': { bgcolor: GOLD_DARK, color: 'white' },
               boxShadow: '0 4px 20px rgba(202,167,99,0.45)',
             }}>
             Get Started
@@ -224,7 +247,7 @@ const HomePage = () => {
             endIcon={<ArrowForwardIcon />}
             sx={{
               color: 'white', border: '1px solid rgba(255,255,255,0.3)',
-              px: 4, py: 1.5, fontSize: '1rem', fontWeight: 600,
+              px: 4, py: 1.5, fontSize: '0.9375rem', fontWeight: 600,
               '&:hover': { border: `1px solid ${GOLD}`, color: GOLD, bgcolor: 'rgba(202,167,99,0.06)' },
             }}>
             Log in
@@ -250,6 +273,56 @@ const HomePage = () => {
           <HeroFeatureItem icon={<SecurityIcon />}
             label="Secure & Reliable" sub="Enterprise-grade security you can trust" />
         </Box>
+      </Box>
+
+      {/* ── FEATURES ── */}
+      <Box sx={{ bgcolor: '#F9FAFB', py: 10, px: 2 }}>
+        <Container maxWidth="lg">
+          <Box sx={{ textAlign: 'center', mb: 7 }}>
+            <Typography variant="h4" fontWeight={800} color="#111827" gutterBottom>
+              Everything you need, in one platform
+            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1.5 }}>
+              <Box sx={{ width: 40, height: 3, bgcolor: GOLD, borderRadius: 2 }} />
+            </Box>
+            <Typography variant="body1" color="#6B7280" sx={{ maxWidth: 560, mx: 'auto' }}>
+              From hiring to performance, EduSAS covers the full employee lifecycle.
+            </Typography>
+          </Box>
+
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6} md={4}>
+              <FeatureCard icon={<RecordVoiceOverIcon />}
+                title="Recruitment & Interviews"
+                desc="End-to-end interview pipeline — question banks, video rooms, and multi-level feedback." />
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <FeatureCard icon={<PeopleAltIcon />}
+                title="Employee Management"
+                desc="Centralized profiles, org hierarchy and role-based access for every employee." />
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <FeatureCard icon={<AccessTimeIcon />}
+                title="Attendance & Time Tracking"
+                desc="Real-time clock-in/out, per-job work sessions, and daily attendance summaries." />
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <FeatureCard icon={<EventAvailableIcon />}
+                title="Leave Management"
+                desc="Simple leave requests, manager approvals, holiday calendars and balance tracking." />
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <FeatureCard icon={<AssessmentIcon />}
+                title="Timesheets & Reports"
+                desc="Daily timesheets plus exportable attendance, leave and performance reports." />
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <FeatureCard icon={<BarChartIcon />}
+                title="Performance Reviews & PIP"
+                desc="Structured reviews, goal tracking and performance improvement plans." />
+            </Grid>
+          </Grid>
+        </Container>
       </Box>
 
       {/* ── HOW IT WORKS ── */}
@@ -304,10 +377,10 @@ const HomePage = () => {
 
           {/* Stat cards */}
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 6 }} flexWrap="wrap">
-            <StatCard icon={<BusinessIcon />}    value="500+"    label="Happy Companies" />
-            <StatCard icon={<VerifiedUserIcon />} value="99.9%"  label="Uptime & Secure" />
-            <StatCard icon={<SupportAgentIcon />} value="24/7"   label="Customer Support" />
-            <StatCard icon={<StarIcon />}         value="Trusted" label="By HR Professionals" />
+            <StatCard icon={<BusinessIcon />}     value="10+"  label="Core HR Modules" />
+            <StatCard icon={<VerifiedUserIcon />} value="4"    label="Role-Based Access Levels" />
+            <StatCard icon={<SupportAgentIcon />} value="24/7" label="System Availability" />
+            <StatCard icon={<LockIcon />}         value="JWT"  label="Secured Authentication" />
           </Stack>
         </Container>
       </Box>
@@ -331,7 +404,7 @@ const HomePage = () => {
             endIcon={<ArrowForwardIcon />}
             sx={{
               bgcolor: GOLD, color: '#1a1a1a', fontWeight: 700,
-              px: 5, py: 1.5, fontSize: '1rem',
+              px: 5, py: 1.5, fontSize: '0.9375rem',
               '&:hover': { bgcolor: GOLD_DARK, color: 'white' },
               boxShadow: '0 6px 28px rgba(202,167,99,0.45)',
             }}>
@@ -342,12 +415,27 @@ const HomePage = () => {
 
       {/* ── FOOTER ── */}
       <Box sx={{
-        bgcolor: NAVY, py: 2.5, textAlign: 'center',
-        borderTop: '1px solid rgba(202,167,99,0.08)',
+        bgcolor: NAVY_DARK, py: 4, px: 2,
+        borderTop: '1px solid rgba(202,167,99,0.1)',
       }}>
-        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.22)' }}>
-          © {new Date().getFullYear()} EduSAS · By SAS KPO Services · All rights reserved.
-        </Typography>
+        <Container maxWidth="lg" sx={{
+          display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: 'center', justifyContent: 'space-between', gap: 1.5,
+        }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <img
+              src="/logo_with_white_background.png"
+              alt="EmpSAS"
+              style={{ height: 24, width: 24, objectFit: 'cover', borderRadius: 5 }}
+            />
+            <Typography fontWeight={700} sx={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.8125rem' }}>
+              Edu<span style={{ color: GOLD }}>SAS</span>
+            </Typography>
+          </Stack>
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)' }}>
+            © {new Date().getFullYear()} SAS KPO Services · All rights reserved.
+          </Typography>
+        </Container>
       </Box>
     </Box>
   );

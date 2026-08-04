@@ -105,7 +105,7 @@ const PortalAccessPanel = () => {
                     <Chip
                       label={role}
                       size="small"
-                      sx={{ fontSize: '0.65rem', height: 20, bgcolor: ROLE_COLORS[role] + '22', color: ROLE_COLORS[role], fontWeight: 600 }}
+                      sx={{ fontSize: '0.6875rem', height: 20, bgcolor: ROLE_COLORS[role] + '22', color: ROLE_COLORS[role], fontWeight: 600 }}
                     />
                   </Box>
                   {portalRegistry.map((portal) => {
@@ -250,12 +250,12 @@ const RolesPermissions = () => {
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 } }}>
+    <Box>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
           <AdminPanelSettingsIcon sx={{ color: 'primary.main', fontSize: 28 }} />
-          <Typography variant="h5">Roles & Permissions</Typography>
+          <Typography variant="h4" fontWeight={700}>Roles & Permissions</Typography>
         </Box>
         <Typography variant="body2" color="text.secondary">
           Select an employee to customise which modules they can access. By default employees follow their role's permissions.
@@ -301,7 +301,7 @@ const RolesPermissions = () => {
                     <Chip
                       label={u.role}
                       size="small"
-                      sx={{ fontSize: '0.65rem', height: 20, bgcolor: ROLE_COLORS[u.role] + '22', color: ROLE_COLORS[u.role], fontWeight: 600 }}
+                      sx={{ fontSize: '0.6875rem', height: 20, bgcolor: ROLE_COLORS[u.role] + '22', color: ROLE_COLORS[u.role], fontWeight: 600 }}
                     />
                   </Box>
                 ))}
@@ -337,7 +337,7 @@ const RolesPermissions = () => {
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                       <Typography variant="caption" color="text.secondary">{selected.email}</Typography>
                       <Chip label={selected.role} size="small"
-                        sx={{ fontSize: '0.65rem', height: 20, bgcolor: ROLE_COLORS[selected.role] + '22', color: ROLE_COLORS[selected.role], fontWeight: 600 }} />
+                        sx={{ fontSize: '0.6875rem', height: 20, bgcolor: ROLE_COLORS[selected.role] + '22', color: ROLE_COLORS[selected.role], fontWeight: 600 }} />
                     </Box>
                   </Box>
                   <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>

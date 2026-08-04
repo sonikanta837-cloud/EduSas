@@ -321,15 +321,12 @@ const HolidaysPage = () => {
   );
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+    <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh' }}>
 
       {/* ── Header ── */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography variant="h5" fontWeight={800} color="#0f172a">Holiday Calendar</Typography>
-          <Typography sx={{ fontSize: 13.5, color: '#64748b', mt: 0.25 }}>
-            {isAdminOrHR ? 'Manage yearly holidays across all locations' : 'View holidays applicable to your location'}
-          </Typography>
+          <Typography variant="h4" fontWeight={700} color="#0f172a">Holiday Calendar</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
           {/* Year selector */}

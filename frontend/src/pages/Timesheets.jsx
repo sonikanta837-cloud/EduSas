@@ -530,6 +530,9 @@ const TimesheetsPage = () => {
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" fontWeight={700}>Timesheets</Typography>
+      </Box>
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
       ) : myEmployee ? (

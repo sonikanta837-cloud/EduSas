@@ -180,7 +180,7 @@ export default function QuestionBank() {
       {/* ── Header ── */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Box>
-          <Typography variant="h5" fontWeight={700}>Question Bank</Typography>
+          <Typography variant="h4" fontWeight={700}>Question Bank</Typography>
           <Typography variant="body2" color="text.secondary">
             Manage interview questions for the AI Video Interview Portal
           </Typography>

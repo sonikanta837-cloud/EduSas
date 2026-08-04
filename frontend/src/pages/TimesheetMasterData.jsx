@@ -106,7 +106,7 @@ const TimesheetMasterDataPage = () => {
 
   return (
     <Box>
-      <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>Timesheet Master Data</Typography>
+      <Typography variant="h4" fontWeight={700} sx={{ mb: 2 }}>Timesheet Master Data</Typography>
 
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
         <Tabs value={tab} onChange={(e, v) => setTab(v)} sx={{ px: 2, borderBottom: '1px solid #e2e8f0' }}>

@@ -6,7 +6,7 @@ const Stat = ({ value, label }) => (
     <Typography sx={{ fontSize: '2rem', fontWeight: 800, color: '#14b8a6', lineHeight: 1 }}>
       {value}
     </Typography>
-    <Typography sx={{ fontSize: '0.78rem', color: '#64748b', mt: 0.5, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+    <Typography sx={{ fontSize: '0.75rem', color: '#64748b', mt: 0.5, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
       {label}
     </Typography>
   </Box>
@@ -14,7 +14,7 @@ const Stat = ({ value, label }) => (
 
 const Section = ({ heading, children }) => (
   <Box sx={{ mb: 4.5 }}>
-    <Typography variant="h6" sx={{ fontWeight: 700, color: '#0f172a', mb: 1.5, fontSize: '1.1rem' }}>
+    <Typography variant="h6" sx={{ fontWeight: 700, color: '#0f172a', mb: 1.5, fontSize: '1.0625rem' }}>
       {heading}
     </Typography>
     {children}
@@ -22,7 +22,7 @@ const Section = ({ heading, children }) => (
 );
 
 const P = ({ children, sx }) => (
-  <Typography sx={{ fontSize: '0.975rem', color: '#374151', lineHeight: 1.85, mb: 1.5, ...sx }}>
+  <Typography sx={{ fontSize: '0.9375rem', color: '#374151', lineHeight: 1.85, mb: 1.5, ...sx }}>
     {children}
   </Typography>
 );
@@ -38,7 +38,7 @@ const AboutPage = () => (
       <Typography variant="h4" sx={{ fontWeight: 800, color: '#0f172a', lineHeight: 1.2, mb: 2 }}>
         SAS KPO Services
       </Typography>
-      <Typography sx={{ fontSize: '1.05rem', color: '#64748b', lineHeight: 1.75, maxWidth: 640 }}>
+      <Typography sx={{ fontSize: '1.0625rem', color: '#64748b', lineHeight: 1.75, maxWidth: 640 }}>
         A trusted outsourcing partner for accountancy firms across the UK, Australia, and New Zealand —
         delivering precision, reliability, and genuine peace of mind since 2021.
       </Typography>
@@ -85,11 +85,11 @@ const AboutPage = () => (
         bgcolor: '#f0fdfa', borderRadius: '0 8px 8px 0',
       }}
     >
-      <Typography sx={{ fontSize: '1.05rem', fontStyle: 'italic', color: '#0f766e', lineHeight: 1.75, fontWeight: 500 }}>
+      <Typography sx={{ fontSize: '1.0625rem', fontStyle: 'italic', color: '#0f766e', lineHeight: 1.75, fontWeight: 500 }}>
         "Accountancy firms don't need more software — they need someone who genuinely understands
         their work and gets it done right, every time."
       </Typography>
-      <Typography sx={{ fontSize: '0.8rem', color: '#64748b', mt: 1, fontWeight: 600 }}>
+      <Typography sx={{ fontSize: '0.8125rem', color: '#64748b', mt: 1, fontWeight: 600 }}>
         — Abhishek Soni, Founder
       </Typography>
     </Box>
@@ -202,7 +202,7 @@ const AboutPage = () => (
     </Section>
 
     <Divider sx={{ mt: 2, mb: 3 }} />
-    <Typography sx={{ fontSize: '0.85rem', color: '#94a3b8', textAlign: 'center' }}>
+    <Typography sx={{ fontSize: '0.8125rem', color: '#94a3b8', textAlign: 'center' }}>
       SAS KPO Services · Founded 2021 · Serving the UK, Australia &amp; New Zealand
     </Typography>
 

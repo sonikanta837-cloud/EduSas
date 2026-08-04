@@ -504,7 +504,7 @@ const AnnCard = ({ item, featured, canPost, onMenu, onViewers }) => {
         {/* ── Footer: author + date + view count ── */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 1.5, borderTop: '1px solid #f8fafc' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Avatar sx={{ width: 28, height: 28, fontSize: '0.72rem', fontWeight: 700, bgcolor: '#14b8a6', color: '#fff' }}>
+            <Avatar sx={{ width: 28, height: 28, fontSize: '0.75rem', fontWeight: 700, bgcolor: '#14b8a6', color: '#fff' }}>
               {(item.authorName || 'S').charAt(0).toUpperCase()}
             </Avatar>
             <Box>
@@ -1099,7 +1099,7 @@ const AnnouncementsTab = ({ userRole }) => {
                     {viewersData.viewed.map(v => (
                       <Box key={v.employeeId} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: .75, px: 1.5, borderRadius: '10px', bgcolor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-                          <Avatar sx={{ width: 30, height: 30, fontSize: '0.72rem', fontWeight: 700, bgcolor: '#14b8a6', color: '#fff' }}>
+                          <Avatar sx={{ width: 30, height: 30, fontSize: '0.75rem', fontWeight: 700, bgcolor: '#14b8a6', color: '#fff' }}>
                             {(v.employeeName || 'E').charAt(0).toUpperCase()}
                           </Avatar>
                           <Box>
@@ -1133,7 +1133,7 @@ const AnnouncementsTab = ({ userRole }) => {
                     {viewersData.notViewed.map(v => (
                       <Box key={v.employeeId} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: .75, px: 1.5, borderRadius: '10px', bgcolor: '#f8fafc', border: '1px solid #f1f5f9' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-                          <Avatar sx={{ width: 30, height: 30, fontSize: '0.72rem', fontWeight: 700, bgcolor: '#e2e8f0', color: '#94a3b8' }}>
+                          <Avatar sx={{ width: 30, height: 30, fontSize: '0.75rem', fontWeight: 700, bgcolor: '#e2e8f0', color: '#94a3b8' }}>
                             {(v.employeeName || 'E').charAt(0).toUpperCase()}
                           </Avatar>
                           <Box>
@@ -1300,7 +1300,7 @@ const DepartmentTreeTab = ({ employees, onNavigate }) => {
                 >
                   <Avatar
                     src={emp.photoUrl || emp.profileImageUrl}
-                    sx={{ width: 40, height: 40, bgcolor: '#94a3b8', fontSize: '0.9rem', flexShrink: 0 }}
+                    sx={{ width: 40, height: 40, bgcolor: '#94a3b8', fontSize: '0.9375rem', flexShrink: 0 }}
                   >
                     {emp.firstName?.charAt(0)}
                   </Avatar>
@@ -1583,7 +1583,7 @@ const BirthdayFolksTab = ({ employees, onNavigate }) => {
         cursor: onNavigate ? 'pointer' : 'default', transition: 'all 0.15s',
         '&:hover': onNavigate ? { borderColor: '#1976d2', bgcolor: '#f0f9ff' } : {},
       }}>
-        <Avatar src={emp.photoUrl || emp.profileImageUrl} sx={{ width: 44, height: 44, bgcolor: isToday ? '#f59e0b' : '#6366f1', fontSize: '0.9rem', flexShrink: 0 }}>
+        <Avatar src={emp.photoUrl || emp.profileImageUrl} sx={{ width: 44, height: 44, bgcolor: isToday ? '#f59e0b' : '#6366f1', fontSize: '0.9375rem', flexShrink: 0 }}>
           {emp.firstName?.charAt(0)}
         </Avatar>
         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -1902,11 +1902,11 @@ const OrganisationPage = () => {
   const loading = tab === 2 ? treeLoading : allLoading;
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 } }}>
+    <Box>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
         <PeopleIcon color="primary" />
-        <Typography variant="h5" fontWeight={700}>Organisation</Typography>
+        <Typography variant="h4" fontWeight={700}>Organisation</Typography>
       </Box>
 
       {/* Tabs */}

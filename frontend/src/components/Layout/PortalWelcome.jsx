@@ -96,10 +96,10 @@ const PortalWelcome = () => {
               >
                 {portal.icon}
               </Box>
-              <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a' }}>
+              <Typography sx={{ fontSize: '0.9375rem', fontWeight: 700, color: '#0f172a' }}>
                 {portal.label}
               </Typography>
-              <Typography sx={{ fontSize: '0.78rem', color: '#64748b', lineHeight: 1.5 }}>
+              <Typography sx={{ fontSize: '0.75rem', color: '#64748b', lineHeight: 1.5 }}>
                 {portal.description}
               </Typography>
             </Paper>

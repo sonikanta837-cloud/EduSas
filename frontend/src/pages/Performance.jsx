@@ -147,7 +147,7 @@ const ReviewCard = ({ r, isAdmin, isManager, myEmployeeId, onViewDetails, onEdit
     }}>
       {/* Header row */}
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1.5 }}>
-        <Avatar sx={{ width: 46, height: 46, bgcolor: avColor.bg, color: avColor.color, fontSize: '0.88rem', fontWeight: 700, flexShrink: 0 }}>
+        <Avatar sx={{ width: 46, height: 46, bgcolor: avColor.bg, color: avColor.color, fontSize: '0.8125rem', fontWeight: 700, flexShrink: 0 }}>
           {initials(r.employeeName || r.reviewerName || '')}
         </Avatar>
         <Box sx={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
@@ -600,7 +600,7 @@ const PerformancePage = () => {
 
       {/* Page header */}
       <Box sx={{ mb: 2 }}>
-        <Typography sx={{ fontSize: 26, fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
+        <Typography sx={{ fontSize: 26, fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
           Performance Review
         </Typography>
         <Typography sx={{ fontSize: 13.5, color: '#64748b', mt: .4 }}>
@@ -1093,7 +1093,7 @@ const PerformancePage = () => {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1 }}>
               {/* Employee (read-only) */}
               <Box sx={{ p: 1.5, borderRadius: '10px', bgcolor: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Avatar sx={{ width: 36, height: 36, bgcolor: avatarColor(editTarget.employeeName || '').bg, color: avatarColor(editTarget.employeeName || '').color, fontSize: '0.82rem', fontWeight: 700 }}>
+                <Avatar sx={{ width: 36, height: 36, bgcolor: avatarColor(editTarget.employeeName || '').bg, color: avatarColor(editTarget.employeeName || '').color, fontSize: '0.8125rem', fontWeight: 700 }}>
                   {initials(editTarget.employeeName || '')}
                 </Avatar>
                 <Box>
@@ -1166,7 +1166,7 @@ const PerformancePage = () => {
           return (
             <DialogContent sx={{ pt: 2.5 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2.5 }}>
-                <Avatar sx={{ width: 52, height: 52, bgcolor: avColor.bg, color: avColor.color, fontSize: '1rem', fontWeight: 700 }}>
+                <Avatar sx={{ width: 52, height: 52, bgcolor: avColor.bg, color: avColor.color, fontSize: '0.9375rem', fontWeight: 700 }}>
                   {initials(selectedRev.employeeName || '')}
                 </Avatar>
                 <Box sx={{ flex: 1 }}>
