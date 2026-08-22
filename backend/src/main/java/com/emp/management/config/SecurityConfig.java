@@ -54,15 +54,18 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                // Static browser requests that must never return 403
-                .requestMatchers("/favicon.ico", "/favicon.svg", "/manifest.json", "/robots.txt").permitAll()
                 // Public candidate interview endpoints — no JWT required
                 .requestMatchers("/api/video-interview/candidate/**").permitAll()
                 .requestMatchers("/api/interviews/technical/candidate/**").permitAll()
                 .requestMatchers("/api/interviews/final/candidate/**").permitAll()
                 .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "DIRECTOR")
                 .requestMatchers("/api/manager/**").hasAnyRole("ADMIN", "DIRECTOR", "MANAGER")
-                .anyRequest().authenticated()
+                .requestMatchers("/api/**").authenticated()
+                // Everything else is the bundled React app (index.html, JS/CSS bundles,
+                // client-side routes like /employees). It must be publicly servable —
+                // the JWT lives in localStorage and is only attached to /api calls, never
+                // to a plain browser navigation. Real authorization is enforced at the API layer above.
+                .anyRequest().permitAll()
             )
             // Spring Security 6 catches AccessDeniedException before GlobalExceptionHandler can respond with JSON.
             // These handlers ensure ALL 401/403 responses are JSON, not Tomcat HTML error pages.
